@@ -363,6 +363,15 @@ const KNOB_TO_COL = {
    ============================================================ */
 function makeLiveAPI(){
   const sb = window.__createSupabase(CONFIG.url, CONFIG.anon);
+  try{
+    sb.auth.onAuthStateChange((event)=>{
+      if(event === "PASSWORD_RECOVERY"){
+        authMode = "reset"; route.screen = "tauth";
+        try{ sessionStorage.setItem("bc_route", JSON.stringify(route)); }catch(e){}
+        try{ render(); }catch(e){}
+      }
+    });
+  }catch(e){}
   async function rpc(fn, args){
     const {data, error} = await sb.rpc(fn, args);
     if(error) throw new Error(error.message || "server error");
@@ -390,6 +399,14 @@ function makeLiveAPI(){
       return data;
     },
     async teacherSignOut(){ await sb.auth.signOut(); },
+    async teacherResetPassword(email){
+      const {error} = await sb.auth.resetPasswordForEmail(email, {redirectTo: location.origin + location.pathname});
+      if(error) throw new Error(error.message);
+    },
+    async teacherUpdatePassword(password){
+      const {error} = await sb.auth.updateUser({password});
+      if(error) throw new Error(error.message);
+    },
     async fetchAll(){
       const q = async (t, sel) => {
         const {data, error} = await sb.from(t).select(sel || "*");
@@ -529,6 +546,8 @@ function makeDemoAPI(){
     async teacherSignIn(){ try{ sessionStorage.setItem("bc_demo_teacher","1"); }catch(e){} },
     async teacherSignUp(){ try{ sessionStorage.setItem("bc_demo_teacher","1"); }catch(e){} return {}; },
     async teacherSignOut(){ try{ sessionStorage.removeItem("bc_demo_teacher"); }catch(e){} },
+    async teacherResetPassword(){ },
+    async teacherUpdatePassword(){ },
     async fetchAll(){ return JSON.parse(JSON.stringify(D)); },
     async verifyRead(id){ const r = D.reads.find(x=>x.id===id); if(r) r.status="verified"; save(D); },
     async deleteRead(id){ D.reads = D.reads.filter(x=>x.id!==id); save(D); },
@@ -574,7 +593,7 @@ try{ SPIN = JSON.parse(sessionStorage.getItem("bc_spin") || "{}"); }catch(e){}
 let BOOT = null;     // student-side bootstrap payload
 let SS = null;       // logged-in student's server state
 let TD = null;       // teacher data (full)
-let pinBuf = "", pinTarget = null, logState = null;
+let pinBuf = "", pinTarget = null, logState = null, authMode = "in";
 
 function go(patch){
   route = Object.assign({}, route, patch);
@@ -781,15 +800,34 @@ async function openLoot(){
 
 /* ---- teacher auth ---- */
 function vTeacherAuth(){
-  return topbar('<button class="btn ghost small" data-a="tostudents">← back</button>')
+  const back = '<button class="btn ghost small" data-a="authmode" data-m="in">\u2190 back to sign in</button>';
+  let inner = "";
+  if(authMode === "up"){
+    inner = '<div><div class="fieldlbl">Email</div><input id="t_email" type="email" autocomplete="username"></div>'
+      + '<div><div class="fieldlbl">Password (12+ \u2014 a passphrase works great)</div><input id="t_pass" type="password" autocomplete="new-password"></div>'
+      + '<div><div class="fieldlbl">Type it again</div><input id="t_pass2" type="password" autocomplete="new-password"></div>'
+      + '<button class="btn primary big" data-a="tsignup">Create the teacher account</button>' + back;
+  } else if(authMode === "forgot"){
+    inner = '<div><div class="fieldlbl">Email</div><input id="t_email" type="email" autocomplete="username"></div>'
+      + '<button class="btn primary big" data-a="tforgot">Email me a recovery link</button>' + back
+      + '<div class="tiny">The link brings you back here to set a new password. Master key if email fails: your Supabase dashboard \u2192 Authentication \u2192 Users.</div>';
+  } else if(authMode === "reset"){
+    inner = '<div class="banner">Set a new password for your teacher account.</div>'
+      + '<div><div class="fieldlbl">New password (12+ \u2014 a passphrase works great)</div><input id="t_pass" type="password" autocomplete="new-password"></div>'
+      + '<div><div class="fieldlbl">Type it again</div><input id="t_pass2" type="password" autocomplete="new-password"></div>'
+      + '<button class="btn primary big" data-a="tsetpass">Save new password</button>';
+  } else {
+    inner = '<div><div class="fieldlbl">Email</div><input id="t_email" type="email" autocomplete="username"></div>'
+      + '<div><div class="fieldlbl">Password</div><input id="t_pass" type="password" autocomplete="current-password"></div>'
+      + '<button class="btn primary big" data-a="tsignin">Sign in</button>'
+      + '<div class="row">'
+      + '<button class="btn ghost small" data-a="authmode" data-m="up">First time here? Create account</button>'
+      + '<button class="btn ghost small" data-a="authmode" data-m="forgot">Forgot password?</button></div>';
+  }
+  return topbar('<button class="btn ghost small" data-a="tostudents">\u2190 back</button>')
     + '<div class="gate"><div class="brand display" style="font-size:26px">Teacher</div>'
-    + '<div class="sub">'+(DEMO?"demo mode — any email + password works":"sign in with your teacher account")+'</div>'
-    + '<div class="card authform stack">'
-    + '<div><div class="fieldlbl">Email</div><input id="t_email" type="email" autocomplete="username"></div>'
-    + '<div><div class="fieldlbl">Password</div><input id="t_pass" type="password" autocomplete="current-password"></div>'
-    + '<button class="btn primary big" data-a="tsignin">Sign in</button>'
-    + '<button class="btn ghost small" data-a="tsignup">First time here? Create the teacher account</button>'
-    + '</div></div>';
+    + '<div class="sub">'+(DEMO?"demo mode \u2014 any email + password works":"sign in with your teacher account")+'</div>'
+    + '<div class="card authform stack">' + inner + '</div></div>';
 }
 
 /* ============================================================
@@ -844,6 +882,18 @@ function tQueue(nlq, pq){
     + (reads || '<div class="tiny">Queue clear.</div>') + '</div></div>';
 }
 
+function keysheetHTML(){
+  const rs = window.__keysheet;
+  if(!rs || !rs.length) return "";
+  return '<div class="card" id="rosterout" style="margin:10px 0;border:2px solid var(--warn)">'
+    + '<div class="banner" style="margin-bottom:8px">\u26a0 One-time key sheet \u2014 real names are NOT saved anywhere. Print it before you dismiss it.</div>'
+    + '<div class="tablewrap"><table><thead><tr><th>Real name</th><th>Crawler name</th><th>PIN</th></tr></thead><tbody>'
+    + rs.map(r=>'<tr><td>'+esc(r.real)+'</td><td><strong>'+esc(r.alias)+'</strong></td><td>'+esc(r.pin)+'</td></tr>').join("")
+    + '</tbody></table></div>'
+    + '<div class="row" style="margin-top:8px"><button class="btn small primary" data-a="printkey">\ud83d\uddb6 Print key sheet</button>'
+    + '<button class="btn small ghost" data-a="dismisskey" data-arm="1">I printed it \u2014 dismiss</button></div></div>';
+}
+
 function tClass(){
   const rows = TD.students.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(st=>{
     const t = Engine.totals(st.id, TD);
@@ -881,7 +931,8 @@ function tClass(){
     + '<textarea class="paste" id="rosterta" placeholder="Maya, 390&#10;Jordan, 700"></textarea>'
     + '<div class="row" style="margin-top:8px"><button class="btn small primary" data-a="rostergo">Create crawlers</button>'
     + '<span class="tiny">Real names never leave this screen — each kid becomes a random crawler name + PIN, and you print a one-time key sheet.</span></div>'
-    + '<div id="rosterout"></div></div>'
+    + '</div>'
+    + keysheetHTML()
     + '<div class="tablewrap"><table><thead><tr><th>Student</th><th class="num">Level</th><th class="num">Books</th><th class="num">Pending</th><th class="num">Points</th><th class="num">Best stretch</th><th class="num">Boxes</th><th>Next box</th><th>Year-end</th></tr></thead>'
     + '<tbody>'+rows+'</tbody></table></div>'
     + '<div class="tiny" style="margin-top:8px">Tap a student for level history, PIN, and their full log.</div></div>';
@@ -993,6 +1044,12 @@ function tSettings(){
     + '<button class="btn" data-a="exportlog">⬇ Book log (CSV)</button>'
     + '<button class="btn" data-a="exportroster">⬇ Class summary (CSV)</button>'
     + '<div class="tiny">Same columns as your Book Crawl workbook.</div></div></div>'
+    + '<div class="card"><h2>Teacher password</h2>'
+    + '<div class="fieldlbl">New password (12+ \u2014 a passphrase works great)</div><input id="t_pass" type="password" autocomplete="new-password" style="width:100%">'
+    + '<div class="fieldlbl">Type it again</div><input id="t_pass2" type="password" autocomplete="new-password" style="width:100%">'
+    + '<div class="row" style="margin-top:10px"><button class="btn small primary" data-a="tsetpass">Change password</button></div>'
+    + (DEMO ? "" : '<div class="tiny" style="margin-top:6px">Forgot it entirely? The sign-in screen has \u201cForgot password?\u201d, and the Supabase dashboard (Authentication \u2192 Users) is the master key.</div>')
+    + '</div>'
     + (DEMO ? '<div class="card"><h2>Demo</h2><button class="btn ghost danger" data-a="demoreset" data-arm="1">Reset demo data</button></div>' : "")
     + '</div>';
 }
@@ -1146,16 +1203,47 @@ document.addEventListener("click", async (ev)=>{
       const email = ($("#t_email")?.value||"").trim();
       const pass = $("#t_pass")?.value||"";
       if(!email || !pass){ toast("Email and password, please"); return; }
+      if(a === "tsignup"){
+        const pass2 = $("#t_pass2")?.value||"";
+        if(pass.length < 12){ toast("Use at least 12 characters \u2014 a few random words beats P@ssw0rd!"); return; }
+        if(pass !== pass2){ toast("Passwords don\u2019t match \u2014 type them again"); return; }
+      }
       busy(el, true);
       try{
         if(a==="tsignup"){
           const r = await api.teacherSignUp(email, pass);
-          if(r && r.user && !r.session){ busy(el,false); toast("Account created — check your email to confirm, then sign in"); return; }
+          if(r && r.user && !r.session){ busy(el,false); authMode="in"; render(); toast("Account created \u2014 check your email to confirm, then sign in"); return; }
         }
         else await api.teacherSignIn(email, pass);
         busy(el, false);
+        authMode = "in";
         TD = null; go({screen:"teacher", tab:"queue", sub:null});
       }catch(e){ busy(el, false); toast(e.message || "Sign-in failed"); }
+      break;
+    }
+    case "authmode": authMode = el.dataset.m; render(); break;
+    case "tforgot": {
+      const email = ($("#t_email")?.value||"").trim();
+      if(!email){ toast("Enter your email first"); return; }
+      busy(el, true);
+      try{
+        await api.teacherResetPassword(email);
+        authMode = "in"; render();
+        toast(DEMO ? "Demo mode \u2014 nothing to recover" : "Recovery link sent \u2014 check your email");
+      }catch(e){ busy(el, false); toast(e.message); }
+      break;
+    }
+    case "tsetpass": {
+      const p1 = $("#t_pass")?.value||"", p2 = $("#t_pass2")?.value||"";
+      if(p1.length < 12){ toast("Use at least 12 characters \u2014 a few random words beats P@ssw0rd!"); return; }
+      if(p1 !== p2){ toast("Passwords don\u2019t match \u2014 type them again"); return; }
+      busy(el, true);
+      try{
+        await api.teacherUpdatePassword(p1);
+        authMode = "in"; TD = null;
+        go({screen:"teacher", tab:"queue", sub:null});
+        toast("Password updated");
+      }catch(e){ busy(el, false); toast(e.message || "Couldn\u2019t change it \u2014 sign out, sign in, and retry"); }
       break;
     }
     case "tsignout": await api.teacherSignOut(); TD=null; go({screen: CODE ? "gate" : "code"}); break;
@@ -1205,21 +1293,13 @@ document.addEventListener("click", async (ev)=>{
         try{ await api.addStudent(alias, pin, lvl, todayISO()); taken.add(alias.toLowerCase()); results.push({real:parts[0], alias, pin}); }catch(e){}
       }
       busy(el, false);
-      if(!results.length){ toast("Nothing to add — format is: Real name, level"); return; }
+      if(!results.length){ toast("Nothing to add \u2014 format is: Real name, level"); return; }
+      window.__keysheet = results;
       await loadTeacher(); render();
-      $("#rosterbox")?.classList.remove("hidden");
-      const out = $("#rosterout");
-      if(out){
-        out.innerHTML = '<div class="banner" style="margin:10px 0">⚠ Your one-time key sheet — real names are NOT saved anywhere. Print it now.</div>'
-          + '<div class="tablewrap"><table><thead><tr><th>Real name</th><th>Crawler name</th><th>PIN</th></tr></thead><tbody>'
-          + results.map(r=>'<tr><td>'+esc(r.real)+'</td><td><strong>'+esc(r.alias)+'</strong></td><td>'+esc(r.pin)+'</td></tr>').join("")
-          + '</tbody></table></div>'
-          + '<div class="row" style="margin-top:8px"><button class="btn small primary" data-a="printkey">🖨 Print key sheet</button></div>';
-        window.__keysheet = results;
-      }
       toast("Created "+results.length+" crawlers");
       break;
     }
+    case "dismisskey": window.__keysheet = null; render(); break;
     case "printkey": {
       const rs = window.__keysheet || [];
       const url = location.origin === "null" || location.protocol === "file:" ? "(your site address)" : location.origin + location.pathname;
@@ -1347,6 +1427,7 @@ document.addEventListener("visibilitychange", async ()=>{
 
 /* ---- boot ---- */
 (async function init(){
+  if(!DEMO && /type=recovery/.test(location.hash)){ authMode = "reset"; route.screen = "tauth"; }
   if(route.screen==="teacher" || route.screen==="tauth"){
     const sess = await api.teacherSession();
     if(!sess) route.screen = "tauth";

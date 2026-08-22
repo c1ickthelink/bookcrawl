@@ -859,6 +859,8 @@ function tQueue(nlq, pq){
     const waiting = TD.reads.filter(r=>r.bookId===b.id).map(r=>{const s=tstu(r.studentId); return s&&s.name;}).filter(Boolean);
     return '<div class="qcard"><div class="info"><strong>'+esc(b.title)+'</strong>'
       + '<div class="tiny">'+(b.pages||"?")+' pages · waiting: '+esc(waiting.join(", ")||"—")+'</div></div>'
+      + '<a class="btn small ghost" target="_blank" rel="noopener" data-a="copytitle" data-t="'+esc(b.title)+'" href="https://www.google.com/search?q='+encodeURIComponent('\u0022'+b.title+'\u0022 lexile level')+'">\ud83d\udd0e Look it up</a>'
+      + '<a class="btn small ghost" target="_blank" rel="noopener" data-a="copytitle" data-t="'+esc(b.title)+'" href="https://hub.lexile.com/find-a-book/">Lexile site</a>'
       + '<input class="inline-lvl" type="number" inputmode="numeric" placeholder="level" id="lvl_'+b.id+'">'
       + '<button class="btn small primary" data-a="savelevel" data-id="'+b.id+'">Save</button></div>';
   }).join("");
@@ -1299,6 +1301,7 @@ document.addEventListener("click", async (ev)=>{
       toast("Created "+results.length+" crawlers");
       break;
     }
+    case "copytitle": try{ navigator.clipboard.writeText(el.dataset.t); toast("Title copied \u2014 paste it into the search box"); }catch(e){} return;
     case "dismisskey": window.__keysheet = null; render(); break;
     case "printkey": {
       const rs = window.__keysheet || [];

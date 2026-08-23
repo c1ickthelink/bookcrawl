@@ -199,6 +199,27 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 @keyframes torchpulse{0%,100%{opacity:.85}50%{opacity:1}}
 @media (prefers-reduced-motion: reduce){ #dungeonglow{animation:none} }
 .card,.namecard,.stat,.hero,.qcard{backdrop-filter:none}
+
+/* ---- juice ---- */
+.avatarimg{width:44px;height:44px;border-radius:10px;image-rendering:pixelated;background:var(--surface2)}
+.hero .avatarimg{width:54px;height:54px;border-radius:12px;flex:none}
+.pcard .avatarimg{width:40px;height:40px;float:right}
+.progressbar>i{position:relative;overflow:hidden}
+.progressbar>i::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.45) 50%,transparent 60%);animation:shine 3.2s infinite}
+@keyframes shine{0%{transform:translateX(-100%)}60%,100%{transform:translateX(100%)}}
+@media (prefers-reduced-motion: reduce){ .progressbar>i::after{animation:none;display:none} }
+.overlay .fx{position:fixed;inset:0;pointer-events:none}
+.overlay.flashin{animation:flashin .6s ease-out}
+@keyframes flashin{0%{background:rgba(255,248,220,.95)}100%{background:rgba(18,14,40,.86)}}
+.overlay.shakehard{animation:shakehard .55s ease-in-out}
+@keyframes shakehard{0%,100%{transform:translate(0,0)}12%{transform:translate(-9px,4px)}25%{transform:translate(8px,-5px)}38%{transform:translate(-7px,-3px)}50%{transform:translate(6px,5px)}65%{transform:translate(-5px,2px)}80%{transform:translate(4px,-2px)}}
+.chestbig.rumble2{animation:rumble2 2s ease-in-out}
+@keyframes rumble2{0%,100%{transform:rotate(0) scale(1)}10%{transform:rotate(-6deg)}20%{transform:rotate(6deg) scale(1.03)}30%{transform:rotate(-8deg)}40%{transform:rotate(8deg) scale(1.06)}50%{transform:rotate(-10deg) scale(1.1)}62%{transform:rotate(10deg) scale(1.14)}75%{transform:rotate(-12deg) scale(1.2)}88%{transform:rotate(9deg) scale(1.28)}}
+.tiercard.big .tn{font-size:44px;letter-spacing:.04em}
+.tiercard .flavor{margin-top:8px;font-style:italic;opacity:.85}
+.floorbanner{text-align:center;color:#fff}
+.floorbanner .f1{font-family:"Bungee","Arial Black",sans-serif;font-size:20px;opacity:.85}
+.floorbanner .f2{font-family:"Bungee","Arial Black",sans-serif;font-size:clamp(30px,7vw,54px);color:var(--accent-strong);text-shadow:0 3px 0 rgba(0,0,0,.35);animation:pop .5s}
 #printcards{display:none}
 @media print{
   body *{visibility:hidden} #printcards, #printcards *{visibility:visible}
@@ -509,7 +530,8 @@ function makeDemoAPI(){
     demo: true,
     async bootstrap(code){
       if(!okCode(code)) return {ok:false};
-      return {ok:true, class_name:D.settings.className, box_pts:D.settings.boxPts, prizes:D.settings.prizes,
+      const classPts = D.students.reduce((a, st)=> a + Engine.totals(st.id, D).pts, 0);
+      return {ok:true, class_name:D.settings.className, box_pts:D.settings.boxPts, prizes:D.settings.prizes, class_pts: classPts,
         students: D.students.map(s=>({id:s.id, name:s.name})).sort((a,b)=>a.name.localeCompare(b.name)),
         books: D.books.map(b=>({id:b.id, title:b.title, pages:b.pages, has_level:b.level!=null}))};
     },
@@ -616,7 +638,9 @@ async function ensureBoot(force){
   try{
     const b = await api.bootstrap(CODE);
     if(!b || !b.ok){ BOOT = null; go({screen:"code"}); toast("That class code didn't work — ask your teacher"); return null; }
-    BOOT = b; return BOOT;
+    BOOT = b;
+    try{ paintDungeon(); checkFloorEvent(); }catch(e){}
+    return BOOT;
   }catch(e){ toast("Can't reach the server — check wifi"); return null; }
 }
 async function loadState(){
@@ -624,7 +648,9 @@ async function loadState(){
   try{
     const s = await api.state(CODE, route.who, SPIN[route.who]);
     if(!s || !s.ok){ delete SPIN[route.who]; saveSpin(); go({screen:"gate", who:null}); return null; }
-    SS = s; return SS;
+    SS = s;
+    try{ checkLevelUp(); }catch(e){}
+    return SS;
   }catch(e){ toast("Can't reach the server — check wifi"); return SS; }
 }
 async function loadTeacher(){
@@ -676,11 +702,12 @@ function vGate(){
   if(!BOOT){ ensureBoot().then(b=>{ if(b) render(); }); return '<div class="gate"><div class="brand display">BOOK CRAWL</div><div class="sub" style="margin-top:30px"><span class="spin"></span> loading…</div></div>'; }
   const cards = BOOT.students.map(s =>
     '<button class="namecard" data-a="pickname" data-id="'+s.id+'">'
-    + '<span class="avatar">'+esc(s.name.trim().slice(0,1).toUpperCase())+'</span>'
+    + avImg(s.name)
     + '<span>'+esc(s.name)+'</span></button>').join("");
   return '<div class="gate">'
     + '<div class="brand display">BOOK CRAWL</div>'
-    + '<div class="sub">'+esc(BOOT.class_name)+' · tap your crawler name</div>'
+    + '<div class="sub">'+esc(BOOT.class_name)+' · '+esc(floorLabel())+'</div>'
+    + '<div class="sub" style="margin-top:-16px">tap your crawler name</div>'
     + (BOOT.students.length ? '<div class="namegrid">'+cards+'</div>'
         : '<div class="card">No crawlers yet — your teacher needs to add the roster.</div>')
     + '<div style="margin-top:26px" class="row" style="justify-content:center">'
@@ -722,7 +749,7 @@ function vHome(){
     '<span class="chip '+tierClass(b.tier)+'">'+esc(b.tier)+(b.delivered?" ✓":"")+'</span>').join(" ");
   return topbar('<button class="btn ghost small" data-a="tostudents">switch player</button>')
     + '<div class="stack">'
-    + '<div class="hero"><div class="who"><div class="nm">'+esc(st?st.name:"")+'</div>'
+    + '<div class="hero">' + (st ? avImg(st.name) : "") + '<div class="who"><div class="nm">'+esc(st?st.name:"")+'</div>'
     + '<div class="lvl">Level '+SS.crawler_lvl+' Crawler · '+SS.verified+' quest'+(SS.verified===1?"":"s")+' done</div></div>'
     + '<div class="pts"><div class="n">'+SS.pts+'</div><div class="l">points</div></div></div>'
     + (SS.available>0 ? '<button class="lootbanner" data-a="openbox" style="width:100%"><span class="chest">🎁</span>'
@@ -787,23 +814,30 @@ async function openLoot(){
   busy(btn, false);
   if(!res || !res.ok){ toast(res && res.err==="none" ? "No boxes to open yet!" : "Hmm, that didn't work — try again"); loadState().then(()=>render()); return; }
   const st = BOOT && BOOT.students.find(s=>s.id===route.who);
+  const fx = TIERFX[res.tier] || TIERFX.Common;
+  const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const ov = document.createElement("div");
   ov.className = "overlay"; ov.id = "lootov";
-  const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  ov.innerHTML = '<div class="lootstage"><div class="chestbig'+(reduce?"":" rumble")+'">🎁</div>'
-    + '<div class="display" style="font-size:18px;margin-top:6px">'+esc(st?st.name:"")+' opens a loot box…</div></div>';
+  ov.innerHTML = '<div class="lootstage"><div class="chestbig' + (reduce ? "" : (fx.ms > 1600 ? " rumble2" : " rumble")) + '">🎁</div>'
+    + '<div class="display" style="font-size:18px;margin-top:6px">' + esc(st ? st.name : "") + ' opens a loot box…</div></div>';
   document.body.appendChild(ov);
   setTimeout(()=>{
+    if(!document.getElementById("lootov")) return;
+    if(!reduce && fx.flash) ov.classList.add("flashin");
+    if(!reduce && fx.shake) ov.classList.add("shakehard");
+    spawnBurst(ov, fx.colors, fx.parts);
     const stage = ov.querySelector(".lootstage");
     const prizes = (BOOT && BOOT.prizes && BOOT.prizes[res.tier]) || "";
+    const big = fx.ms > 1400 ? " big" : "";
     stage.innerHTML = '<div class="chestbig">🎉</div>'
-      + '<div class="tiercard" style="background:var(--t-'+tierClass(res.tier)+'-bg);color:var(--t-'+tierClass(res.tier)+'-ink)">'
-      + '<div class="tn">'+esc(res.tier).toUpperCase()+'!</div>'
-      + '<div class="roll">You rolled a '+res.roll+' out of 100</div>'
-      + (prizes?'<div class="hint">Prize ideas: '+esc(String(prizes).split("·")[0].trim())+' &amp; more — show your teacher!</div>'
-               :'<div class="hint">Show your teacher to claim your prize!</div>')
+      + '<div class="tiercard' + big + '" style="background:var(--t-' + tierClass(res.tier) + '-bg);color:var(--t-' + tierClass(res.tier) + '-ink)">'
+      + '<div class="tn">' + esc(res.tier).toUpperCase() + '!</div>'
+      + '<div class="roll">You rolled a ' + res.roll + ' out of 100</div>'
+      + '<div class="flavor">' + esc(fx.flavor) + '</div>'
+      + (prizes ? '<div class="hint">Prize ideas: ' + esc(String(prizes).split("·")[0].trim()) + ' &amp; more — show your teacher!</div>'
+                : '<div class="hint">Show your teacher to claim your prize!</div>')
       + '</div><div style="margin-top:16px"><button class="btn gold" data-a="closeloot">Awesome!</button></div>';
-  }, reduce ? 150 : 1250);
+  }, reduce ? 150 : fx.ms);
 }
 
 /* ---- teacher auth ---- */
@@ -1112,7 +1146,7 @@ function csvRoster(){
 function printCards(){
   const url = location.origin + location.pathname;
   $("#printcards").innerHTML = TD.students.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(s=>
-    '<div class="pcard"><div class="nm">'+esc(s.name)+'</div>'
+    '<div class="pcard">'+avImg(s.name)+'<div class="nm">'+esc(s.name)+'</div>'
     + '<div class="row2">Site: '+esc(url)+'</div>'
     + '<div class="row2">Class code: <strong>'+esc(TD.settings.classCode)+'</strong></div>'
     + '<div class="row2">Secret PIN: <strong>'+esc(s.pin)+'</strong></div>'
@@ -1204,6 +1238,7 @@ document.addEventListener("click", async (ev)=>{
     }
     case "openbox": await openLoot(); break;
     case "closeloot": document.getElementById("lootov")?.remove(); SS=null; await loadState(); render(); break;
+    case "closefloor": document.getElementById("floorov")?.remove(); break;
 
     /* ---- teacher ---- */
     case "tteacher": {
@@ -1320,7 +1355,7 @@ document.addEventListener("click", async (ev)=>{
       const url = location.origin === "null" || location.protocol === "file:" ? "(your site address)" : location.origin + location.pathname;
       $("#printcards").innerHTML = '<div class="pcard" style="grid-column:1/-1"><div class="nm">Book Crawl — teacher key sheet (keep private)</div>'
         + '<div class="row2">Site: '+esc(url)+' · Class code: '+esc(TD.settings.classCode)+'</div></div>'
-        + rs.map(r=>'<div class="pcard"><div class="nm">'+esc(r.alias)+'</div>'
+        + rs.map(r=>'<div class="pcard">'+avImg(r.alias)+'<div class="nm">'+esc(r.alias)+'</div>'
           + '<div class="row2">Real name: <strong>'+esc(r.real)+'</strong></div>'
           + '<div class="row2">PIN: <strong>'+esc(r.pin)+'</strong></div></div>').join("");
       window.print();
@@ -1496,6 +1531,12 @@ function paintDungeon(){
     glowA:"rgba(255,190,90,.14)", glowB:"rgba(255,190,90,0)",
     vin:"rgba(120,105,80,.14)"
   };
+  // floor theme overrides
+  try{
+    const fl = FLOORS[floorIdx()];
+    const ov = dark ? fl.dark : fl.light;
+    if(ov) Object.assign(P, ov);
+  }catch(e){}
   // stone bricks
   const bh = 9, bw = 20;
   for(let row = 0; row * bh < H; row++){
@@ -1556,6 +1597,121 @@ let _bgT = null;
 window.addEventListener("resize", ()=>{ clearTimeout(_bgT); _bgT = setTimeout(paintDungeon, 250); });
 try{ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paintDungeon); }catch(e){}
 paintDungeon();
+
+/* ============================================================
+   JUICE — avatars, floors, tiered reveals, level-ups
+   ============================================================ */
+/* deterministic pixel avatar from crawler name (nothing stored) */
+const _avCache = {};
+function avatarFor(name){
+  if(_avCache[name]) return _avCache[name];
+  let h = 2166136261 >>> 0;
+  for(const ch of String(name)){ h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  const rnd = () => { h = Math.imul(h ^ (h>>>15), 2246822519) >>> 0; h = Math.imul(h ^ (h>>>13), 3266489917) >>> 0; return ((h ^= h>>>16) >>> 0) / 4294967296; };
+  const hue = Math.floor(rnd() * 360);
+  const base = "hsl(" + hue + ",62%,52%)", acc = "hsl(" + ((hue + 150) % 360) + ",70%,58%)";
+  const c = document.createElement("canvas"); c.width = 8; c.height = 8;
+  const x = c.getContext("2d");
+  for(let ry = 0; ry < 8; ry++) for(let rx = 0; rx < 4; rx++){
+    const v = rnd();
+    if(v > 0.52){ x.fillStyle = v > 0.86 ? acc : base; x.fillRect(rx, ry, 1, 1); x.fillRect(7 - rx, ry, 1, 1); }
+  }
+  x.fillStyle = base; x.fillRect(2, 2, 4, 3);           // face
+  x.fillStyle = "#191625"; x.fillRect(2, 3, 1, 1); x.fillRect(5, 3, 1, 1);  // eyes
+  if(rnd() > 0.5){ x.fillRect(3, 4, 2, 1); }            // mouth sometimes
+  x.fillStyle = base; x.fillRect(2, 7, 1, 1); x.fillRect(5, 7, 1, 1);       // feet
+  return (_avCache[name] = c.toDataURL());
+}
+function avImg(name, cls){ return '<img class="avatarimg' + (cls ? " " + cls : "") + '" alt="" src="' + avatarFor(name) + '">'; }
+
+/* class floors — unlocked by total verified class points */
+const FLOORS = [
+  {n:4, name:"THE STONE HALLS",   at:0,     dhue:null},
+  {n:5, name:"THE MOSSY DEEP",    at:1500,  dark:{stones:["#1F3A2C","#254434","#2B4E3B","#1C3527"],mortar:"#152A1F",moss:"#4E8A4A",floor:"#183023"}, light:{stones:["#DCE6D6","#D2DECA","#C8D6BE","#E2EADC"],mortar:"#B9C9AF",moss:"#8FBF85",floor:"#CCDAC2"}},
+  {n:6, name:"THE FROST CAVERNS", at:4000,  dark:{stones:["#1E2C4A","#243456","#2A3C62","#1B2842"],mortar:"#152039",moss:"#4A7C9E",floor:"#1A2540"}, light:{stones:["#DCE4EE","#D2DCE9","#C8D4E4","#E4EAF2"],mortar:"#B7C4D6",moss:"#9EC0D9",floor:"#CDD8E6"}},
+  {n:7, name:"THE EMBER DEPTHS",  at:8000,  dark:{stones:["#3A2226","#452A2C","#502F30","#332022"],mortar:"#2A181A",moss:"#8A5E3A",floor:"#2E1C1E"}, light:{stones:["#EADCD4","#E4D2C8","#DEC8BC","#F0E4DC"],mortar:"#D2B9AC",moss:"#D9A87A",floor:"#E2D0C4"}},
+  {n:8, name:"THE CRYSTAL VAULT", at:13000, dark:{stones:["#2C2350","#34295E","#3C2F6C","#271F48"],mortar:"#1E1840",moss:"#5FB8B4",floor:"#241D44"}, light:{stones:["#E2DCF0","#D8D2EA","#CEC6E2","#EAE4F4"],mortar:"#C2B9DA",moss:"#8FD3D0",floor:"#D6CEE8"}}
+];
+function floorIdx(){
+  const pts = (BOOT && BOOT.class_pts) || 0;
+  let i = 0;
+  for(let k = 0; k < FLOORS.length; k++){ if(pts >= FLOORS[k].at) i = k; }
+  return i;
+}
+function floorLabel(){ const f = FLOORS[floorIdx()]; return "FLOOR " + f.n + " · " + f.name; }
+
+/* particle burst — pixel squares, one-shot */
+function spawnBurst(host, colors, count){
+  if(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const cv = document.createElement("canvas");
+  cv.className = "fx"; cv.width = window.innerWidth; cv.height = window.innerHeight;
+  host.appendChild(cv);
+  const x = cv.getContext("2d");
+  const cx = cv.width / 2, cy = cv.height / 2 - 60;
+  const ps = [];
+  for(let i = 0; i < count; i++){
+    const a = Math.random() * Math.PI * 2, sp = 3 + Math.random() * 9;
+    ps.push({x:cx, y:cy, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 4, s:3 + Math.random()*5,
+             c:colors[Math.floor(Math.random()*colors.length)], life:50 + Math.random()*35});
+  }
+  let frame = 0;
+  (function tick(){
+    frame++;
+    x.clearRect(0, 0, cv.width, cv.height);
+    let alive = false;
+    for(const p of ps){
+      if(frame > p.life) continue;
+      alive = true;
+      p.x += p.vx; p.y += p.vy; p.vy += 0.32; p.vx *= 0.99;
+      x.globalAlpha = Math.max(0, 1 - frame / p.life);
+      x.fillStyle = p.c; x.fillRect(p.x, p.y, p.s, p.s);
+    }
+    x.globalAlpha = 1;
+    if(alive) requestAnimationFrame(tick); else cv.remove();
+  })();
+}
+const TIERFX = {
+  Common:   {ms:900,  parts:14,  colors:["#C9C4DD","#9E98B8","#FFFFFF"], flavor:"Loot is loot."},
+  Uncommon: {ms:1000, parts:26,  colors:["#8FE0B0","#4CAF7D","#FFFFFF"], flavor:"Not bad, crawler."},
+  Rare:     {ms:1250, parts:44,  colors:["#9CC8F0","#5B9BD5","#FFFFFF"], flavor:"The shelves whisper your name."},
+  Epic:     {ms:1550, parts:80,  colors:["#C9B5F0","#9A6BD0","#FFD97A"], shake:true, flavor:"The dungeon takes notice."},
+  Legendary:{ms:2300, parts:150, colors:["#F5CF7E","#E8A33D","#FFFFFF","#7FE3E0"], shake:true, flash:true, flavor:"The entire dungeon is watching."}
+};
+
+/* floor-descent event (class hit a new floor since this device last looked) */
+function checkFloorEvent(){
+  const f = floorIdx();
+  let prev = null;
+  try{ prev = localStorage.getItem("bc_floor"); }catch(e){}
+  if(prev === null){ try{ localStorage.setItem("bc_floor", String(f)); }catch(e){} return; }
+  if(f > Number(prev)){
+    try{ localStorage.setItem("bc_floor", String(f)); }catch(e){}
+    const fl = FLOORS[f];
+    const ov = document.createElement("div");
+    ov.className = "overlay"; ov.id = "floorov";
+    ov.innerHTML = '<div class="floorbanner"><div class="f1">THE CLASS DESCENDS…</div>'
+      + '<div class="f2">FLOOR ' + fl.n + '</div>'
+      + '<div class="f1" style="margin-top:6px">' + esc(fl.name) + '</div>'
+      + '<div style="margin-top:18px"><button class="btn gold" data-a="closefloor">Onward!</button></div></div>';
+    document.body.appendChild(ov);
+    spawnBurst(ov, ["#F5CF7E","#E8A33D","#A79BE0","#FFFFFF"], 90);
+    paintDungeon();
+  } else {
+    try{ localStorage.setItem("bc_floor", String(f)); }catch(e){}
+  }
+}
+/* level-up moment (per student, per device) */
+function checkLevelUp(){
+  if(!SS || !route.who) return;
+  const key = "bc_lvl_" + route.who;
+  let prev = null;
+  try{ prev = sessionStorage.getItem(key); }catch(e){}
+  if(prev !== null && SS.crawler_lvl > Number(prev)){
+    toast("⭐ LEVEL " + SS.crawler_lvl + " CRAWLER!");
+    spawnBurst(document.body, ["#F5CF7E","#E8A33D","#FFFFFF"], 60);
+  }
+  try{ sessionStorage.setItem(key, String(SS.crawler_lvl)); }catch(e){}
+}
 
 </script>
 </body>

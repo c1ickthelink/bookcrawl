@@ -192,6 +192,13 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 .spin{display:inline-block;width:18px;height:18px;border:3px solid var(--line);border-top-color:var(--violet);border-radius:50%;animation:sp 1s linear infinite;vertical-align:middle}
 @keyframes sp{to{transform:rotate(360deg)}}
 .demo-pill{position:fixed;top:8px;right:8px;z-index:60;background:var(--warn-soft);color:var(--warn);border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700}
+
+/* ---- dungeon backdrop ---- */
+#dungeonbg{position:fixed;inset:0;z-index:-2;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges}
+#dungeonglow{position:fixed;inset:0;z-index:-1;pointer-events:none;animation:torchpulse 4.5s ease-in-out infinite}
+@keyframes torchpulse{0%,100%{opacity:.85}50%{opacity:1}}
+@media (prefers-reduced-motion: reduce){ #dungeonglow{animation:none} }
+.card,.namecard,.stat,.hero,.qcard{backdrop-filter:none}
 #printcards{display:none}
 @media print{
   body *{visibility:hidden} #printcards, #printcards *{visibility:visible}
@@ -203,6 +210,7 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 </style>
 </head>
 <body>
+<canvas id="dungeonbg" aria-hidden="true"></canvas><div id="dungeonglow" aria-hidden="true"></div>
 <div class="app" id="app" aria-live="polite"></div>
 <div id="toasthost"></div>
 <div id="printcards"></div>
@@ -1040,6 +1048,9 @@ function tSettings(){
     + '<div class="card"><h2>Year-end boxes</h2>'+tiers
     + '<h2 style="margin-top:16px">Class</h2>'
     + '<div class="settingrow"><label>Class name</label><input type="text" data-set="className" value="'+esc(S.className||"")+'" style="width:200px;text-align:left"></div>'
+    + '<div class="settingrow"><label>Dungeon backdrop (this device)</label>'
+    + '<input type="checkbox" '+(bgEnabled()?"checked":"")+' data-a="togglebg" style="width:24px;height:24px">'
+    + '</div>'
     + '<div class="settingrow"><label>Class code (kids type this once)</label><input type="text" data-set="classCode" value="'+esc(S.classCode||"")+'" maxlength="12" style="width:130px;text-transform:uppercase"></div>'
     + '<div class="tiny" style="margin-top:6px">Changing the code signs every device out until they type the new one.</div></div>'
     + '<div class="card"><h2>Get data out</h2><div class="stack">'
@@ -1302,6 +1313,7 @@ document.addEventListener("click", async (ev)=>{
       break;
     }
     case "copytitle": try{ navigator.clipboard.writeText(el.dataset.t); toast("Title copied \u2014 paste it into the search box"); }catch(e){} return;
+    case "togglebg": try{ localStorage.setItem("bc_bg", el.checked ? "1" : "0"); }catch(e){} paintDungeon(); return;
     case "dismisskey": window.__keysheet = null; render(); break;
     case "printkey": {
       const rs = window.__keysheet || [];
@@ -1442,6 +1454,108 @@ document.addEventListener("visibilitychange", async ()=>{
   }
   render();
 })();
+
+/* ============================================================
+   DUNGEON BACKDROP — procedural pixel art, painted once per
+   load/resize/theme. Original blocky art, no image assets.
+   ============================================================ */
+function bgEnabled(){ try{ return localStorage.getItem("bc_bg") !== "0"; }catch(e){ return true; } }
+function isDarkTheme(){
+  const t = document.documentElement.getAttribute("data-theme");
+  if(t === "dark") return true;
+  if(t === "light") return false;
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+function paintDungeon(){
+  const cv = document.getElementById("dungeonbg");
+  const glow = document.getElementById("dungeonglow");
+  if(!cv) return;
+  if(!bgEnabled()){ cv.style.display = "none"; if(glow) glow.style.display = "none"; return; }
+  cv.style.display = ""; if(glow) glow.style.display = "";
+  const dark = isDarkTheme();
+  const scale = 4;                               // 1 art pixel = 4 screen px
+  const W = Math.ceil(window.innerWidth / scale);
+  const H = Math.ceil(window.innerHeight / scale);
+  cv.width = W; cv.height = H;
+  const x = cv.getContext("2d");
+  const R = (n) => Math.floor(Math.random() * n);
+  const P = dark ? {
+    stones:["#282344","#2E2950","#332D58","#252041"], mortar:"#1C1836",
+    moss:"#31513C", crack:"#171331", floor:"#1F1B3C",
+    shelf:"#4A3524", spine:["#B34A44","#3F7E5A","#3E5F9E","#B08A3E","#7C4E9E","#9E9E9E"],
+    chest:"#5C4126", chestband:"#C9A23F", stick:"#6B4A2B",
+    flame1:"#FFB347", flame2:"#FFE08A",
+    glowA:"rgba(255,170,60,.16)", glowB:"rgba(255,170,60,0)",
+    vin:"rgba(8,6,20,.42)"
+  } : {
+    stones:["#E3DFD4","#DCD7CA","#D5CFC1","#E8E4DA"], mortar:"#C7C0B1",
+    moss:"#B5C9A8", crack:"#BDB5A3", floor:"#D8D2C4",
+    shelf:"#B08A62", spine:["#D98B85","#8FBF9F","#8FA8D9","#D9BC7A","#B195CF","#BFBFBF"],
+    chest:"#B98F5D", chestband:"#D9B85C", stick:"#A57B4F",
+    flame1:"#FFB347", flame2:"#FFE9A8",
+    glowA:"rgba(255,190,90,.14)", glowB:"rgba(255,190,90,0)",
+    vin:"rgba(120,105,80,.14)"
+  };
+  // stone bricks
+  const bh = 9, bw = 20;
+  for(let row = 0; row * bh < H; row++){
+    const off = (row % 2) ? bw/2 : 0;
+    for(let col = -1; col * bw < W + bw; col++){
+      const bx = col * bw + off, by = row * bh;
+      x.fillStyle = P.mortar; x.fillRect(bx, by, bw, bh);
+      x.fillStyle = P.stones[R(P.stones.length)];
+      x.fillRect(bx + 1, by + 1, bw - 2, bh - 2);
+      if(R(10) === 0){ x.fillStyle = P.moss; x.fillRect(bx + 2 + R(10), by + bh - 3, 3 + R(4), 2); }
+      if(R(14) === 0){ x.fillStyle = P.crack; x.fillRect(bx + 3 + R(8), by + 2, 1, 3 + R(3)); }
+    }
+  }
+  // floor strip
+  x.fillStyle = P.floor; x.fillRect(0, H - 6, W, 6);
+  // torches along an upper band
+  const torches = [];
+  const gap = Math.max(70, Math.floor(W / Math.max(2, Math.floor(W / 90))));
+  for(let tx = Math.floor(gap / 2); tx < W; tx += gap){
+    const ty = 18 + R(6);
+    torches.push([tx, ty]);
+    x.fillStyle = P.stick; x.fillRect(tx, ty + 3, 2, 6);
+    x.fillStyle = P.flame1; x.fillRect(tx - 1, ty, 4, 3);
+    x.fillStyle = P.flame2; x.fillRect(tx, ty - 2, 2, 3);
+  }
+  // furniture along the lower half: bookshelves and chests
+  const items = 2 + Math.floor(W / 150);
+  for(let i = 0; i < items; i++){
+    const ix = 10 + R(Math.max(20, W - 40));
+    const iy = H - 8;
+    if(R(3) === 0){ // chest
+      x.fillStyle = P.chest; x.fillRect(ix, iy - 8, 12, 8);
+      x.fillStyle = P.chestband; x.fillRect(ix, iy - 5, 12, 1); x.fillRect(ix + 5, iy - 6, 2, 3);
+    } else { // bookshelf
+      x.fillStyle = P.shelf; x.fillRect(ix, iy - 14, 16, 14);
+      for(const sy of [iy - 12, iy - 6]){
+        let sx = ix + 1;
+        while(sx < ix + 14){ const w = 2; x.fillStyle = P.spine[R(P.spine.length)]; x.fillRect(sx, sy, w, 4); sx += w + 1; }
+      }
+    }
+  }
+  // rare diamond easter egg (~1 in 6 loads)
+  if(R(6) === 0){
+    const dx = 10 + R(W - 20), dy = 12 + R(H - 30);
+    x.fillStyle = dark ? "#7FE3E0" : "#5BC8C5";
+    x.fillRect(dx, dy, 2, 2); x.fillRect(dx - 1, dy + 1, 1, 1); x.fillRect(dx + 2, dy + 1, 1, 1);
+  }
+  // torch glow overlay + center-lightening vignette
+  if(glow){
+    const g = torches.map(([tx, ty]) =>
+      "radial-gradient(circle at " + (tx * scale) + "px " + (ty * scale) + "px, " + P.glowA + " 0, " + P.glowB + " " + (140) + "px)").join(",");
+    glow.style.background = g;
+  }
+  x.fillStyle = P.vin;
+  x.fillRect(0, 0, W, 4); x.fillRect(0, H - 4, W, 4); x.fillRect(0, 0, 3, H); x.fillRect(W - 3, 0, 3, H);
+}
+let _bgT = null;
+window.addEventListener("resize", ()=>{ clearTimeout(_bgT); _bgT = setTimeout(paintDungeon, 250); });
+try{ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paintDungeon); }catch(e){}
+paintDungeon();
 
 </script>
 </body>

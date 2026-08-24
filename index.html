@@ -257,6 +257,22 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 .cerecount{position:fixed;top:14px;right:18px;font-size:13px;color:#837DA1}
 @keyframes cosmic{0%,100%{box-shadow:0 0 40px rgba(127,227,224,.65)}50%{box-shadow:0 0 90px rgba(127,227,224,.95)}}
 .cerebox.yt4.pulse{animation:cosmic 2.4s ease-in-out infinite}
+
+/* ---- gear / character ---- */
+.charav{width:128px;height:128px;border-radius:20px;image-rendering:pixelated;background:var(--surface2);box-shadow:var(--shadow)}
+.slotrow{display:flex;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.slotrow:first-of-type{border-top:none}
+.slotlbl{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;width:88px}
+.gearchip{border-radius:999px;padding:5px 12px;font-size:13px;font-weight:700;border:1.5px solid var(--line);background:var(--surface2);cursor:pointer}
+.gearchip.on{outline:2.5px solid var(--accent-strong)}
+.gearchip.rar-Common{background:var(--t-common-bg);color:var(--t-common-ink);border-color:transparent}
+.gearchip.rar-Uncommon{background:var(--t-uncommon-bg);color:var(--t-uncommon-ink);border-color:transparent}
+.gearchip.rar-Rare{background:var(--t-rare-bg);color:var(--t-rare-ink);border-color:transparent}
+.gearchip.rar-Epic{background:var(--t-epic-bg);color:var(--t-epic-ink);border-color:transparent}
+.gearchip.rar-Legendary{background:var(--t-legendary-bg);color:var(--t-legendary-ink);border-color:transparent}
+.newgear{margin-top:10px;font-weight:700;animation:pop .5s}
+.newgear .chip{font-size:14px;padding:5px 12px}
+.hero .title-line{font-size:12px;opacity:.85;font-style:italic}
 #printcards{display:none}
 @media print{
   body *{visibility:hidden} #printcards, #printcards *{visibility:visible}
@@ -452,6 +468,7 @@ function makeLiveAPI(){
       return rpc("log_read", {p_code:code, p_student:sid, p_pin:pin, p_book:bookId, p_title:title, p_pages:pages, p_date:date});
     },
     async openBox(code, sid, pin){ return rpc("open_box", {p_code:code, p_student:sid, p_pin:pin}); },
+    async equipItem(code, sid, pin, slot, itemId){ return rpc("equip_item", {p_code:code, p_student:sid, p_pin:pin, p_slot:slot, p_item:itemId}); },
 
     /* ---- teacher ---- */
     async teacherSession(){ const {data} = await sb.auth.getSession(); return data.session || null; },
@@ -569,15 +586,17 @@ function makeDemoAPI(){
       if(!okCode(code)) return {ok:false};
       const classPts = D.students.reduce((a, st)=> a + Engine.totals(st.id, D).pts, 0);
       return {ok:true, class_name:D.settings.className, box_pts:D.settings.boxPts, prizes:D.settings.prizes, class_pts: classPts, year_tiers: D.settings.yearTiers,
-        students: D.students.map(s=>({id:s.id, name:s.name})).sort((a,b)=>a.name.localeCompare(b.name)),
+        students: D.students.map(s=>({id:s.id, name:s.name, equipped:s.equipped||{}})).sort((a,b)=>a.name.localeCompare(b.name)),
         books: D.books.map(b=>({id:b.id, title:b.title, pages:b.pages, has_level:b.level!=null}))};
     },
     async login(code, sid, pin){ return auth(code, sid, pin); },
     async state(code, sid, pin){
       if(!auth(code, sid, pin)) return {ok:false};
       const t = Engine.totals(sid, D);
+      const stx = stu(sid);
       return {ok:true, pts:t.pts, crawler_lvl:t.crawlerLvl, verified:t.verified, pending:t.pending,
         available:t.available, to_next:t.toNext, box_pts:D.settings.boxPts,
+        gear: stx.gear || [], equipped: stx.equipped || {},
         reads: D.reads.filter(r=>r.studentId===sid).sort((a,b)=> a.date<b.date?1:-1).map(r=>{
           const b = D.books.find(x=>x.id===r.bookId);
           const sc = Engine.score(r, b, stu(sid), D.settings);
@@ -607,7 +626,27 @@ function makeDemoAPI(){
       let tier = D.settings.d100[D.settings.d100.length-1].tier;
       for(const band of D.settings.d100){ if(n <= band.max){ tier = band.tier; break; } }
       D.boxes.push({id:uid(), studentId:sid, tier, n, date:todayISO(), delivered:false});
-      save(D); return {ok:true, roll:n, tier};
+      const st = stu(sid);
+      st.gear = st.gear || []; st.equipped = st.equipped || {};
+      const pool = GEAR_POOLS[tier];
+      const itemId = pool[Math.floor(Math.random()*pool.length)];
+      const ex = st.gear.find(g=>g.item===itemId);
+      let item;
+      if(ex){ ex.shine = (ex.shine||0)+1; item = {id:itemId, dup:true, shine:ex.shine}; }
+      else {
+        st.gear.push({item:itemId, shine:0});
+        const slot = GEAR[itemId][1];
+        if(!st.equipped[slot]) st.equipped[slot] = itemId;
+        item = {id:itemId, dup:false, shine:0};
+      }
+      save(D); return {ok:true, roll:n, tier, item};
+    },
+    async equipItem(code, sid, pin, slot, itemId){
+      if(!auth(code, sid, pin)) return {ok:false, err:"auth"};
+      const st = stu(sid); st.equipped = st.equipped || {}; st.gear = st.gear || [];
+      if(itemId === null){ delete st.equipped[slot]; save(D); return {ok:true}; }
+      if(!st.gear.some(g=>g.item===itemId) || !GEAR[itemId] || GEAR[itemId][1] !== slot) return {ok:false, err:"own"};
+      st.equipped[slot] = itemId; save(D); return {ok:true};
     },
     async teacherSession(){ try{ return sessionStorage.getItem("bc_demo_teacher") ? {} : null; }catch(e){ return null; } },
     async teacherSignIn(){ try{ sessionStorage.setItem("bc_demo_teacher","1"); }catch(e){} },
@@ -706,6 +745,7 @@ function render(){
   else if(scr === "pin") app.innerHTML = vPin(false);
   else if(scr === "home") app.innerHTML = vHome();
   else if(scr === "log") app.innerHTML = vLog();
+  else if(scr === "char") app.innerHTML = vChar();
   else if(scr === "tauth") app.innerHTML = vTeacherAuth();
   else if(scr === "teacher") app.innerHTML = vTeacher();
   else app.innerHTML = vCode();
@@ -739,7 +779,7 @@ function vGate(){
   if(!BOOT){ ensureBoot().then(b=>{ if(b) render(); }); return '<div class="gate"><div class="brand display">BOOK CRAWL</div><div class="sub" style="margin-top:30px"><span class="spin"></span> loading…</div></div>'; }
   const cards = BOOT.students.map(s =>
     '<button class="namecard" data-a="pickname" data-id="'+s.id+'">'
-    + avImg(s.name)
+    + (s.equipped ? gearImg(s.name, s.equipped) : avImg(s.name))
     + '<span>'+esc(s.name)+'</span></button>').join("");
   return '<div class="gate">'
     + '<div class="brand display">BOOK CRAWL</div>'
@@ -786,13 +826,15 @@ function vHome(){
     '<span class="chip '+tierClass(b.tier)+'">'+esc(b.tier)+(b.delivered?" ✓":"")+'</span>').join(" ");
   return topbar('<button class="btn ghost small" data-a="tostudents">switch player</button>')
     + '<div class="stack">'
-    + '<div class="hero">' + (st ? avImg(st.name) : "") + '<div class="who"><div class="nm">'+esc(st?st.name:"")+'</div>'
+    + '<div class="hero">' + (st ? gearImg(st.name, SS.equipped) : "") + '<div class="who"><div class="nm">'+esc(st?st.name:"")+'</div>'
+    + (SS.equipped && SS.equipped.title && GEAR[SS.equipped.title] ? '<div class="title-line">\u201c' + esc(GEAR[SS.equipped.title][0]) + '\u201d</div>' : '')
     + '<div class="lvl">Level '+SS.crawler_lvl+' Crawler · '+SS.verified+' quest'+(SS.verified===1?"":"s")+' done</div></div>'
     + '<div class="pts"><div class="n">'+SS.pts+'</div><div class="l">points</div></div></div>'
     + (SS.available>0 ? '<button class="lootbanner" data-a="openbox" style="width:100%"><span class="chest">🎁</span>'
         + '<span style="flex:1;text-align:left">You earned '+SS.available+' loot box'+(SS.available===1?"":"es")+'!</span>'
         + '<span class="pill" style="background:rgba(0,0,0,.14)">OPEN →</span></button>' : "")
     + '<button class="btn gold big" data-a="tolog">📖 I finished a book!</button>'
+    + (SS.gear !== undefined ? '<button class="btn" data-a="tochar">🧙 My Character · '+((SS.gear||[]).length)+' item'+(((SS.gear||[]).length)===1?"":"s")+'</button>' : '')
     + '<div class="card"><div class="label">Next loot box</div>'
     + '<div class="row" style="margin:6px 0 4px"><div class="progressbar" style="flex:1"><i style="width:'
       + Math.min(100, Math.round(100*SS.to_next/SS.box_pts))+'%"></i></div>'
@@ -870,6 +912,36 @@ function vLog(){
     + '</div></div>';
 }
 
+/* ---- my character ---- */
+function vChar(){
+  if(!SS){ loadState().then(s=>{ if(s) render(); }); return topbar() + '<div class="card"><span class="spin"></span> loading\u2026</div>'; }
+  const st = BOOT && BOOT.students.find(s=>s.id===route.who);
+  const eq = SS.equipped || {};
+  const owned = SS.gear || [];
+  const rows = SLOTS.map(slot=>{
+    const items = owned.filter(g => GEAR[g.item] && GEAR[g.item][1] === slot);
+    const chips = items.map(g=>{
+      const def = GEAR[g.item];
+      const on = eq[slot] === g.item;
+      return '<button class="gearchip rar-'+esc(def[2])+(on?" on":"")+'" data-a="equip" data-slot="'+slot+'" data-id="'+g.item+'">'
+        + esc(def[0]) + (g.shine ? ' \u2726\u00d7'+g.shine : '') + '</button>';
+    }).join(" ");
+    const none = '<button class="gearchip'+(!eq[slot]?" on":"")+'" data-a="equip" data-slot="'+slot+'" data-id="">None</button>';
+    return '<div class="slotrow"><div class="slotlbl">'+SLOT_NAMES[slot]+'</div>'
+      + (items.length ? chips + " " + none : '<span class="tiny">Nothing yet \u2014 loot boxes drop gear!</span>') + '</div>';
+  }).join("");
+  return topbar('<button class="btn ghost small" data-a="tohome">\u2190 back</button>')
+    + '<div class="stack" style="max-width:620px;margin:0 auto">'
+    + '<div class="card" style="text-align:center">'
+    + '<img class="charav" alt="" src="'+avatarGeared(st?st.name:"", eq)+'">'
+    + '<div class="display" style="font-size:22px;color:var(--violet);margin-top:8px">'+esc(st?st.name:"")+'</div>'
+    + (eq.title && GEAR[eq.title] ? '<div class="tiny" style="font-style:italic">\u201c'+esc(GEAR[eq.title][0])+'\u201d</div>' : '')
+    + '<div class="tiny" style="margin-top:4px">'+owned.length+' of '+Object.keys(GEAR).length+' items collected</div></div>'
+    + '<div class="card"><h2>Equipment</h2>'+rows
+    + '<div class="tiny" style="margin-top:8px">Duplicates make an item shinier (\u2726). Gear never changes your points \u2014 style is its own reward.</div></div>'
+    + '</div>';
+}
+
 /* ---- loot roll overlay (server decides the roll) ---- */
 async function openLoot(){
   const btn = $('[data-a="openbox"]');
@@ -900,6 +972,11 @@ async function openLoot(){
       + '<div class="tn">' + esc(res.tier).toUpperCase() + '!</div>'
       + '<div class="roll">You rolled a ' + res.roll + ' out of 100</div>'
       + '<div class="flavor">' + esc(fx.flavor) + '</div>'
+      + (res.item && GEAR[res.item.id] ? '<div class="newgear">'
+          + (res.item.dup
+            ? '\u2726 +1 shine \u2014 <span class="chip rar-'+esc(GEAR[res.item.id][2])+' gearchip">'+esc(GEAR[res.item.id][0])+' \u2726\u00d7'+res.item.shine+'</span>'
+            : 'NEW GEAR \u2014 <span class="chip rar-'+esc(GEAR[res.item.id][2])+' gearchip">'+esc(GEAR[res.item.id][0])+'</span>')
+          + '</div>' : '')
       + (prizes ? '<div class="hint">Prize ideas: ' + esc(String(prizes).split("·")[0].trim()) + ' &amp; more — show your teacher!</div>'
                 : '<div class="hint">Show your teacher to claim your prize!</div>')
       + '</div><div style="margin-top:16px"><button class="btn gold" data-a="closeloot">Awesome!</button></div>';
@@ -1329,6 +1406,16 @@ document.addEventListener("click", async (ev)=>{
     case "tostudents": pinBuf=""; logState=null; SS=null; go({screen: CODE ? "gate" : "code", who:null}); break;
     case "tohome": logState=null; go({screen:"home"}); break;
     case "tolog": logState=null; go({screen:"log"}); break;
+    case "tochar": go({screen:"char"}); break;
+    case "equip": {
+      const slot = el.dataset.slot, itemId = el.dataset.id || null;
+      let r;
+      try{ r = await api.equipItem(CODE, route.who, SPIN[route.who], slot, itemId); }
+      catch(e){ toast("Can't reach the server \u2014 try again"); return; }
+      if(!r || !r.ok){ toast("That didn\u2019t equip \u2014 try again"); return; }
+      SS = null; await loadState(); render();
+      break;
+    }
     case "pickname": pinTarget = id; pinBuf=""; go({screen:"pin"}); break;
     case "pinkey": {
       const k = el.dataset.k;
@@ -1618,7 +1705,7 @@ document.addEventListener("visibilitychange", async ()=>{
   if(route.screen==="teacher" || route.screen==="tauth"){
     const sess = await api.teacherSession();
     if(!sess) route.screen = "tauth";
-  } else if(route.screen==="home" || route.screen==="log"){
+  } else if(route.screen==="home" || route.screen==="log" || route.screen==="char"){
     if(!route.who || !SPIN[route.who]) route.screen = CODE ? "gate" : "code";
     else await ensureBoot();
   } else if(route.screen!=="code" && !CODE){
@@ -1848,6 +1935,113 @@ function checkLevelUp(){
     spawnBurst(document.body, ["#F5CF7E","#E8A33D","#FFFFFF"], 60);
   }
   try{ sessionStorage.setItem(key, String(SS.crawler_lvl)); }catch(e){}
+}
+
+/* ============================================================
+   STAGE 1 — GEAR. Procedural item catalog, drops ride box rolls.
+   ============================================================ */
+const GEAR = {
+  /* id: [name, slot, rarity, shape, colors] */
+  head_cap:    ["Leather Cap","head","Common","cap",["#8A5A2B","#6B4520"]],
+  head_helm:   ["Iron Helm","head","Common","helm",["#9AA0AC","#6E7480"]],
+  head_hood:   ["Gray Hood","head","Common","hood",["#6E6E7E","#565664"]],
+  hand_sword:  ["Wooden Sword","hand","Common","sword",["#C9A16B","#8A5A2B"]],
+  hand_torch:  ["Torch","hand","Common","torch",["#8A5A2B","#FFB347","#FFE08A"]],
+  back_cloak:  ["Patchwork Cloak","back","Common","cloak",["#8A6E4B","#6B532F"]],
+  back_pack:   ["Traveler's Pack","back","Common","pack",["#8A5A2B","#C9A16B"]],
+  comp_mouse:  ["Dust Mouse","comp","Common","critter",["#B7AFa6".replace("a","A"),"#8F877E"]],
+  title_brave: ["the Brave","title","Common",null,null],
+  title_page:  ["Page Turner","title","Common",null,null],
+  head_wizard: ["Wizard Hat","head","Uncommon","pointy",["#4C3D8F","#38306B"]],
+  head_twig:   ["Crown of Twigs","head","Uncommon","twigs",["#7A9A4B","#5C7A33"]],
+  hand_quill:  ["Quill of Power","hand","Uncommon","quill",["#EFEDF8","#8FA8D9"]],
+  hand_axe:    ["Battle Axe","hand","Uncommon","axe",["#8A5A2B","#9AA0AC"]],
+  back_cape:   ["Emerald Cape","back","Uncommon","cape",["#2E7D4F","#1E5C38"]],
+  comp_beetle: ["Torch Beetle","comp","Uncommon","critter",["#B3542E","#FFB347"]],
+  title_curious:["the Curious","title","Uncommon",null,null],
+  title_shelf: ["Shelf Seeker","title","Uncommon",null,null],
+  head_horned: ["Horned Helm","head","Rare","horned",["#6E7480","#EFEDF8"]],
+  hand_frost:  ["Frost Staff","hand","Rare","staff",["#8A5A2B","#7FD3F0"]],
+  back_storm:  ["Storm Cloak","back","Rare","cape",["#3E5F9E","#2C4370"]],
+  comp_owl:    ["Owl Chick","comp","Rare","critter",["#C9A16B","#EFEDF8"]],
+  title_tome:  ["Tome Hunter","title","Rare",null,null],
+  head_crown:  ["Golden Crown","head","Epic","crown",["#E8A33D","#F5CF7E"]],
+  hand_flame:  ["Flame Blade","hand","Epic","blade",["#FFB347","#E84D2E"]],
+  back_wings:  ["Dragon Wings","back","Epic","wings",["#7C4E9E","#5B3E7E"]],
+  comp_drake:  ["Baby Drake","comp","Epic","critter",["#5FB86B","#2E7D4F"]],
+  title_unstop:["the Unstoppable","title","Epic",null,null],
+  head_halo:   ["Halo of Stars","head","Legendary","halo",["#F5CF7E","#FFFFFF"]],
+  hand_cosmic: ["Cosmic Scepter","hand","Legendary","scepter",["#7FE3E0","#C9B5F0"]],
+  back_comet:  ["Comet Trail","back","Legendary","trail",["#7FE3E0","#F5CF7E"]],
+  comp_wisp:   ["Star Wisp","comp","Legendary","critter",["#7FE3E0","#FFFFFF"]],
+  title_legend:["Legend of the Stacks","title","Legendary",null,null]
+};
+const GEAR_POOLS = {Common:[],Uncommon:[],Rare:[],Epic:[],Legendary:[]};
+Object.keys(GEAR).forEach(id => GEAR_POOLS[GEAR[id][2]].push(id));
+const SLOTS = ["head","hand","back","comp","title"];
+const SLOT_NAMES = {head:"Head", hand:"Hand", back:"Back", comp:"Companion", title:"Title"};
+
+function drawGearItem(x, id){
+  const def = GEAR[id]; if(!def || !def[3]) return;
+  const [ , , , shape, c] = def;
+  const F = (col, px, py, w, h) => { x.fillStyle = col; x.fillRect(px, py, w, h); };
+  switch(shape){
+    case "cap":    F(c[0],4,2,8,2); F(c[1],3,4,10,1); break;
+    case "helm":   F(c[0],4,1,8,3); F(c[1],4,4,8,1); F("#1c1c2e",6,3,1,1); F("#1c1c2e",9,3,1,1); break;
+    case "hood":   F(c[0],5,0,6,1); F(c[0],4,1,8,2); F(c[1],3,3,10,1); break;
+    case "pointy": F(c[0],7,0,2,1); F(c[0],6,1,4,1); F(c[0],5,2,6,1); F(c[1],3,3,10,1); break;
+    case "twigs":  F(c[0],4,3,8,1); F(c[1],5,1,1,2); F(c[1],8,0,1,3); F(c[1],11,1,1,2); break;
+    case "horned": F(c[0],4,2,8,2); F(c[1],2,0,2,3); F(c[1],12,0,2,3); break;
+    case "crown":  F(c[0],4,2,8,2); F(c[1],4,0,1,2); F(c[1],7,0,2,2); F(c[1],11,0,1,2); break;
+    case "halo":   F(c[0],4,0,8,1); F(c[1],4,0,1,1); F(c[1],8,0,1,1); F(c[1],11,0,1,1); break;
+    case "sword":  F(c[1],13,10,2,1); F(c[0],13,4,1,6); break;
+    case "torch":  F(c[0],13,7,1,4); F(c[1],12,4,3,3); F(c[2],13,3,1,2); break;
+    case "quill":  F(c[0],13,4,1,6); F(c[1],12,4,2,2); break;
+    case "axe":    F(c[0],13,5,1,6); F(c[1],11,3,3,3); break;
+    case "staff":  F(c[0],13,5,1,7); F(c[1],12,3,3,3); F("#FFFFFF",13,4,1,1); break;
+    case "blade":  F(c[1],13,9,2,1); F(c[0],13,3,1,6); F(c[1],12,4,1,2); break;
+    case "scepter":F(c[0],13,5,1,7); F(c[1],11,2,4,1); F(c[1],12,3,2,2); F("#FFFFFF",13,1,1,1); break;
+    case "cloak":  F(c[0],1,5,3,7); F(c[1],1,11,3,1); break;
+    case "pack":   F(c[0],1,6,3,4); F(c[1],1,7,3,1); break;
+    case "cape":   F(c[0],1,4,3,8); F(c[1],0,10,2,2); break;
+    case "wings":  F(c[0],0,3,3,2); F(c[0],1,5,3,3); F(c[1],0,8,2,2); break;
+    case "trail":  F(c[0],0,10,2,2); F(c[1],1,7,2,2); F(c[0],2,4,2,2); F("#FFFFFF",1,3,1,1); break;
+    case "critter":F(c[0],12,12,3,3); F(c[1],12,11,1,1); F(c[1],14,11,1,1); F("#1c1c2e",13,13,1,1); break;
+  }
+}
+const _gearCache = {};
+function avatarGeared(name, equipped){
+  equipped = equipped || {};
+  const key = name + "|" + SLOTS.map(s=>equipped[s]||"").join(",");
+  if(_gearCache[key]) return _gearCache[key];
+  const c = document.createElement("canvas"); c.width = 16; c.height = 16;
+  const x = c.getContext("2d");
+  if(equipped.back) drawGearItem(x, equipped.back);
+  const base = document.createElement("canvas"); base.width = 8; base.height = 8;
+  _redrawBase(base.getContext("2d"), name);
+  x.drawImage(base, 4, 4);
+  if(equipped.head) drawGearItem(x, equipped.head);
+  if(equipped.hand) drawGearItem(x, equipped.hand);
+  if(equipped.comp) drawGearItem(x, equipped.comp);
+  return (_gearCache[key] = c.toDataURL());
+}
+function _redrawBase(x, name){
+  let h = 2166136261 >>> 0;
+  for(const ch of String(name)){ h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  const rnd = () => { h = Math.imul(h ^ (h>>>15), 2246822519) >>> 0; h = Math.imul(h ^ (h>>>13), 3266489917) >>> 0; return ((h ^= h>>>16) >>> 0) / 4294967296; };
+  const hue = Math.floor(rnd() * 360);
+  const base = "hsl(" + hue + ",62%,52%)", acc = "hsl(" + ((hue + 150) % 360) + ",70%,58%)";
+  for(let ry = 0; ry < 8; ry++) for(let rx = 0; rx < 4; rx++){
+    const v = rnd();
+    if(v > 0.52){ x.fillStyle = v > 0.86 ? acc : base; x.fillRect(rx, ry, 1, 1); x.fillRect(7 - rx, ry, 1, 1); }
+  }
+  x.fillStyle = base; x.fillRect(2, 2, 4, 3);
+  x.fillStyle = "#191625"; x.fillRect(2, 3, 1, 1); x.fillRect(5, 3, 1, 1);
+  if(rnd() > 0.5){ x.fillRect(3, 4, 2, 1); }
+  x.fillStyle = base; x.fillRect(2, 7, 1, 1); x.fillRect(5, 7, 1, 1);
+}
+function gearImg(name, equipped, cls){
+  return '<img class="avatarimg' + (cls ? " " + cls : "") + '" alt="" src="' + avatarGeared(name, equipped) + '">';
 }
 
 </script>

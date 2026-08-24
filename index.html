@@ -220,6 +220,43 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 .floorbanner{text-align:center;color:#fff}
 .floorbanner .f1{font-family:"Bungee","Arial Black",sans-serif;font-size:20px;opacity:.85}
 .floorbanner .f2{font-family:"Bungee","Arial Black",sans-serif;font-size:clamp(30px,7vw,54px);color:var(--accent-strong);text-shadow:0 3px 0 rgba(0,0,0,.35);animation:pop .5s}
+
+/* ---- year-end vault ---- */
+.yt{display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:12px;margin-top:8px;border:1.5px solid var(--line);background:var(--surface2)}
+.yt .ico{font-size:20px;width:26px;text-align:center}
+.yt .mid{flex:1;min-width:0}
+.yt .nm{font-weight:700;font-size:14.5px}
+.yt .sub{font-size:12px;color:var(--muted)}
+.yt.locked{opacity:.5}
+.yt.earned{border-width:2px}
+.yt.yt0.earned{background:#EAD5C0;border-color:#B98554;color:#5C3A1A}
+.yt.yt1.earned{background:#E8E8EE;border-color:#9C9CB0;color:#3C3C50}
+.yt.yt2.earned{background:var(--t-legendary-bg);border-color:#C9A23F;color:var(--t-legendary-ink)}
+.yt.yt3.earned{background:#DDF0EE;border-color:#5FB8B4;color:#1F5C58}
+.yt.yt4{background:linear-gradient(120deg,#161040,#2A1E5C 55%,#173A4E);border-color:#7FE3E0;color:#C9F5F2}
+.yt.yt4 .sub{color:#8FD3D0}
+.yt.yt4.earned{box-shadow:0 0 14px rgba(127,227,224,.5)}
+.yt .prog{height:8px;border-radius:999px;background:rgba(127,127,127,.25);overflow:hidden;margin-top:5px}
+.yt .prog i{display:block;height:100%;background:var(--accent-strong);border-radius:999px;min-width:3px}
+
+/* ---- ceremony ---- */
+.ceremony{position:fixed;inset:0;z-index:300;background:rgba(10,7,26,.97);display:grid;place-items:center;padding:20px;color:#EFEDF8}
+.cerewrap{text-align:center;max-width:640px;width:100%}
+.cerekicker{font-family:"Bungee","Arial Black",sans-serif;font-size:16px;letter-spacing:.12em;color:#8FD3D0;opacity:.9}
+.cerename{font-family:"Bungee","Arial Black",sans-serif;font-size:clamp(30px,6vw,52px);color:#F5CF7E;text-shadow:0 4px 0 rgba(0,0,0,.4);margin:8px 0 2px}
+.cereav{width:110px;height:110px;border-radius:22px;image-rendering:pixelated;background:#241D44;box-shadow:0 6px 24px rgba(0,0,0,.5);margin-bottom:6px;animation:pop .5s}
+.cerestats{font-size:16px;color:#B9B3D1;margin:6px 0 14px}
+.cerebox{display:inline-block;border-radius:18px;padding:16px 30px;font-family:"Bungee","Arial Black",sans-serif;font-size:clamp(20px,4vw,32px);animation:pop .55s}
+.cerebox.none{background:#2C2650;color:#B9B3D1;font-size:20px}
+.cerebox.yt0{background:#EAD5C0;color:#5C3A1A}
+.cerebox.yt1{background:#E8E8EE;color:#3C3C50}
+.cerebox.yt2{background:#F7E3B5;color:#7A5A10}
+.cerebox.yt3{background:#DDF0EE;color:#1F5C58}
+.cerebox.yt4{background:linear-gradient(120deg,#161040,#2A1E5C 55%,#173A4E);color:#B9F0EE;box-shadow:0 0 40px rgba(127,227,224,.65)}
+.cerectl{margin-top:26px;display:flex;gap:10px;justify-content:center}
+.cerecount{position:fixed;top:14px;right:18px;font-size:13px;color:#837DA1}
+@keyframes cosmic{0%,100%{box-shadow:0 0 40px rgba(127,227,224,.65)}50%{box-shadow:0 0 90px rgba(127,227,224,.95)}}
+.cerebox.yt4.pulse{animation:cosmic 2.4s ease-in-out infinite}
 #printcards{display:none}
 @media print{
   body *{visibility:hidden} #printcards, #printcards *{visibility:visible}
@@ -531,7 +568,7 @@ function makeDemoAPI(){
     async bootstrap(code){
       if(!okCode(code)) return {ok:false};
       const classPts = D.students.reduce((a, st)=> a + Engine.totals(st.id, D).pts, 0);
-      return {ok:true, class_name:D.settings.className, box_pts:D.settings.boxPts, prizes:D.settings.prizes, class_pts: classPts,
+      return {ok:true, class_name:D.settings.className, box_pts:D.settings.boxPts, prizes:D.settings.prizes, class_pts: classPts, year_tiers: D.settings.yearTiers,
         students: D.students.map(s=>({id:s.id, name:s.name})).sort((a,b)=>a.name.localeCompare(b.name)),
         books: D.books.map(b=>({id:b.id, title:b.title, pages:b.pages, has_level:b.level!=null}))};
     },
@@ -761,10 +798,39 @@ function vHome(){
       + Math.min(100, Math.round(100*SS.to_next/SS.box_pts))+'%"></i></div>'
     + '<strong>'+SS.to_next+' / '+SS.box_pts+'</strong></div>'
     + '<div class="tiny">'+(SS.box_pts - SS.to_next)+' points to go</div></div>'
+    + vaultHTML()
     + '<div class="card"><h2>My quest log</h2>'+rows+'</div>'
     + (myBoxes ? '<div class="card"><h2>My loot</h2><div class="row">'+myBoxes+'</div>'
         + '<div class="tiny" style="margin-top:6px">Show your teacher to claim a prize · ✓ = claimed</div></div>' : "")
     + '</div>';
+}
+
+/* ---- year-end vault (student view) ---- */
+function vaultHTML(){
+  if(!BOOT || !Array.isArray(BOOT.year_tiers) || !BOOT.year_tiers.length || !SS) return "";
+  const tiers = BOOT.year_tiers.slice().sort((a,b)=>a.pts-b.pts);
+  const pts = SS.pts;
+  const icons = ["\ud83e\udd49","\ud83e\udd48","\ud83e\udd47","\ud83d\udc8e","\u2726"];
+  let nextShown = false;
+  const rows = tiers.map((t,i)=>{
+    const earned = pts >= t.pts;
+    let inner = '<div class="nm">'+esc(t.name)+'</div>';
+    if(earned){
+      inner += '<div class="sub">EARNED \u2014 yours forever</div>';
+    } else if(!nextShown){
+      nextShown = true;
+      const pct = Math.min(100, Math.round(100*pts/t.pts));
+      inner += '<div class="sub">'+pts+' / '+t.pts+' points</div>'
+        + '<div class="prog"><i style="width:'+pct+'%"></i></div>';
+    } else {
+      inner += '<div class="sub">'+t.pts+' points</div>';
+    }
+    const cls = "yt yt"+Math.min(i,4)+(earned?" earned":(nextShown && pts < t.pts && tiers.findIndex(x=>pts<x.pts)===i ? "" : " locked"));
+    return '<div class="'+cls+'"><div class="ico">'+(earned?"\u2705":icons[Math.min(i,4)])+'</div><div class="mid">'+inner+'</div></div>';
+  }).join("");
+  return '<div class="card"><h2>\ud83c\udfdb\ufe0f The Year-End Vault</h2>'
+    + '<div class="tiny" style="margin-bottom:2px">Guaranteed treasure \u2014 every box you reach is yours at the end of the year. No rolls, no luck. Just points.</div>'
+    + rows + '</div>';
 }
 
 /* ---- log a book ---- */
@@ -1057,6 +1123,9 @@ function tLoot(){
     + '<div class="card"><h2>Drop odds (d100)</h2><table><thead><tr><th>Roll</th><th>Box</th><th class="num">Odds</th></tr></thead><tbody>'+odds+'</tbody></table>'
     + '<div class="tiny" style="margin-top:8px">Posted odds, nothing purchased, earning is pure effort — that’s the answer if anyone asks about “loot boxes.”</div></div>'
     + '<div class="card"><h2>Prizes per tier</h2>'+prizes+'</div>'
+    + '<div class="card" style="grid-column:1/-1"><h2>Year-end ceremony</h2>'
+    + '<div class="tiny" style="margin-bottom:8px">June mode: full-screen, projector-friendly. Reveals every crawler\u2019s guaranteed year-end box one at a time, lowest tier first, building to the finale. Advance with the button, spacebar, or \u2192. Kids below the first tier get a warm crawler card, never an empty one.</div>'
+    + '<button class="btn gold" data-a="startcere">\ud83c\udfc6 Begin the Year-End Ceremony</button></div>'
     + '<div class="card" style="grid-column:1/-1"><h2>Box ledger</h2>'+ledger+'</div></div>';
 }
 
@@ -1155,6 +1224,67 @@ function printCards(){
   window.print();
 }
 
+/* ---- year-end ceremony (teacher, projector) ---- */
+let CER = null;
+function tierIdxFor(pts, tiers){ let idx = -1; tiers.forEach((t,i)=>{ if(pts >= t.pts) idx = i; }); return idx; }
+function startCeremony(){
+  if(!TD || !TD.students.length){ toast("No crawlers yet"); return; }
+  const tiers = TD.settings.yearTiers.slice().sort((a,b)=>a.pts-b.pts);
+  const list = TD.students.map(st=>{
+    const t = Engine.totals(st.id, TD);
+    return {name:st.name, pts:t.pts, books:t.verified, best:t.best, ti:tierIdxFor(t.pts, tiers)};
+  }).sort((a,b)=> (a.ti - b.ti) || (a.pts - b.pts));
+  CER = {list, tiers, i:-1};
+  const ov = document.createElement("div");
+  ov.className = "ceremony"; ov.id = "cereov";
+  document.body.appendChild(ov);
+  renderCeremony();
+}
+function endCeremony(){ document.getElementById("cereov")?.remove(); CER = null; }
+function renderCeremony(){
+  const ov = document.getElementById("cereov");
+  if(!ov || !CER) return;
+  const N = CER.list.length;
+  const CCOLORS = [["#EAD5C0","#B98554","#FFFFFF"],["#E8E8EE","#9C9CB0","#FFFFFF"],["#F5CF7E","#E8A33D","#FFFFFF"],["#9FE0DC","#DDF0EE","#FFFFFF"],["#7FE3E0","#F5CF7E","#FFFFFF","#C9B5F0"]];
+  if(CER.i === -1){
+    ov.innerHTML = '<div class="cerewrap"><div class="cerekicker">'+esc(TD.settings.className||"")+'</div>'
+      + '<div class="cerename">THE YEAR-END<br>CEREMONY</div>'
+      + '<div class="cerestats">'+N+' crawlers \u00b7 one year \u00b7 every box guaranteed</div>'
+      + '<div class="cerectl"><button class="btn gold big" style="width:auto" data-a="cerenext">Begin \u2192</button>'
+      + '<button class="btn ghost" data-a="cereexit">Exit</button></div></div>';
+    return;
+  }
+  if(CER.i >= N){
+    const totB = CER.list.reduce((a,x)=>a+x.books,0), totP = CER.list.reduce((a,x)=>a+x.pts,0);
+    const fl = FLOORS[floorIdxFromPts(totP)];
+    ov.innerHTML = '<div class="cerewrap"><div class="cerekicker">THE CRAWL IS COMPLETE</div>'
+      + '<div class="cerename">'+totB+' BOOKS</div>'
+      + '<div class="cerestats">'+totP+' points as a class \u00b7 the dungeon reached FLOOR '+fl.n+': '+esc(fl.name)+'</div>'
+      + '<div class="cerestats" style="font-style:italic">Well fought, crawlers. The dungeon will remember you.</div>'
+      + '<div class="cerectl"><button class="btn gold" data-a="cereexit">End ceremony</button></div></div>';
+    spawnBurst(ov, ["#F5CF7E","#E8A33D","#A79BE0","#7FE3E0","#FFFFFF"], 160);
+    return;
+  }
+  const c = CER.list[CER.i];
+  const tier = c.ti >= 0 ? CER.tiers[c.ti] : null;
+  const last = CER.i === N - 1;
+  const boxHtml = tier
+    ? '<div class="cerebox yt'+Math.min(c.ti,4)+(c.ti>=4?" pulse":"")+'">'+esc(tier.name).toUpperCase()+'</div>'
+    : '<div class="cerebox none">HONORARY CRAWLER \u2014 every floor was walked</div>';
+  ov.innerHTML = '<div class="cerecount">'+(CER.i+1)+' / '+N+'</div>'
+    + '<div class="cerewrap"><div class="cerekicker">'+(c.ti>=4?"AGAINST ALL ODDS":"THE VAULT OPENS FOR")+'</div>'
+    + '<img class="cereav" alt="" src="'+avatarFor(c.name)+'">'
+    + '<div class="cerename">'+esc(c.name)+'</div>'
+    + '<div class="cerestats">'+c.books+' book'+(c.books===1?"":"s")+' \u00b7 '+c.pts+' points'
+    + (c.best!=null && c.best>0 ? ' \u00b7 biggest stretch '+c.best+'L' : '')+'</div>'
+    + boxHtml
+    + '<div class="cerectl"><button class="btn gold" data-a="cerenext">'+(last?"The finale \u2192":"Next crawler \u2192")+'</button>'
+    + '<button class="btn ghost" data-a="cereexit">Exit</button></div></div>';
+  const colors = c.ti >= 0 ? CCOLORS[Math.min(c.ti,4)] : ["#B9B3D1","#7C76A0"];
+  spawnBurst(ov, colors, c.ti >= 4 ? 160 : c.ti >= 0 ? 60 + c.ti*25 : 24);
+}
+function floorIdxFromPts(pts){ let i = 0; for(let k = 0; k < FLOORS.length; k++){ if(pts >= FLOORS[k].at) i = k; } return i; }
+
 /* ============================================================
    CONTROLLER
    ============================================================ */
@@ -1239,6 +1369,9 @@ document.addEventListener("click", async (ev)=>{
     case "openbox": await openLoot(); break;
     case "closeloot": document.getElementById("lootov")?.remove(); SS=null; await loadState(); render(); break;
     case "closefloor": document.getElementById("floorov")?.remove(); break;
+    case "startcere": startCeremony(); break;
+    case "cerenext": if(CER){ CER.i++; renderCeremony(); } break;
+    case "cereexit": endCeremony(); break;
 
     /* ---- teacher ---- */
     case "tteacher": {
@@ -1456,6 +1589,10 @@ document.addEventListener("input", (ev)=>{
   if(ev.target.id === "booksearch"){ logState.q = ev.target.value; logState.pick = null; render(); }
 });
 document.addEventListener("keydown", async (ev)=>{
+  if(CER){
+    if(ev.key === " " || ev.key === "ArrowRight"){ ev.preventDefault(); CER.i++; renderCeremony(); return; }
+    if(ev.key === "Escape"){ endCeremony(); return; }
+  }
   if(route.screen === "code" && ev.key === "Enter"){ $('[data-a="entercode"]')?.click(); return; }
   if(route.screen !== "pin") return;
   if(/^[0-9]$/.test(ev.key)){ if(pinBuf.length<4){ pinBuf+=ev.key; if(pinBuf.length===4){ await tryPin(); return; } render(); } }

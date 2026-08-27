@@ -272,6 +272,13 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 .gearchip.rar-Legendary{background:var(--t-legendary-bg);color:var(--t-legendary-ink);border-color:transparent}
 .newgear{margin-top:10px;font-weight:700;animation:pop .5s}
 .newgear .chip{font-size:14px;padding:5px 12px}
+/* quest reports + spot checks */
+.questcard{margin-top:14px;padding:12px;border:1.5px dashed var(--violet);border-radius:12px;background:var(--surface2)}
+.questcard .questq{font-weight:700;margin:2px 0 8px}
+.questcard textarea{width:100%;min-height:64px;resize:vertical}
+.qanswer{margin-top:6px;padding:8px 10px;border-left:3px solid var(--violet);background:var(--surface2);border-radius:0 8px 8px 0;font-size:14px}
+.chip.spotchk{background:var(--warn);color:#241a04;border:none;font-weight:800}
+.qcard.flagged{border:1.5px solid var(--warn)}
 .hero .title-line{font-size:12px;opacity:.85;font-style:italic}
 #printcards{display:none}
 @media print{
@@ -428,7 +435,8 @@ function settingsFromRow(row){
     per10L: row.per_10l, stretchCap: row.stretch_cap,
     lenBands: [{min:300, pts:row.len_300},{min:200, pts:row.len_200},{min:100, pts:row.len_100}],
     boxPts: row.box_pts, yearTiers: row.year_tiers, d100: row.d100, prizes: row.prizes,
-    className: row.class_name, classCode: row.class_code
+    className: row.class_name, classCode: row.class_code,
+    verifyMode: row.verify_mode
   };
 }
 /* app settings knob path -> DB column patch */
@@ -436,15 +444,51 @@ const KNOB_TO_COL = {
   "basePts":"base_pts", "fluencyPts":"fluency_pts", "belowCutoff":"below_cutoff",
   "per10L":"per_10l", "stretchCap":"stretch_cap", "boxPts":"box_pts",
   "len100":"len_100", "len200":"len_200", "len300":"len_300",
-  "className":"class_name", "classCode":"class_code"
+  "className":"class_name", "classCode":"class_code", "verifyMode":"verify_mode"
 };
+
+/* Quest Report question pool — drawn at random when a kid logs a book.
+   Every question is one a back cover can't answer. */
+const QPOOL = [
+  "What happened at the very END of the book?",
+  "Who was your favorite character, and what did they do?",
+  "What was the most exciting part?",
+  "Tell about a moment that surprised you.",
+  "Which character annoyed you, and why?",
+  "What was the problem in the story, and how did it get solved?",
+  "What is one thing from this book you'll remember in a year?",
+  "Would you tell a friend to read this? Why or why not?"
+];
+const VMODES = {
+  classic: "Classic — every book gets a teacher book talk",
+  report: "Quest Report — kids answer one question; verify from their answer",
+  report_spot: "Quest Report + Spot Checks — the dungeon flags ~1 in 4 for a real talk"
+};
+/* does this student's log form ask a quest question? freshest source wins:
+   student_state refreshes constantly; bootstrap only at page load */
+function askQ(){
+  if(typeof SS?.ask_q !== "undefined") return !!SS.ask_q;
+  return !!(BOOT && BOOT.ask_q);
+}
 
 /* ============================================================
    API LAYER — LiveAPI (Supabase) and DemoAPI (in-browser)
    Both expose the same interface.
    ============================================================ */
 function makeLiveAPI(){
-  const sb = window.__createSupabase(CONFIG.url, CONFIG.anon);
+  /* Every network call gives up after 15s instead of hanging forever.
+     A wedged token refresh (laptop sleep, dropped wifi) used to hold the
+     client's auth lock and make every later call spin — this releases it. */
+  const _tfetch = (input, init) => {
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(new DOMException("timeout", "TimeoutError")), 15000);
+    if(init && init.signal){
+      if(init.signal.aborted) c.abort(init.signal.reason);
+      else init.signal.addEventListener("abort", () => c.abort(init.signal.reason), {once:true});
+    }
+    return fetch(input, Object.assign({}, init, {signal: c.signal})).finally(() => clearTimeout(t));
+  };
+  const sb = window.__createSupabase(CONFIG.url, CONFIG.anon, {global: {fetch: _tfetch}});
   try{
     sb.auth.onAuthStateChange((event)=>{
       if(event === "PASSWORD_RECOVERY"){
@@ -464,14 +508,18 @@ function makeLiveAPI(){
     async bootstrap(code){ return rpc("bootstrap", {p_code: code}); },
     async login(code, sid, pin){ return rpc("student_login", {p_code:code, p_student:sid, p_pin:pin}); },
     async state(code, sid, pin){ return rpc("student_state", {p_code:code, p_student:sid, p_pin:pin}); },
-    async logRead(code, sid, pin, bookId, title, pages, date){
-      return rpc("log_read", {p_code:code, p_student:sid, p_pin:pin, p_book:bookId, p_title:title, p_pages:pages, p_date:date});
+    async logRead(code, sid, pin, bookId, title, pages, date, q2, a2){
+      const args = {p_code:code, p_student:sid, p_pin:pin, p_book:bookId, p_title:title, p_pages:pages, p_date:date};
+      /* only send quest-report params when the server asked for them —
+         keeps this build compatible with a database that predates them */
+      if(q2 != null){ args.p_q = q2; args.p_a = a2; }
+      return rpc("log_read", args);
     },
     async openBox(code, sid, pin){ return rpc("open_box", {p_code:code, p_student:sid, p_pin:pin}); },
     async equipItem(code, sid, pin, slot, itemId){ return rpc("equip_item", {p_code:code, p_student:sid, p_pin:pin, p_slot:slot, p_item:itemId}); },
 
     /* ---- teacher ---- */
-    async teacherSession(){ const {data} = await sb.auth.getSession(); return data.session || null; },
+    async teacherSession(){ const {data} = await withTimeout(sb.auth.getSession(), 8000); return data.session || null; },
     async teacherSignIn(email, password){
       const {error} = await sb.auth.signInWithPassword({email, password});
       if(error) throw new Error(error.message);
@@ -507,11 +555,12 @@ function makeLiveAPI(){
         settings: settingsFromRow(row),
         students: Object.values(stuMap),
         books: books.map(b=>({id:b.id, title:b.title, pages:b.pages, level:b.level})),
-        reads: reads.map(r=>({id:r.id, studentId:r.student_id, bookId:r.book_id, date:r.on_date, status:r.status})),
+        reads: reads.map(r=>({id:r.id, studentId:r.student_id, bookId:r.book_id, date:r.on_date, status:r.status, q:r.q, a:r.a, flagged:!!r.flagged})),
         boxes: boxes.map(b=>({id:b.id, studentId:b.student_id, tier:b.tier, n:b.roll, date:b.on_date, delivered:b.delivered}))
       };
     },
     async verifyRead(id){ const {error} = await sb.from("reads").update({status:"verified"}).eq("id", id); if(error) throw new Error(error.message); },
+    async setFlag(id, flagged){ const {error} = await sb.from("reads").update({flagged}).eq("id", id); if(error) throw new Error(error.message); },
     async deleteRead(id){ const {error} = await sb.from("reads").delete().eq("id", id); if(error) throw new Error(error.message); },
     async setBook(id, patch){
       const p = {}; if("level" in patch) p.level = patch.level; if("pages" in patch) p.pages = patch.pages;
@@ -551,7 +600,7 @@ function makeDemoAPI(){
           Rare:"Lunch with the teacher · pick the class game · choose-your-seat week · prize-box item",
           Epic:"Keep-a-book from the giveaway shelf · Librarian for a Day · epic certificate + class announcement",
           Legendary:"Full dramatic loot reveal: announcer-voice proclamation, custom certificate, one grand privilege (within reason)"},
-        className:"Room 12 — Floor 4 (DEMO)", classCode:"CRAWL"},
+        className:"Room 12 — Floor 4 (DEMO)", classCode:"CRAWL", verifyMode:"report_spot"},
       students:[
         {id:"st1", name:"Ember Fox", pin:"1111", levels:[{date:"2026-08-01",lvl:390}]},
         {id:"st2", name:"Storm Otter", pin:"2222", levels:[{date:"2026-08-01",lvl:700}]},
@@ -568,10 +617,14 @@ function makeDemoAPI(){
         {id:"r1", studentId:"st1", bookId:"bk1", date:"2026-08-24", status:"verified"},
         {id:"r2", studentId:"st2", bookId:"bk2", date:"2026-08-24", status:"verified"},
         {id:"r3", studentId:"st3", bookId:"bk3", date:"2026-08-26", status:"verified"},
-        {id:"r4", studentId:"st1", bookId:"bk4", date:"2026-08-28", status:"pending"},
+        {id:"r4", studentId:"st1", bookId:"bk4", date:"2026-08-28", status:"pending",
+         q:"What happened at the very END of the book?",
+         a:"The mice finally landed on the moon and it really was made of cheese! I didn't think Captain Whiskers would make it back home but he did.", flagged:false},
         {id:"r5", studentId:"st2", bookId:"bk5", date:"2026-09-02", status:"verified"},
         {id:"r6", studentId:"st2", bookId:"bk6", date:"2026-09-09", status:"verified"},
-        {id:"r7", studentId:"st3", bookId:"bk7", date:"2026-09-10", status:"pending"}],
+        {id:"r7", studentId:"st3", bookId:"bk7", date:"2026-09-10", status:"pending",
+         q:"What was the most exciting part?",
+         a:"When the ninth bell rang at midnight and the whole graveyard woke up. I read that chapter twice.", flagged:true}],
       boxes:[]};
   }
   function load(){ try{ const raw = localStorage.getItem(KEY); if(raw) return JSON.parse(raw); }catch(e){} return MEM || seed(); }
@@ -586,6 +639,7 @@ function makeDemoAPI(){
       if(!okCode(code)) return {ok:false};
       const classPts = D.students.reduce((a, st)=> a + Engine.totals(st.id, D).pts, 0);
       return {ok:true, class_name:D.settings.className, box_pts:D.settings.boxPts, prizes:D.settings.prizes, class_pts: classPts, year_tiers: D.settings.yearTiers,
+        ask_q: (D.settings.verifyMode || "classic") !== "classic",
         students: D.students.map(s=>({id:s.id, name:s.name, equipped:s.equipped||{}})).sort((a,b)=>a.name.localeCompare(b.name)),
         books: D.books.map(b=>({id:b.id, title:b.title, pages:b.pages, has_level:b.level!=null}))};
     },
@@ -596,6 +650,7 @@ function makeDemoAPI(){
       const stx = stu(sid);
       return {ok:true, pts:t.pts, crawler_lvl:t.crawlerLvl, verified:t.verified, pending:t.pending,
         available:t.available, to_next:t.toNext, box_pts:D.settings.boxPts,
+        ask_q: (D.settings.verifyMode || "classic") !== "classic",
         gear: stx.gear || [], equipped: stx.equipped || {},
         reads: D.reads.filter(r=>r.studentId===sid).sort((a,b)=> a.date<b.date?1:-1).map(r=>{
           const b = D.books.find(x=>x.id===r.bookId);
@@ -606,9 +661,17 @@ function makeDemoAPI(){
         boxes: D.boxes.filter(b=>b.studentId===sid).sort((a,b)=> a.date<b.date?1:-1)
           .map(b=>({tier:b.tier, delivered:b.delivered, date:b.date}))};
     },
-    async logRead(code, sid, pin, bookId, title, pages, date){
+    async logRead(code, sid, pin, bookId, title, pages, date, q2, a2){
       if(!auth(code, sid, pin)) return {ok:false, err:"auth"};
       if(!date || date > todayISO()) return {ok:false, err:"date"};
+      const mode = D.settings.verifyMode || "classic";
+      let qq = null, aa = null, fl = false;
+      if(mode !== "classic"){
+        aa = String(a2 || "").trim().slice(0, 500);
+        if(aa.length < 10) return {ok:false, err:"answer"};
+        qq = String(q2 || "").slice(0, 200);
+        fl = (mode === "report_spot") && Math.random() < 0.25;
+      }
       let bid = bookId && D.books.some(b=>b.id===bookId) ? bookId : null;
       if(!bid){
         if(!title || !title.trim()) return {ok:false, err:"title"};
@@ -616,7 +679,7 @@ function makeDemoAPI(){
         if(ex) bid = ex.id;
         else { bid = uid(); D.books.push({id:bid, title:title.trim(), pages:pages||null, level:null}); }
       }
-      D.reads.push({id:uid(), studentId:sid, bookId:bid, date, status:"pending"});
+      D.reads.push({id:uid(), studentId:sid, bookId:bid, date, status:"pending", q:qq, a:aa, flagged:fl});
       save(D); return {ok:true};
     },
     async openBox(code, sid, pin){
@@ -656,6 +719,7 @@ function makeDemoAPI(){
     async teacherUpdatePassword(){ },
     async fetchAll(){ return JSON.parse(JSON.stringify(D)); },
     async verifyRead(id){ const r = D.reads.find(x=>x.id===id); if(r) r.status="verified"; save(D); },
+    async setFlag(id, flagged){ const r = D.reads.find(x=>x.id===id); if(r) r.flagged = !!flagged; save(D); },
     async deleteRead(id){ D.reads = D.reads.filter(x=>x.id!==id); save(D); },
     async setBook(id, patch){ const b = D.books.find(x=>x.id===id); if(b) Object.assign(b, patch); save(D); },
     async addBook(title, level, pages){ D.books.push({id:uid(), title, level, pages}); save(D); },
@@ -677,6 +741,7 @@ function makeDemoAPI(){
         else if(col==="len_200") s.lenBands.find(b=>b.min===200).pts=v;
         else if(col==="len_300") s.lenBands.find(b=>b.min===300).pts=v;
         else if(col==="class_name") s.className=v; else if(col==="class_code") s.classCode=String(v).trim().toUpperCase();
+        else if(col==="verify_mode") s.verifyMode=v;
         else if(col==="year_tiers") s.yearTiers=v; else if(col==="d100") s.d100=v; else if(col==="prizes") s.prizes=v;
       }
       save(D);
@@ -729,9 +794,35 @@ async function loadState(){
     return SS;
   }catch(e){ toast("Can't reach the server — check wifi"); return SS; }
 }
-async function loadTeacher(){
-  try{ TD = await api.fetchAll(); return TD; }
-  catch(e){ toast("Couldn't load class data: " + e.message); return null; }
+/* race a promise against a deadline so nothing spins forever */
+function withTimeout(p, ms){
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
+}
+/* one guarded self-refresh per browser session — automates the manual
+   "refresh fixes it" recovery without ever reload-looping */
+function authRecover(){
+  try{
+    if(sessionStorage.getItem("bc_ar")) return false;
+    sessionStorage.setItem("bc_ar", "1");
+    location.reload();
+    return true;
+  }catch(e){ return false; }
+}
+function authOk(){ try{ sessionStorage.removeItem("bc_ar"); }catch(e){} }
+
+let TDERR = null;
+async function loadTeacher(quiet){
+  try{
+    TDERR = null;
+    TD = await withTimeout(api.fetchAll(), 20000);
+    authOk();
+    return TD;
+  }
+  catch(e){
+    TDERR = (e && e.message === "timeout") ? "the server took too long to answer" : ((e && e.message) || "server error");
+    if(!quiet) toast("Couldn't load class data — " + TDERR);
+    return null;
+  }
 }
 
 /* ============================================================
@@ -877,7 +968,8 @@ function vaultHTML(){
 
 /* ---- log a book ---- */
 function vLog(){
-  logState = logState || {q:"", pick:null, mode:"search"};
+  logState = logState || {q:"", pick:null, mode:"search", qi: Math.floor(Math.random()*QPOOL.length), ans:""};
+  if(logState.qi == null) logState.qi = Math.floor(Math.random()*QPOOL.length);
   const q = logState.q.trim().toLowerCase();
   let list = "";
   if(logState.mode==="search" && q.length >= 2 && !logState.pick && BOOT){
@@ -908,6 +1000,13 @@ function vLog(){
         : newFields)
     + '<div class="fieldlbl">When did you finish it?</div>'
     + '<input id="log_date" type="date" value="'+(logState.date||todayISO())+'" max="'+todayISO()+'">'
+    + (askQ() ? (
+        '<div class="questcard">'
+        + '<div class="fieldlbl" style="margin-top:0">🗡️ Quest Report</div>'
+        + '<div class="questq">'+esc(QPOOL[(logState.qi||0) % QPOOL.length])+'</div>'
+        + '<textarea id="q_answer" rows="3" maxlength="500" placeholder="1–3 sentences…">'+esc(logState.ans||"")+'</textarea>'
+        + '<div class="tiny">Your teacher reads this to award your points!</div>'
+        + '</div>') : "")
     + '<div style="margin-top:16px"><button class="btn primary big" data-a="submitread">Log it! ⚔️</button></div>'
     + '</div></div>';
 }
@@ -1019,7 +1118,13 @@ function vTeacherAuth(){
    TEACHER VIEWS (rendered from TD via the local Engine)
    ============================================================ */
 function vTeacher(){
-  if(!TD){ loadTeacher().then(t=>{ if(t) render(); }); return topbar() + '<div class="card"><span class="spin"></span> loading class data…</div>'; }
+  if(!TD){
+    if(TDERR) return topbar() + '<div class="card"><strong>Couldn’t load class data</strong>'
+      + '<div class="tiny" style="margin:6px 0 10px">' + esc(TDERR) + '.</div>'
+      + '<button class="btn primary" data-a="trefresh">Try again</button></div>';
+    loadTeacher().then(()=>render());
+    return topbar() + '<div class="card"><span class="spin"></span> loading class data…</div>';
+  }
   const tabs = [["queue","Queue"],["class","Class"],["books","Books"],["loot","Loot"],["settings","Settings"]];
   const nlq = TD.books.filter(b=>b.level==null && TD.reads.some(r=>r.bookId===b.id));
   const pq = TD.reads.filter(r=>r.status==="pending");
@@ -1049,14 +1154,19 @@ function tQueue(nlq, pq){
       + '<input class="inline-lvl" type="number" inputmode="numeric" placeholder="level" id="lvl_'+b.id+'">'
       + '<button class="btn small primary" data-a="savelevel" data-id="'+b.id+'">Save</button></div>';
   }).join("");
+  const vmode = TD.settings.verifyMode;
   const reads = pq.slice().sort((a,b)=> a.date<b.date?-1:1).map(r=>{
     const st = tstu(r.studentId), b = tbook(r.bookId);
     const prior = TD.reads.filter(x=>x.studentId===r.studentId && x.bookId===r.bookId && x.id!==r.id).length;
     const sc = st && b ? Engine.score(Object.assign({},r,{status:"verified"}), b, st, TD.settings) : {state:"x"};
-    return '<div class="qcard"><div class="info"><strong>'+esc(st?st.name:"?")+'</strong> finished <strong>'+esc(b?b.title:"?")+'</strong>'
+    return '<div class="qcard'+(r.flagged?" flagged":"")+'"><div class="info"><strong>'+esc(st?st.name:"?")+'</strong> finished <strong>'+esc(b?b.title:"?")+'</strong>'
+      + (r.flagged ? ' <span class="chip spotchk">🎲 Spot check — book talk!</span>' : "")
       + '<div class="tiny">'+fmtDate(r.date)
       + (b && b.level==null ? ' · <span class="chip lvlwait">needs level first</span>' : (sc.state==="ok" ? " · will earn "+sc.total+" pts" : ""))
-      + (prior ? ' · re-read #'+(prior+1) : "") + '</div></div>'
+      + (prior ? ' · re-read #'+(prior+1) : "") + '</div>'
+      + (r.a ? '<div class="qanswer"><span class="tiny">'+esc(r.q||"Quest Report")+'</span><br>“'+esc(r.a)+'”</div>' : "")
+      + '</div>'
+      + (vmode && vmode!=="classic" ? '<button class="btn small ghost" data-a="toggleflag" data-id="'+r.id+'" title="'+(r.flagged?"Remove the spot-check flag":"Flag for a book talk")+'">'+(r.flagged?"🎲 Unflag":"🎲 Flag")+'</button>' : "")
       + '<button class="btn small good" data-a="verify" data-id="'+r.id+'">✓ Verify</button>'
       + '<button class="btn small ghost danger" data-a="delread" data-id="'+r.id+'" data-arm="1">Remove</button></div>';
   }).join("");
@@ -1065,7 +1175,11 @@ function tQueue(nlq, pq){
     + '<div class="tiny" style="margin-bottom:8px">Look it up once (Lexile “Find a Book”, or the level printed in the book) — every future reader scores automatically.</div>'
     + (lvl || '<div class="tiny">Nothing waiting. 🎉</div>') + '</div>'
     + '<div class="card"><h2>Reads to verify ('+pq.length+')</h2>'
-    + '<div class="tiny" style="margin-bottom:8px">A 2-minute book talk is plenty. Verify awards the points.</div>'
+    + '<div class="tiny" style="margin-bottom:8px">'
+    + (vmode==="report" ? "Read each Quest Report, then verify — spot-talk any that feel thin."
+      : vmode==="report_spot" ? "Read the Quest Report and verify. 🎲 flagged reads get a real book talk first — the dungeon picks them at random, and you can flag any read yourself."
+      : "A 2-minute book talk is plenty. Verify awards the points.")
+    + '</div>'
     + (reads || '<div class="tiny">Queue clear.</div>') + '</div></div>';
 }
 
@@ -1225,6 +1339,17 @@ function tSettings(){
     + num("Length bonus: 300+ pages","len300",S.lenBands.find(b=>b.min===300).pts)
     + num("Points per loot box","boxPts",S.boxPts)
     + '</div>'
+    + (S.verifyMode !== undefined ?
+      '<div class="card"><h2>Verification</h2>'
+      + '<div class="settingrow"><label>How reads get verified</label>'
+      + '<select data-set="verifyMode" style="max-width:220px">'
+      + Object.keys(VMODES).map(m=>'<option value="'+m+'"'+(S.verifyMode===m?" selected":"")+'>'+esc(VMODES[m].split(" — ")[0])+'</option>').join("")
+      + '</select></div>'
+      + '<div class="tiny" style="margin-top:6px">'
+      + '<strong>Classic</strong> — every book gets a teacher book talk before points (most teacher time).<br>'
+      + '<strong>Quest Report</strong> — kids answer one random question when they log; you verify from their written answer (~15 sec a book).<br>'
+      + '<strong>Quest Report + Spot Checks</strong> — reports, plus the dungeon secretly flags about 1 in 4 reads for a real book talk. Kids never see the flag, so there’s no pattern to game.'
+      + '</div></div>' : "")
     + '<div class="card"><h2>Year-end boxes</h2>'+tiers
     + '<h2 style="margin-top:16px">Class</h2>'
     + '<div class="settingrow"><label>Class name</label><input type="text" data-set="className" value="'+esc(S.className||"")+'" style="width:200px;text-align:left"></div>'
@@ -1438,13 +1563,21 @@ document.addEventListener("click", async (ev)=>{
         if(!title){ toast("Type the book’s title first!"); return; }
       }
       if(!bookId && !title){ toast("Pick your book from the list (or add it as new)"); return; }
+      let qtext = null, ans = null;
+      if(askQ()){
+        qtext = QPOOL[(logState.qi||0) % QPOOL.length];
+        ans = ($("#q_answer")?.value || "").trim();
+        if(ans.length < 10){ toast("Fill in your Quest Report first — a sentence or two about the book!"); return; }
+      }
       busy(el, true);
       let res;
-      try{ res = await api.logRead(CODE, route.who, SPIN[route.who], bookId, title, pages, date); }
+      try{ res = await api.logRead(CODE, route.who, SPIN[route.who], bookId, title, pages, date, qtext, ans); }
       catch(e){ busy(el,false); toast("Can't reach the server — try again"); return; }
       busy(el, false);
       if(!res || !res.ok){
-        toast(res && res.err==="too_many_pending" ? "Whoa, 10 books waiting already — let your teacher catch up!" : "That didn’t save — check it and try again");
+        toast(res && res.err==="too_many_pending" ? "Whoa, 10 books waiting already — let your teacher catch up!"
+          : res && res.err==="answer" ? "Fill in your Quest Report first — a sentence or two about the book!"
+          : "That didn’t save — check it and try again");
         return;
       }
       logState = null; SS = null; BOOT = null;   // refresh book list (new book) + state
@@ -1462,8 +1595,10 @@ document.addEventListener("click", async (ev)=>{
 
     /* ---- teacher ---- */
     case "tteacher": {
-      const sess = await api.teacherSession();
-      if(sess){ TD=null; go({screen:"teacher", tab:"queue", sub:null}); }
+      let sess = null;
+      try{ sess = await api.teacherSession(); authOk(); }
+      catch(e){ if(authRecover()) return; }
+      if(sess){ TD=null; TDERR=null; go({screen:"teacher", tab:"queue", sub:null}); }
       else go({screen:"tauth"});
       break;
     }
@@ -1479,14 +1614,18 @@ document.addEventListener("click", async (ev)=>{
       busy(el, true);
       try{
         if(a==="tsignup"){
-          const r = await api.teacherSignUp(email, pass);
+          const r = await withTimeout(api.teacherSignUp(email, pass), 20000);
           if(r && r.user && !r.session){ busy(el,false); authMode="in"; render(); toast("Account created \u2014 check your email to confirm, then sign in"); return; }
         }
-        else await api.teacherSignIn(email, pass);
+        else await withTimeout(api.teacherSignIn(email, pass), 20000);
         busy(el, false);
+        authOk();
         authMode = "in";
-        TD = null; go({screen:"teacher", tab:"queue", sub:null});
-      }catch(e){ busy(el, false); toast(e.message || "Sign-in failed"); }
+        TD = null; TDERR = null; go({screen:"teacher", tab:"queue", sub:null});
+      }catch(e){
+        busy(el, false);
+        toast(e.message === "timeout" ? "The server took too long \u2014 check your connection and try again" : (e.message || "Sign-in failed"));
+      }
       break;
     }
     case "authmode": authMode = el.dataset.m; render(); break;
@@ -1507,15 +1646,22 @@ document.addEventListener("click", async (ev)=>{
       if(p1 !== p2){ toast("Passwords don\u2019t match \u2014 type them again"); return; }
       busy(el, true);
       try{
-        await api.teacherUpdatePassword(p1);
-        authMode = "in"; TD = null;
+        await withTimeout(api.teacherUpdatePassword(p1), 20000);
+        authMode = "in"; TD = null; TDERR = null;
         go({screen:"teacher", tab:"queue", sub:null});
         toast("Password updated");
       }catch(e){ busy(el, false); toast(e.message || "Couldn\u2019t change it \u2014 sign out, sign in, and retry"); }
       break;
     }
-    case "tsignout": await api.teacherSignOut(); TD=null; go({screen: CODE ? "gate" : "code"}); break;
+    case "tsignout": try{ await withTimeout(api.teacherSignOut(), 8000); }catch(e){} TD=null; TDERR=null; go({screen: CODE ? "gate" : "code"}); break;
     case "trefresh": busy(el,true); await loadTeacher(); busy(el,false); render(); break;
+    case "toggleflag": {
+      const r = TD && TD.reads.find(x=>x.id===id);
+      if(!r) return;
+      try{ await api.setFlag(id, !r.flagged); r.flagged = !r.flagged; render(); }
+      catch(e){ toast(e.message); }
+      break;
+    }
     case "ttab": go({screen:"teacher", tab:el.dataset.t, sub:null}); break;
     case "detail": go({tab:"class", sub:id}); break;
     case "savelevel": {
@@ -1654,7 +1800,8 @@ document.addEventListener("change", async (ev)=>{
         TD.settings.yearTiers = tiers;
       } else {
         const col = KNOB_TO_COL[k]; if(!col) return;
-        const isText = (k==="className" || k==="classCode");
+        const isText = (k==="className" || k==="classCode" || k==="verifyMode");
+        if(k==="verifyMode" && !VMODES[el.value]) return;
         const v = isText ? el.value.trim() : parseInt(el.value, 10);
         if(!isText && isNaN(v)) return;
         await api.updateSettings({[col]: isText ? v : v});
@@ -1674,6 +1821,7 @@ document.addEventListener("change", async (ev)=>{
 
 document.addEventListener("input", (ev)=>{
   if(ev.target.id === "booksearch"){ logState.q = ev.target.value; logState.pick = null; render(); }
+  else if(ev.target.id === "q_answer" && logState){ logState.ans = ev.target.value; }
 });
 document.addEventListener("keydown", async (ev)=>{
   if(CER){
@@ -1692,7 +1840,7 @@ function typing(){ const t = document.activeElement && document.activeElement.ta
 setInterval(async ()=>{
   if(document.hidden || typing()) return;
   if(route.screen==="home" && route.who && SPIN[route.who]){ await loadState(); render(); }
-  else if(route.screen==="teacher"){ await loadTeacher(); render(); }
+  else if(route.screen==="teacher"){ await loadTeacher(true); render(); }
 }, 45000);
 document.addEventListener("visibilitychange", async ()=>{
   if(document.hidden || typing()) return;
@@ -1703,7 +1851,9 @@ document.addEventListener("visibilitychange", async ()=>{
 (async function init(){
   if(!DEMO && /type=recovery/.test(location.hash)){ authMode = "reset"; route.screen = "tauth"; }
   if(route.screen==="teacher" || route.screen==="tauth"){
-    const sess = await api.teacherSession();
+    let sess = null;
+    try{ sess = await api.teacherSession(); authOk(); }
+    catch(e){ if(authRecover()) return; }
     if(!sess) route.screen = "tauth";
   } else if(route.screen==="home" || route.screen==="log" || route.screen==="char"){
     if(!route.who || !SPIN[route.who]) route.screen = CODE ? "gate" : "code";

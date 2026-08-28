@@ -279,6 +279,17 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 .qanswer{margin-top:6px;padding:8px 10px;border-left:3px solid var(--violet);background:var(--surface2);border-radius:0 8px 8px 0;font-size:14px}
 .chip.spotchk{background:var(--warn);color:#241a04;border:none;font-weight:800}
 .qcard.flagged{border:1.5px solid var(--warn)}
+.toast .undobtn{margin-left:12px;background:var(--accent-strong);color:#241a04;border:none;border-radius:8px;padding:4px 12px;font-weight:800;font-size:13px;cursor:pointer}
+/* the Descent map */
+.descwrap{position:relative;border-radius:14px;overflow:hidden;border:1.5px solid var(--line);box-shadow:0 4px 18px rgba(20,14,50,.18)}
+#descmap{display:block;width:100%;height:auto;image-rendering:pixelated}
+.desclabels{position:absolute;inset:0;display:grid;grid-template-rows:repeat(5,34fr) 16fr;pointer-events:none}
+.descrow{display:flex;justify-content:space-between;align-items:flex-start;padding:6px 10px 0;gap:8px}
+.descrow span{background:rgba(10,8,24,.58);color:#F5F2FF;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:800;letter-spacing:.02em}
+.descrow.lk span{opacity:.75}
+.torchrow{display:flex;align-items:center;gap:12px}
+.torchrow .avatarimg{width:44px;height:44px}
+.floorbanner .f3{font-size:14px;font-style:italic;opacity:.85;margin-top:8px}
 .hero .title-line{font-size:12px;opacity:.85;font-style:italic}
 #printcards{display:none}
 @media print{
@@ -402,6 +413,15 @@ function toast(msg){
   host._t = setTimeout(()=>{ host.innerHTML=""; }, 2800);
 }
 function uid(){ return Math.random().toString(36).slice(2,10); }
+/* toast with an UNDO button — for high-frequency actions where a
+   confirm dialog would just train reflex-clicking */
+function toastUndo(msg, id){
+  const host = $("#toasthost");
+  host.innerHTML = '<div class="toast">'+esc(msg)
+    + '<button class="undobtn" data-a="undoverify" data-id="'+esc(id)+'">↩ UNDO</button></div>';
+  clearTimeout(host._t);
+  host._t = setTimeout(()=>{ host.innerHTML=""; }, 7000);
+}
 function todayISO(){ const d = new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function fmtDate(iso){ if(!iso) return ""; const p = String(iso).slice(0,10).split("-"); return Number(p[1])+"/"+Number(p[2])+"/"+p[0].slice(2); }
 function tierClass(t){ return ({Common:"common", Uncommon:"uncommon", Rare:"rare", Epic:"epic", Legendary:"legendary"})[t] || "common"; }
@@ -447,18 +467,33 @@ const KNOB_TO_COL = {
   "className":"class_name", "classCode":"class_code", "verifyMode":"verify_mode"
 };
 
-/* Quest Report question pool — drawn at random when a kid logs a book.
-   Every question is one a back cover can't answer. */
-const QPOOL = [
-  "What happened at the very END of the book?",
-  "Who was your favorite character, and what did they do?",
-  "What was the most exciting part?",
-  "Tell about a moment that surprised you.",
-  "Which character annoyed you, and why?",
-  "What was the problem in the story, and how did it get solved?",
-  "What is one thing from this book you'll remember in a year?",
-  "Would you tell a friend to read this? Why or why not?"
-];
+/* Quest Report question pools — the kid says whether it was a story or a
+   true book, then a question is drawn from the matching pool. Every
+   question is one a back cover can't answer. Pools are the same length so
+   one rolled index works for either. */
+const QPOOLS = {
+  fic: [
+    "What happened at the very END of the story?",
+    "Who was your favorite character, and what did they do?",
+    "What was the most exciting part?",
+    "Tell about a moment that surprised you.",
+    "Which character would you want as a friend — and why?",
+    "What was the problem in the story, and how did it get solved?",
+    "If you could ask a character one question, what would it be?",
+    "Would you tell a friend to read this? Why or why not?"
+  ],
+  nf: [
+    "What are two facts you learned from this book?",
+    "What was the most surprising thing you learned?",
+    "What is this book mostly about — in your own words?",
+    "What is one question you still have after reading?",
+    "How did the pictures, maps, or diagrams help you understand?",
+    "What's one thing from this book you could teach someone else?",
+    "Why do you think the author wrote this book?",
+    "Would you tell a friend to read this? Why or why not?"
+  ]
+};
+const GENRE_LABEL = {fic: "Fiction", nf: "Nonfiction"};
 const VMODES = {
   classic: "Classic — every book gets a teacher book talk",
   report: "Quest Report — kids answer one question; verify from their answer",
@@ -560,6 +595,7 @@ function makeLiveAPI(){
       };
     },
     async verifyRead(id){ const {error} = await sb.from("reads").update({status:"verified"}).eq("id", id); if(error) throw new Error(error.message); },
+    async unverifyRead(id){ const {error} = await sb.from("reads").update({status:"pending"}).eq("id", id); if(error) throw new Error(error.message); },
     async setFlag(id, flagged){ const {error} = await sb.from("reads").update({flagged}).eq("id", id); if(error) throw new Error(error.message); },
     async deleteRead(id){ const {error} = await sb.from("reads").delete().eq("id", id); if(error) throw new Error(error.message); },
     async setBook(id, patch){
@@ -618,12 +654,12 @@ function makeDemoAPI(){
         {id:"r2", studentId:"st2", bookId:"bk2", date:"2026-08-24", status:"verified"},
         {id:"r3", studentId:"st3", bookId:"bk3", date:"2026-08-26", status:"verified"},
         {id:"r4", studentId:"st1", bookId:"bk4", date:"2026-08-28", status:"pending",
-         q:"What happened at the very END of the book?",
+         q:"Fiction — What happened at the very END of the story?",
          a:"The mice finally landed on the moon and it really was made of cheese! I didn't think Captain Whiskers would make it back home but he did.", flagged:false},
         {id:"r5", studentId:"st2", bookId:"bk5", date:"2026-09-02", status:"verified"},
         {id:"r6", studentId:"st2", bookId:"bk6", date:"2026-09-09", status:"verified"},
         {id:"r7", studentId:"st3", bookId:"bk7", date:"2026-09-10", status:"pending",
-         q:"What was the most exciting part?",
+         q:"Fiction — What was the most exciting part?",
          a:"When the ninth bell rang at midnight and the whole graveyard woke up. I read that chapter twice.", flagged:true}],
       boxes:[]};
   }
@@ -719,6 +755,7 @@ function makeDemoAPI(){
     async teacherUpdatePassword(){ },
     async fetchAll(){ return JSON.parse(JSON.stringify(D)); },
     async verifyRead(id){ const r = D.reads.find(x=>x.id===id); if(r) r.status="verified"; save(D); },
+    async unverifyRead(id){ const r = D.reads.find(x=>x.id===id); if(r) r.status="pending"; save(D); },
     async setFlag(id, flagged){ const r = D.reads.find(x=>x.id===id); if(r) r.flagged = !!flagged; save(D); },
     async deleteRead(id){ D.reads = D.reads.filter(x=>x.id!==id); save(D); },
     async setBook(id, patch){ const b = D.books.find(x=>x.id===id); if(b) Object.assign(b, patch); save(D); },
@@ -837,6 +874,7 @@ function render(){
   else if(scr === "home") app.innerHTML = vHome();
   else if(scr === "log") app.innerHTML = vLog();
   else if(scr === "char") app.innerHTML = vChar();
+  else if(scr === "descent") app.innerHTML = vDescent();
   else if(scr === "tauth") app.innerHTML = vTeacherAuth();
   else if(scr === "teacher") app.innerHTML = vTeacher();
   else app.innerHTML = vCode();
@@ -926,6 +964,7 @@ function vHome(){
         + '<span class="pill" style="background:rgba(0,0,0,.14)">OPEN →</span></button>' : "")
     + '<button class="btn gold big" data-a="tolog">📖 I finished a book!</button>'
     + (SS.gear !== undefined ? '<button class="btn" data-a="tochar">🧙 My Character · '+((SS.gear||[]).length)+' item'+(((SS.gear||[]).length)===1?"":"s")+'</button>' : '')
+    + '<button class="btn" data-a="todescent">🗺️ The Descent · Floor '+FLOORS[floorIdx()].n+'</button>'
     + '<div class="card"><div class="label">Next loot box</div>'
     + '<div class="row" style="margin:6px 0 4px"><div class="progressbar" style="flex:1"><i style="width:'
       + Math.min(100, Math.round(100*SS.to_next/SS.box_pts))+'%"></i></div>'
@@ -968,8 +1007,8 @@ function vaultHTML(){
 
 /* ---- log a book ---- */
 function vLog(){
-  logState = logState || {q:"", pick:null, mode:"search", qi: Math.floor(Math.random()*QPOOL.length), ans:""};
-  if(logState.qi == null) logState.qi = Math.floor(Math.random()*QPOOL.length);
+  logState = logState || {q:"", pick:null, mode:"search", qi: Math.floor(Math.random()*QPOOLS.fic.length), ans:"", genre:null};
+  if(logState.qi == null) logState.qi = Math.floor(Math.random()*QPOOLS.fic.length);
   const q = logState.q.trim().toLowerCase();
   let list = "";
   if(logState.mode==="search" && q.length >= 2 && !logState.pick && BOOT){
@@ -1003,9 +1042,16 @@ function vLog(){
     + (askQ() ? (
         '<div class="questcard">'
         + '<div class="fieldlbl" style="margin-top:0">🗡️ Quest Report</div>'
-        + '<div class="questq">'+esc(QPOOL[(logState.qi||0) % QPOOL.length])+'</div>'
-        + '<textarea id="q_answer" rows="3" maxlength="500" placeholder="1–3 sentences…">'+esc(logState.ans||"")+'</textarea>'
-        + '<div class="tiny">Your teacher reads this to award your points!</div>'
+        + '<div class="tiny" style="margin-bottom:6px">What kind of book was it?</div>'
+        + '<div class="row" style="margin-bottom:8px">'
+        + '<button class="btn small'+(logState.genre==="fic"?" primary":"")+'" data-a="genre" data-g="fic">📖 A story (fiction)</button>'
+        + '<button class="btn small'+(logState.genre==="nf"?" primary":"")+'" data-a="genre" data-g="nf">🔬 A true book (nonfiction)</button>'
+        + '</div>'
+        + (logState.genre
+            ? '<div class="questq">'+esc(QPOOLS[logState.genre][(logState.qi||0) % QPOOLS[logState.genre].length])+'</div>'
+              + '<textarea id="q_answer" rows="3" maxlength="500" placeholder="1–3 sentences…">'+esc(logState.ans||"")+'</textarea>'
+              + '<div class="tiny">Your teacher reads this to award your points!</div>'
+            : '<div class="tiny" style="font-style:italic">Pick one and your quest question appears!</div>')
         + '</div>') : "")
     + '<div style="margin-top:16px"><button class="btn primary big" data-a="submitread">Log it! ⚔️</button></div>'
     + '</div></div>';
@@ -1125,7 +1171,7 @@ function vTeacher(){
     loadTeacher().then(()=>render());
     return topbar() + '<div class="card"><span class="spin"></span> loading class data…</div>';
   }
-  const tabs = [["queue","Queue"],["class","Class"],["books","Books"],["loot","Loot"],["settings","Settings"]];
+  const tabs = [["queue","Queue"],["class","Class"],["map","Map"],["books","Books"],["loot","Loot"],["settings","Settings"]];
   const nlq = TD.books.filter(b=>b.level==null && TD.reads.some(r=>r.bookId===b.id));
   const pq = TD.reads.filter(r=>r.status==="pending");
   const badge = (nlq.length + pq.length) ? " ("+(nlq.length+pq.length)+")" : "";
@@ -1134,6 +1180,7 @@ function vTeacher(){
   let body = "";
   if(route.tab==="queue") body = tQueue(nlq, pq);
   else if(route.tab==="class") body = route.sub ? tStudent(route.sub) : tClass();
+  else if(route.tab==="map") body = tMap();
   else if(route.tab==="books") body = tBooks();
   else if(route.tab==="loot") body = tLoot();
   else body = tSettings();
@@ -1248,6 +1295,7 @@ function tStudent(id){
     const b = tbook(r.bookId); const sc = Engine.score(r, b, st, TD.settings);
     return '<div class="readrow"><div class="bk"><div class="t">'+esc(b?b.title:"?")+'</div><div class="d">'+fmtDate(r.date)+' · '
       + (r.status==="verified" ? (sc.state==="ok" ? sc.pts+" pts ("+sc.stretch+"L stretch)" : "verified — needs book level") : "pending")+'</div></div>'
+      + (r.status==="verified" ? '<button class="btn small ghost" data-a="undoverify" data-id="'+r.id+'" title="Un-verify — move back to the queue">↩</button>' : "")
       + '<button class="btn small ghost danger" data-a="delread" data-id="'+r.id+'" data-arm="1">✕</button></div>';
   }).join("") || '<div class="tiny">No reads yet.</div>';
   return '<div class="stack">'
@@ -1532,6 +1580,13 @@ document.addEventListener("click", async (ev)=>{
     case "tohome": logState=null; go({screen:"home"}); break;
     case "tolog": logState=null; go({screen:"log"}); break;
     case "tochar": go({screen:"char"}); break;
+    case "genre": if(logState){ logState.genre = el.dataset.g; render(); } break;
+    case "todescent": {
+      go({screen:"descent"});
+      /* silent refresh so the map shows the freshest class total */
+      try{ const b = await api.bootstrap(CODE); if(b && b.ok){ BOOT = b; render(); } }catch(e){}
+      break;
+    }
     case "equip": {
       const slot = el.dataset.slot, itemId = el.dataset.id || null;
       let r;
@@ -1565,7 +1620,8 @@ document.addEventListener("click", async (ev)=>{
       if(!bookId && !title){ toast("Pick your book from the list (or add it as new)"); return; }
       let qtext = null, ans = null;
       if(askQ()){
-        qtext = QPOOL[(logState.qi||0) % QPOOL.length];
+        if(!logState.genre){ toast("First pick what kind of book it was — a story or a true book!"); return; }
+        qtext = GENRE_LABEL[logState.genre] + " — " + QPOOLS[logState.genre][(logState.qi||0) % QPOOLS[logState.genre].length];
         ans = ($("#q_answer")?.value || "").trim();
         if(ans.length < 10){ toast("Fill in your Quest Report first — a sentence or two about the book!"); return; }
       }
@@ -1672,7 +1728,29 @@ document.addEventListener("click", async (ev)=>{
       catch(e){ toast(e.message); }
       await refreshTeacher(); break;
     }
-    case "verify": busy(el,true); try{ await api.verifyRead(id); }catch(e){ toast(e.message); } await refreshTeacher(); break;
+    case "verify": {
+      busy(el, true);
+      const r0 = TD && TD.reads.find(x=>x.id===id);
+      const st0 = r0 && tstu(r0.studentId), b0 = r0 && tbook(r0.bookId);
+      let msg = "Verified ✓";
+      if(st0 && b0){
+        const sc = Engine.score(Object.assign({}, r0, {status:"verified"}), b0, st0, TD.settings);
+        msg = "Verified — "+st0.name+", "+b0.title+(sc.state==="ok" ? " · +"+sc.total+" pts" : "");
+      }
+      try{ await api.verifyRead(id); }
+      catch(e){ toast(e.message); await refreshTeacher(); break; }
+      await refreshTeacher();
+      toastUndo(msg, id);
+      break;
+    }
+    case "undoverify": {
+      try{ await api.unverifyRead(id); }
+      catch(e){ toast(e.message); break; }
+      const th = $("#toasthost"); if(th){ clearTimeout(th._t); th.innerHTML = ""; }
+      await refreshTeacher();
+      toast("Moved back to the queue — points removed");
+      break;
+    }
     case "delread": try{ await api.deleteRead(id); }catch(e){ toast(e.message); } await refreshTeacher(); break;
     case "addstuform": $("#addstu")?.classList.toggle("hidden"); $("#rosterbox")?.classList.add("hidden"); break;
     case "rosterform": $("#rosterbox")?.classList.toggle("hidden"); $("#addstu")?.classList.add("hidden"); break;
@@ -1858,6 +1936,9 @@ document.addEventListener("visibilitychange", async ()=>{
   } else if(route.screen==="home" || route.screen==="log" || route.screen==="char"){
     if(!route.who || !SPIN[route.who]) route.screen = CODE ? "gate" : "code";
     else await ensureBoot();
+  } else if(route.screen==="descent"){
+    if(!CODE) route.screen = "code";
+    else await ensureBoot();
   } else if(route.screen!=="code" && !CODE){
     route.screen = "code";
   }
@@ -2014,6 +2095,145 @@ function floorIdx(){
 }
 function floorLabel(){ const f = FLOORS[floorIdx()]; return "FLOOR " + f.n + " · " + f.name; }
 
+/* ============================================================
+   STAGE 2 — THE DESCENT. A visible dungeon map of the class's
+   journey downward. Entirely cosmetic-narrative: floors advance
+   only on class points, which advance only on verified reads.
+   ============================================================ */
+const FLOOR_LORE = {
+  4: "Every crawl begins at a door made of books.",
+  5: "Things grow down here. Mostly stories.",
+  6: "Every breath hangs like an unread page.",
+  7: "The shelves here smolder with cliffhangers.",
+  8: "Few classes have ever seen these shelves."
+};
+let __desc = null;
+function paintDescent(){
+  const cv = document.getElementById("descmap");
+  if(!cv || !__desc) return;
+  const dark = isDarkTheme();
+  const RH = 34, DH = 16, W = 120, N = FLOORS.length;
+  cv.width = W; cv.height = N * RH + DH;
+  const x = cv.getContext("2d");
+  let seed = 77;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  const BASE = dark
+    ? {stones:["#282344","#2E2950","#332D58","#252041"], mortar:"#1C1836", moss:"#31513C", floor:"#1F1B3C"}
+    : {stones:["#DCD8EA","#D2CEE4","#C8C2DC","#E4E0F0"], mortar:"#B9B4D0", moss:"#9BB89B", floor:"#CFCAE2"};
+  const SPINES = ["#B34A44","#3F7E5A","#3E5F9E","#B08A3E","#7C4E9E"];
+  for(let i = 0; i < N; i++){
+    const f = FLOORS[i];
+    const pal = (i === 0 ? BASE : (dark ? f.dark : f.light)) || BASE;
+    const y0 = i * RH;
+    const locked = i > __desc.cur, current = i === __desc.cur;
+    x.fillStyle = pal.mortar; x.fillRect(0, y0, W, RH);
+    for(let r = 0; r < RH - 6; r += 5){
+      const off = (r / 5) % 2 ? 4 : 0;
+      for(let c0 = -4; c0 < W; c0 += 8){
+        x.fillStyle = pal.stones[Math.floor(rnd() * pal.stones.length)];
+        x.fillRect(c0 + off, y0 + r, 7, 4);
+      }
+    }
+    x.fillStyle = pal.floor; x.fillRect(0, y0 + RH - 6, W, 6);
+    x.fillStyle = "rgba(0,0,0,.25)"; x.fillRect(0, y0 + RH - 7, W, 1);
+    if(!locked){
+      for(let m = 0; m < 6; m++){ x.fillStyle = pal.moss; x.fillRect(Math.floor(rnd()*W), y0 + Math.floor(rnd()*(RH-9)), 2, 1); }
+      x.fillStyle = "#4A3524"; x.fillRect(8, y0 + RH - 16, 16, 10);
+      for(let b = 0; b < 5; b++){ x.fillStyle = SPINES[(i + b) % SPINES.length]; x.fillRect(10 + b*3, y0 + RH - 14, 2, 6); }
+      [34, W - 14].forEach(t => {
+        x.fillStyle = "#6B4520"; x.fillRect(t, y0 + 10, 2, 5);
+        x.fillStyle = "#E8A33D"; x.fillRect(t, y0 + 8, 2, 2);
+        x.fillStyle = "#F5CF7E"; x.fillRect(t, y0 + 7, 2, 1);
+      });
+    }
+    if(i < __desc.cur){
+      x.fillStyle = dark ? "#0E0B20" : "#6E6890";
+      x.fillRect(W - 26, y0 + RH - 6, 14, 6);
+      x.fillRect(W - 23, y0 + RH - 4, 8, 4);
+    }
+    if(current){
+      (__desc.names || []).slice(0, 7).forEach((nm, k) => {
+        const mini = document.createElement("canvas"); mini.width = 8; mini.height = 8;
+        _redrawBase(mini.getContext("2d"), nm);
+        x.drawImage(mini, 28 + k * 13, y0 + RH - 14);
+      });
+      const nf = FLOORS[i + 1];
+      if(nf){
+        const frac = Math.max(0, Math.min(1, (__desc.pts - f.at) / (nf.at - f.at)));
+        x.fillStyle = "rgba(0,0,0,.35)"; x.fillRect(0, y0 + RH - 2, W, 2);
+        x.fillStyle = "#E8A33D"; x.fillRect(0, y0 + RH - 2, Math.round(W * frac), 2);
+      }
+    }
+    if(locked){
+      x.fillStyle = dark ? "rgba(6,4,16,.78)" : "rgba(40,34,70,.55)";
+      x.fillRect(0, y0, W, RH);
+      for(let d = 0; d < 90; d++){ x.fillStyle = "rgba(0,0,0,.5)"; x.fillRect(Math.floor(rnd()*W), y0 + Math.floor(rnd()*RH), 2, 1); }
+    }
+  }
+  const yD = N * RH;
+  x.fillStyle = dark ? "#070512" : "#1A1530"; x.fillRect(0, yD, W, DH);
+  x.fillStyle = "#2A2348";
+  for(let g = 4; g < W; g += 10){ x.fillRect(g, yD, 2, DH); }
+}
+function descentHTML(pts, names){
+  const cur = floorIdxFromPts(pts);
+  __desc = {pts, cur, names};
+  setTimeout(paintDescent, 0);
+  const rows = FLOORS.map((f, i) => {
+    const next = FLOORS[i + 1];
+    let st;
+    if(i < cur) st = "CLEARED ✓";
+    else if(i === cur) st = next ? (next.at - pts) + " pts to Floor " + next.n : "the deepest known floor";
+    else st = "???";
+    return '<div class="descrow'+(i > cur ? " lk" : "")+'"><span>FLOOR '+f.n+(i <= cur ? " · "+esc(f.name) : "")+'</span><span>'+esc(st)+'</span></div>';
+  }).join("");
+  return '<div class="descwrap"><canvas id="descmap" aria-label="Dungeon map of the class descent"></canvas>'
+    + '<div class="desclabels">'+rows
+    + '<div class="descrow lk"><span>THE DEPTHS</span><span>the dungeon goes deeper…</span></div></div></div>';
+}
+function vDescent(){
+  if(!BOOT){ ensureBoot().then(()=>render()); return topbar() + '<div class="card"><span class="spin"></span> unrolling the map…</div>'; }
+  const pts = BOOT.class_pts || 0;
+  const cur = floorIdxFromPts(pts), f = FLOORS[cur], next = FLOORS[cur + 1];
+  const names = (BOOT.students || []).map(s => s.name);
+  const who = route.who && SPIN[route.who];
+  if(who && !SS){ loadState().then(()=>render()); }
+  const me = who && BOOT.students.find(s => s.id === route.who);
+  const torch = (who && SS && me) ? '<div class="card torchrow">'
+      + (SS.equipped !== undefined ? gearImg(me.name, SS.equipped) : avImg(me.name))
+      + '<div><strong>🔦 Your torch</strong><div class="tiny">You’ve explored '+SS.verified+' room'+(SS.verified===1?"":"s")+' of this dungeon — every verified book lights one more.</div></div></div>' : "";
+  return topbar('<button class="btn ghost small" data-a="'+(who ? "tohome" : "tostudents")+'">← back</button>')
+    + '<div class="stack" style="max-width:620px;margin:0 auto">'
+    + '<h2 class="display" style="font-size:22px;color:var(--violet)">🗺️ THE DESCENT</h2>'
+    + '<div class="card"><div class="label">FLOOR '+f.n+' · '+esc(f.name)+'</div>'
+    + '<div class="tiny" style="font-style:italic;margin:2px 0 8px">'+esc(FLOOR_LORE[f.n] || "")+'</div>'
+    + (next
+        ? '<div class="row" style="margin:6px 0 4px"><div class="progressbar" style="flex:1"><i style="width:'+Math.min(100, Math.round(100 * (pts - f.at) / (next.at - f.at)))+'%"></i></div><strong>'+pts+' / '+next.at+'</strong></div>'
+          + '<div class="tiny">'+(next.at - pts)+' class points until everyone breaks through to Floor '+next.n+' — the whole class digs together.</div>'
+        : '<div class="tiny">The class stands on the deepest known floor. Legends only from here.</div>')
+    + '</div>'
+    + descentHTML(pts, names)
+    + torch
+    + '</div>';
+}
+function tMap(){
+  const pts = TD.students.reduce((a, st) => a + Engine.totals(st.id, TD).pts, 0);
+  const books = TD.reads.filter(r => r.status === "verified").length;
+  const cur = floorIdxFromPts(pts), f = FLOORS[cur], next = FLOORS[cur + 1];
+  return '<div class="stack">'
+    + '<div class="card"><h2>🗺️ The Descent</h2>'
+    + '<div class="tiny" style="margin-bottom:8px">The whole class digs together — every verified read is a shovel of progress. Put this tab on the projector when a floor is about to fall.</div>'
+    + '<div class="label">FLOOR '+f.n+' · '+esc(f.name)+'</div>'
+    + '<div class="tiny" style="font-style:italic;margin:2px 0 8px">'+esc(FLOOR_LORE[f.n] || "")+'</div>'
+    + (next
+        ? '<div class="row" style="margin:6px 0 4px"><div class="progressbar" style="flex:1"><i style="width:'+Math.min(100, Math.round(100 * (pts - f.at) / (next.at - f.at)))+'%"></i></div><strong>'+pts+' / '+next.at+'</strong></div>'
+          + '<div class="tiny">'+(next.at - pts)+' points to Floor '+next.n+' · '+books+' quests verified so far</div>'
+        : '<div class="tiny">'+books+' quests verified — the deepest known floor.</div>')
+    + '</div>'
+    + descentHTML(pts, TD.students.map(s => s.name))
+    + '</div>';
+}
+
 /* particle burst — pixel squares, one-shot */
 function spawnBurst(host, colors, count){
   if(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -2066,6 +2286,7 @@ function checkFloorEvent(){
     ov.innerHTML = '<div class="floorbanner"><div class="f1">THE CLASS DESCENDS…</div>'
       + '<div class="f2">FLOOR ' + fl.n + '</div>'
       + '<div class="f1" style="margin-top:6px">' + esc(fl.name) + '</div>'
+      + '<div class="f3">' + esc(FLOOR_LORE[fl.n] || "") + '</div>'
       + '<div style="margin-top:18px"><button class="btn gold" data-a="closefloor">Onward!</button></div></div>';
     document.body.appendChild(ov);
     spawnBurst(ov, ["#F5CF7E","#E8A33D","#A79BE0","#FFFFFF"], 90);

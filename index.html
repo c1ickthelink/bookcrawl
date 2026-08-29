@@ -279,6 +279,13 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 .qanswer{margin-top:6px;padding:8px 10px;border-left:3px solid var(--violet);background:var(--surface2);border-radius:0 8px 8px 0;font-size:14px}
 .chip.spotchk{background:var(--warn);color:#241a04;border:none;font-weight:800}
 .qcard.flagged{border:1.5px solid var(--warn)}
+.aiv{margin-top:6px;font-size:13px;font-weight:700}
+.aiv-ok{color:var(--good, #2E7D32)}
+.aiv-mismatch{color:var(--warn)}
+.aiv-unsure{color:var(--muted)}
+.peers{margin-top:6px;font-size:13px}
+.peers summary{cursor:pointer;color:var(--violet);font-weight:700}
+.peers .peer{margin:6px 0 0 12px;padding-left:8px;border-left:2px solid var(--line)}
 .toast .undobtn{margin-left:12px;background:var(--accent-strong);color:#241a04;border:none;border-radius:8px;padding:4px 12px;font-weight:800;font-size:13px;cursor:pointer}
 /* the Descent map */
 .descwrap{position:relative;border-radius:14px;overflow:hidden;border:1.5px solid var(--line);box-shadow:0 4px 18px rgba(20,14,50,.18)}
@@ -637,7 +644,7 @@ function makeLiveAPI(){
         settings: settingsFromRow(row),
         students: Object.values(stuMap),
         books: books.map(b=>({id:b.id, title:b.title, pages:b.pages, level:b.level})),
-        reads: reads.map(r=>({id:r.id, studentId:r.student_id, bookId:r.book_id, date:r.on_date, status:r.status, q:r.q, a:r.a, flagged:!!r.flagged})),
+        reads: reads.map(r=>({id:r.id, studentId:r.student_id, bookId:r.book_id, date:r.on_date, status:r.status, q:r.q, a:r.a, flagged:!!r.flagged, ai:r.ai})),
         boxes: boxes.map(b=>({id:b.id, studentId:b.student_id, tier:b.tier, n:b.roll, date:b.on_date, delivered:b.delivered})),
         questState: questState,
         questAwards: questAwards.map(a=>({id:a.id, studentId:a.student_id, q:a.quest_id, month:a.month, readId:a.read_id}))
@@ -647,6 +654,11 @@ function makeLiveAPI(){
     async unverifyRead(id){ const {error} = await sb.from("reads").update({status:"pending"}).eq("id", id); if(error) throw new Error(error.message); },
     async setFlag(id, flagged){ const {error} = await sb.from("reads").update({flagged}).eq("id", id); if(error) throw new Error(error.message); },
     async setQuestActive(id, active){ const {error} = await sb.from("quest_state").update({active}).eq("id", id); if(error) throw new Error(error.message); },
+    async screenRead(id){
+      const {data, error} = await withTimeout(sb.functions.invoke("screen-read", {body:{read_id:id}}), 25000);
+      if(error) throw new Error(error.message || "screening unavailable");
+      return data;
+    },
     async deleteRead(id){ const {error} = await sb.from("reads").delete().eq("id", id); if(error) throw new Error(error.message); },
     async setBook(id, patch){
       const p = {}; if("level" in patch) p.level = patch.level; if("pages" in patch) p.pages = patch.pages;
@@ -705,12 +717,14 @@ function makeDemoAPI(){
         {id:"r3", studentId:"st3", bookId:"bk3", date:"2026-08-26", status:"verified"},
         {id:"r4", studentId:"st1", bookId:"bk4", date:"2026-08-28", status:"pending",
          q:"Fiction — What happened at the very END of the story?",
-         a:"The mice finally landed on the moon and it really was made of cheese! I didn't think Captain Whiskers would make it back home but he did.", flagged:false},
+         a:"The mice finally landed on the moon and it really was made of cheese! I didn't think Captain Whiskers would make it back home but he did.", flagged:false,
+         ai:{v:"ok", note:"Matches the story — specific ending with named character."}},
         {id:"r5", studentId:"st2", bookId:"bk5", date:"2026-09-02", status:"verified"},
         {id:"r6", studentId:"st2", bookId:"bk6", date:"2026-09-09", status:"verified"},
         {id:"r7", studentId:"st3", bookId:"bk7", date:"2026-09-10", status:"pending",
          q:"Fiction — What was the most exciting part?",
-         a:"When the ninth bell rang at midnight and the whole graveyard woke up. I read that chapter twice.", flagged:true}],
+         a:"When the ninth bell rang at midnight and the whole graveyard woke up. I read that chapter twice.", flagged:true,
+         ai:{v:"unsure", note:"Book unknown to AI — answer is specific and coherent; your call."}}],
       boxes:[],
       questState:[{id:"tome",active:true},{id:"giant",active:false},{id:"truth",active:true},{id:"climb",active:false},{id:"trio",active:true}],
       questAwards:[]};
@@ -832,6 +846,7 @@ function makeDemoAPI(){
     async setFlag(id, flagged){ const r = D.reads.find(x=>x.id===id); if(r) r.flagged = !!flagged; save(D); },
     async deleteRead(id){ D.reads = D.reads.filter(x=>x.id!==id); D.questAwards = (D.questAwards||[]).filter(a=>a.readId!==id); save(D); },
     async setQuestActive(id, active){ const r = (D.questState||[]).find(x=>x.id===id); if(r) r.active = !!active; save(D); },
+    async screenRead(){ return null; },
     async setBook(id, patch){ const b = D.books.find(x=>x.id===id); if(b) Object.assign(b, patch); save(D); },
     async addBook(title, level, pages){ D.books.push({id:uid(), title, level, pages}); save(D); },
     async addBooks(rows){ for(const r of rows) D.books.push({id:uid(), title:r.title, level:r.level, pages:r.pages}); save(D); },
@@ -927,6 +942,7 @@ async function loadTeacher(quiet){
     TDERR = null;
     TD = await withTimeout(api.fetchAll(), 20000);
     authOk();
+    try{ kickScreening(); }catch(e){}
     return TD;
   }
   catch(e){
@@ -1309,6 +1325,39 @@ function tstu(id){ return TD.students.find(s=>s.id===id); }
 function tbook(id){ return TD.books.find(b=>b.id===id); }
 function currentLevel(st){ return Engine.levelAt(st, "9999-12-31"); }
 
+/* other kids' answers on the same book — the cheapest lie detector there is */
+function peersHTML(r){
+  const peers = TD.reads.filter(x => x.bookId === r.bookId && x.id !== r.id && x.a);
+  if(!peers.length) return "";
+  const rows = peers.slice(0, 6).map(x => {
+    const st = tstu(x.studentId);
+    return '<div class="peer"><strong>'+esc(st ? st.name : "?")+'</strong>'
+      + (x.status === "verified" ? ' <span class="tiny">✓ verified</span>' : ' <span class="tiny">pending</span>')
+      + '<div class="tiny">“'+esc(x.a)+'”</div></div>';
+  }).join("");
+  return '<details class="peers"><summary>📖 '+peers.length+' other answer'+(peers.length===1?"":"s")+' for this book</summary>'+rows+'</details>';
+}
+
+/* AI pre-screen: quietly screen unscreened pending answers, one at a time.
+   Silently stands down if the screening function isn't deployed. */
+async function kickScreening(){
+  if(DEMO || window.__aioff || window.__aibusy || !TD || !api.screenRead) return;
+  const targets = TD.reads.filter(r => r.status === "pending" && r.a && !r.ai).slice(0, 12);
+  if(!targets.length) return;
+  window.__aibusy = true;
+  try{
+    for(const r of targets){
+      try{
+        const v = await api.screenRead(r.id);
+        if(v && v.v){
+          r.ai = v;
+          if(route.screen === "teacher" && route.tab === "queue" && !typing()) render();
+        } else if(v && v.error){ window.__aioff = true; break; }
+      }catch(e){ window.__aioff = true; break; }
+    }
+  } finally { window.__aibusy = false; }
+}
+
 function tQueue(nlq, pq){
   const lvl = nlq.map(b=>{
     const waiting = TD.reads.filter(r=>r.bookId===b.id).map(r=>{const s=tstu(r.studentId); return s&&s.name;}).filter(Boolean);
@@ -1329,7 +1378,12 @@ function tQueue(nlq, pq){
       + '<div class="tiny">'+fmtDate(r.date)
       + (b && b.level==null ? ' · <span class="chip lvlwait">needs level first</span>' : (sc.state==="ok" ? " · will earn "+sc.total+" pts" : ""))
       + (prior ? ' · re-read #'+(prior+1) : "") + '</div>'
-      + (r.a ? '<div class="qanswer"><span class="tiny">'+esc(r.q||"Quest Report")+'</span><br>“'+esc(r.a)+'”</div>' : "")
+      + (r.a ? '<div class="qanswer"><span class="tiny">'+esc(r.q||"Quest Report")+'</span><br>“'+esc(r.a)+'”'
+          + (r.ai && r.ai.v ? '<div class="aiv aiv-'+esc(r.ai.v)+'">'
+              + (r.ai.v==="ok" ? "✅ Checks out" : r.ai.v==="mismatch" ? "🚩 Doesn’t match — book talk?" : "🤔 Can’t verify — your call")
+              + (r.ai.note ? ' <span class="tiny">· '+esc(r.ai.note)+'</span>' : "") + '</div>' : "")
+          + '</div>' : "")
+      + peersHTML(r)
       + '</div>'
       + (vmode && vmode!=="classic" ? '<button class="btn small ghost" data-a="toggleflag" data-id="'+r.id+'" title="'+(r.flagged?"Remove the spot-check flag":"Flag for a book talk")+'">'+(r.flagged?"🎲 Unflag":"🎲 Flag")+'</button>' : "")
       + '<button class="btn small good" data-a="verify" data-id="'+r.id+'">✓ Verify</button>'

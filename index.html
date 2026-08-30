@@ -300,6 +300,7 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 .bounty .binfo{flex:1}
 .bounty.done{opacity:.72}
 .torchrow{display:flex;align-items:center;gap:12px}
+.clsswitch{padding:6px 10px;border-radius:10px;font-size:14px;font-weight:700;max-width:180px}
 .torchrow .avatarimg{width:44px;height:44px}
 .floorbanner .f3{font-size:14px;font-style:italic;opacity:.85;margin-top:8px}
 .hero .title-line{font-size:12px;opacity:.85;font-style:italic}
@@ -621,20 +622,59 @@ function makeLiveAPI(){
       const {error} = await sb.auth.updateUser({password});
       if(error) throw new Error(error.message);
     },
-    async fetchAll(){
-      const q = async (t, sel) => {
-        const {data, error} = await sb.from(t).select(sel || "*");
+    /* platform mode: list this teacher's classes (RLS scopes automatically).
+       Returns null on a pre-platform database — the caller falls back. */
+    async fetchClasses(){
+      const {data, error} = await sb.from("classes").select("*").order("created_at");
+      if(error){
+        if(_authErr(error)){ const err = new Error(error.message); err.auth = true; throw err; }
+        return null; /* table doesn't exist yet — legacy single-class mode */
+      }
+      return data;
+    },
+    async createClass(name){
+      const {data, error} = await sb.rpc("create_class", {p_name: name});
+      if(error) throw new Error(error.message);
+      return data;
+    },
+    async importClass(payload){
+      const {data, error} = await sb.rpc("import_class", {p_data: payload});
+      if(error) throw new Error(error.message);
+      return data;
+    },
+    async fetchAll(classId){
+      const P = !!classId; /* platform mode: scope everything to one class */
+      const q = async (t, filter) => {
+        let qq = sb.from(t).select("*");
+        if(P && filter !== false) qq = qq.eq("class_id", classId);
+        const {data, error} = await qq;
         if(error){ const err = new Error(t+": "+error.message); err.auth = _authErr(error); throw err; }
         return data;
       };
-      const [settingsRows, students, levels, books, reads, boxes] = await Promise.all([
-        q("settings"), q("students"), q("levels"), q("books"), q("reads"), q("boxes")
+      let settingsRows;
+      if(P){
+        const {data, error} = await sb.from("classes").select("*").eq("id", classId).single();
+        if(error){ const err = new Error("classes: "+error.message); err.auth = _authErr(error); throw err; }
+        /* classes row wears the settings-row costume the rest of the app expects */
+        settingsRows = [Object.assign({}, data, {class_name: data.name, class_code: data.code})];
+      } else {
+        settingsRows = await q("settings", false);
+      }
+      const [students, levels, books, reads, boxes] = await Promise.all([
+        q("students"), q("levels", false), q("books"), q("reads"), q("boxes")
       ]);
       /* quest tables exist only after migration-5 — degrade gracefully */
       let questState = null, questAwards = [];
       try{
-        questState = await q("quest_state");
-        questAwards = await q("quest_awards");
+        if(P){
+          const {data: cq, error: cqe} = await sb.from("class_quests").select("*").eq("class_id", classId);
+          if(cqe) throw new Error(cqe.message);
+          questState = cq.map(r=>({id: r.quest_id, active: r.active}));
+          questAwards = await q("quest_awards");
+        } else {
+          questState = await q("quest_state", false);
+          questAwards = await q("quest_awards", false);
+        }
       }catch(e){ if(e && e.auth) throw e; questState = null; questAwards = []; }
       const row = settingsRows[0];
       const stuMap = {};
@@ -653,7 +693,12 @@ function makeLiveAPI(){
     async verifyRead(id){ const {error} = await sb.from("reads").update({status:"verified"}).eq("id", id); if(error) throw new Error(error.message); },
     async unverifyRead(id){ const {error} = await sb.from("reads").update({status:"pending"}).eq("id", id); if(error) throw new Error(error.message); },
     async setFlag(id, flagged){ const {error} = await sb.from("reads").update({flagged}).eq("id", id); if(error) throw new Error(error.message); },
-    async setQuestActive(id, active){ const {error} = await sb.from("quest_state").update({active}).eq("id", id); if(error) throw new Error(error.message); },
+    async setQuestActive(id, active){
+      const {error} = CLS
+        ? await sb.from("class_quests").update({active}).eq("class_id", CLS).eq("quest_id", id)
+        : await sb.from("quest_state").update({active}).eq("id", id);
+      if(error) throw new Error(error.message);
+    },
     async screenRead(id){
       const {data, error} = await withTimeout(sb.functions.invoke("screen-read", {body:{read_id:id}}), 25000);
       if(error) throw new Error(error.message || "screening unavailable");
@@ -664,11 +709,18 @@ function makeLiveAPI(){
       const p = {}; if("level" in patch) p.level = patch.level; if("pages" in patch) p.pages = patch.pages;
       const {error} = await sb.from("books").update(p).eq("id", id); if(error) throw new Error(error.message);
     },
-    async addBook(title, level, pages){ const {error} = await sb.from("books").insert({title, level, pages}); if(error) throw new Error(error.message); },
-    async addBooks(rows){ const {error} = await sb.from("books").insert(rows); if(error) throw new Error(error.message); },
+    async addBook(title, level, pages){
+      const row = {title, level, pages}; if(CLS) row.class_id = CLS;
+      const {error} = await sb.from("books").insert(row); if(error) throw new Error(error.message);
+    },
+    async addBooks(rows){
+      const rs = CLS ? rows.map(r=>Object.assign({class_id: CLS}, r)) : rows;
+      const {error} = await sb.from("books").insert(rs); if(error) throw new Error(error.message);
+    },
     async deleteBook(id){ const {error} = await sb.from("books").delete().eq("id", id); if(error) throw new Error(error.message); },
     async addStudent(name, pin, lvl, date){
-      const {data, error} = await sb.from("students").insert({name, pin}).select("id").single();
+      const row = {name, pin}; if(CLS) row.class_id = CLS;
+      const {data, error} = await sb.from("students").insert(row).select("id").single();
       if(error) throw new Error(error.message);
       const {error: e2} = await sb.from("levels").insert({student_id:data.id, on_date:date, lvl});
       if(e2) throw new Error(e2.message);
@@ -679,7 +731,19 @@ function makeLiveAPI(){
     async setPin(id, pin){ const {error} = await sb.from("students").update({pin}).eq("id", id); if(error) throw new Error(error.message); return pin; },
     async addLevel(sid, date, lvl){ const {error} = await sb.from("levels").insert({student_id:sid, on_date:date, lvl}); if(error) throw new Error(error.message); },
     async setDelivered(id, delivered){ const {error} = await sb.from("boxes").update({delivered}).eq("id", id); if(error) throw new Error(error.message); },
-    async updateSettings(patch){ const {error} = await sb.from("settings").update(patch).eq("id", 1); if(error) throw new Error(error.message); }
+    async updateSettings(patch){
+      if(CLS){
+        /* classes table wears different names for two columns */
+        const p = Object.assign({}, patch);
+        if("class_name" in p){ p.name = p.class_name; delete p.class_name; }
+        if("class_code" in p){ p.code = String(p.class_code).trim().toUpperCase(); delete p.class_code; }
+        const {error} = await sb.from("classes").update(p).eq("id", CLS);
+        if(error) throw new Error(/unique|duplicate/i.test(error.message) ? "That class code is taken — pick another" : error.message);
+      } else {
+        const {error} = await sb.from("settings").update(patch).eq("id", 1);
+        if(error) throw new Error(error.message);
+      }
+    }
   };
 }
 
@@ -937,10 +1001,30 @@ function authRecover(){
 function authOk(){ try{ sessionStorage.removeItem("bc_ar"); }catch(e){} }
 
 let TDERR = null;
+let CLS = null;   /* current class id in platform mode; null = legacy single-class */
 async function loadTeacher(quiet){
   try{
     TDERR = null;
-    TD = await withTimeout(api.fetchAll(), 20000);
+    let classes = null;
+    if(api.fetchClasses) classes = await withTimeout(api.fetchClasses(), 15000);
+    if(classes){
+      /* platform mode: this teacher's classes, scoped by the server */
+      if(!classes.length){
+        CLS = null;
+        TD = {noClass: true, platform: true, classes: []};
+        authOk();
+        return TD;
+      }
+      let cur = null;
+      try{ cur = sessionStorage.getItem("bc_cls"); }catch(e){}
+      if(!classes.some(c => c.id === cur)) cur = classes[0].id;
+      CLS = cur;
+      TD = await withTimeout(api.fetchAll(cur), 20000);
+      TD.platform = true; TD.classes = classes; TD.classId = cur;
+    } else {
+      CLS = null;
+      TD = await withTimeout(api.fetchAll(), 20000);
+    }
     authOk();
     try{ kickScreening(); }catch(e){}
     return TD;
@@ -983,7 +1067,7 @@ function render(){
 }
 
 function topbar(extra){
-  const nm = (route.screen.startsWith("t") || route.screen==="teacher") && TD ? TD.settings.className
+  const nm = (route.screen.startsWith("t") || route.screen==="teacher") && TD && TD.settings ? TD.settings.className
            : (BOOT ? BOOT.class_name : "");
   return '<div class="topbar">'
     + '<div class="brand display">BOOK CRAWL<small>'+esc(nm||"")+'</small></div>'
@@ -1305,6 +1389,16 @@ function vTeacher(){
     loadTeacher().then(()=>render());
     return topbar() + '<div class="card"><span class="spin"></span> loading class data…</div>';
   }
+  if(TD.noClass){
+    return topbar('<button class="btn ghost small" data-a="tsignout">Sign out</button>')
+      + '<div class="stack" style="max-width:520px;margin:0 auto">'
+      + '<div class="card"><h2>🏰 Welcome, Dungeon Master</h2>'
+      + '<div class="tiny" style="margin:6px 0 12px">Name your class and Book Crawl will forge its dungeon — a class code for your crawlers, loot tables, the works. You can change everything later in Settings.</div>'
+      + '<div class="fieldlbl">Class name</div>'
+      + '<input id="nc_name" placeholder="Room 12" maxlength="60" style="width:100%">'
+      + '<div style="margin-top:14px"><button class="btn primary big" data-a="createclass">Create my class ⚔️</button></div>'
+      + '</div></div>';
+  }
   const tabs = [["queue","Queue"],["class","Class"],["map","Map"],["books","Books"],["loot","Loot"],["settings","Settings"]];
   const nlq = TD.books.filter(b=>b.level==null && TD.reads.some(r=>r.bookId===b.id));
   const pq = TD.reads.filter(r=>r.status==="pending");
@@ -1318,7 +1412,12 @@ function vTeacher(){
   else if(route.tab==="books") body = tBooks();
   else if(route.tab==="loot") body = tLoot();
   else body = tSettings();
-  return topbar('<button class="btn ghost small" data-a="trefresh">↻</button> <button class="btn ghost small" data-a="tsignout">Sign out</button> <button class="btn ghost small" data-a="tostudents">Exit</button>')
+  const switcher = (TD.platform && TD.classes && TD.classes.length > 1)
+    ? '<select data-a="switchclass" class="clsswitch">'
+      + TD.classes.map(c=>'<option value="'+c.id+'"'+(c.id===TD.classId?" selected":"")+'>'+esc(c.name)+'</option>').join("")
+      + '</select> '
+    : "";
+  return topbar(switcher + '<button class="btn ghost small" data-a="trefresh">↻</button> <button class="btn ghost small" data-a="tsignout">Sign out</button> <button class="btn ghost small" data-a="tostudents">Exit</button>')
     + bar + body;
 }
 function tstu(id){ return TD.students.find(s=>s.id===id); }
@@ -1896,6 +1995,18 @@ document.addEventListener("click", async (ev)=>{
     }
     case "tsignout": try{ await withTimeout(api.teacherSignOut(), 8000); }catch(e){} TD=null; TDERR=null; go({screen: CODE ? "gate" : "code"}); break;
     case "trefresh": busy(el,true); await loadTeacher(); busy(el,false); render(); break;
+    case "createclass": {
+      const nm = ($("#nc_name")?.value || "").trim();
+      busy(el, true);
+      try{
+        const r = await api.createClass(nm || "My Class");
+        if(!r || !r.ok) throw new Error(r && r.err === "limit" ? "Class limit reached (5)" : "Couldn't create the class");
+        try{ sessionStorage.setItem("bc_cls", r.id); }catch(e){}
+        TD = null; await loadTeacher(); render();
+        toast("⚔️ " + r.name + " forged — class code " + r.code);
+      }catch(e){ busy(el, false); toast(e.message); }
+      break;
+    }
     case "toggleflag": {
       const r = TD && TD.reads.find(x=>x.id===id);
       if(!r) return;
@@ -2074,6 +2185,13 @@ document.addEventListener("change", async (ev)=>{
       toast("Setting saved");
       TD = null; await loadTeacher();
     }catch(e){ toast(e.message); }
+    return;
+  }
+  if(el.dataset.a === "switchclass"){
+    try{ sessionStorage.setItem("bc_cls", el.value); }catch(e){}
+    TD = null; TDERR = null;
+    await loadTeacher();
+    render();
     return;
   }
   if(el.dataset.a === "questtoggle"){

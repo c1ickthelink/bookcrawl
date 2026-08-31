@@ -292,10 +292,21 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 /* the Descent map */
 .descwrap{position:relative;border-radius:14px;overflow:hidden;border:1.5px solid var(--line);box-shadow:0 4px 18px rgba(20,14,50,.18)}
 #descmap{display:block;width:100%;height:auto;image-rendering:pixelated}
-.desclabels{position:absolute;inset:0;display:grid;grid-template-rows:repeat(5,34fr) 16fr;pointer-events:none}
-.descrow{display:flex;justify-content:space-between;align-items:flex-start;padding:6px 10px 0;gap:8px}
-.descrow span{background:rgba(10,8,24,.58);color:#F5F2FF;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:800;letter-spacing:.02em}
-.descrow.lk span{opacity:.75}
+.desclabels{position:absolute;inset:0;display:grid;grid-template-rows:repeat(15,16fr) 12fr}
+.descrow{display:flex;align-items:center;padding:0 8px;gap:8px;overflow:hidden;min-height:0}
+.descrow .fl{background:rgba(10,8,24,.58);color:#F5F2FF;padding:1px 7px;border-radius:6px;font-size:10.5px;font-weight:800;letter-spacing:.02em;white-space:nowrap;flex-shrink:0}
+.descrow.lk .fl{opacity:.75}
+.descrow.mine .fl{box-shadow:0 0 0 1.5px var(--accent-strong)}
+.davs{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.dav{position:relative;display:inline-block;line-height:0}
+.dav .avatarimg{width:22px;height:22px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
+.dav.meav .avatarimg{width:27px;height:27px;outline:2px solid var(--accent-strong);outline-offset:1px;border-radius:4px;background:rgba(0,0,0,.28);animation:meglow 1.6s ease-in-out infinite}
+.dav.meav{margin:0 4px}
+.youtag{position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:8px;font-weight:900;color:#F5CF7E;letter-spacing:.06em;text-shadow:0 1px 2px rgba(0,0,0,.8)}
+@keyframes meglow{0%,100%{outline-color:var(--accent-strong)}50%{outline-color:#F5CF7E}}
+.rc{margin-top:6px}
+.rc summary{cursor:pointer;font-size:12.5px;color:var(--muted);font-weight:700}
+.rc textarea{width:100%;margin:6px 0;font-size:14px;box-sizing:border-box}
 .bounty{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line)}
 .bounty:last-child{border-bottom:none}
 .bounty .bicon{font-size:22px}
@@ -472,7 +483,8 @@ function settingsFromRow(row){
     lenBands: [{min:300, pts:row.len_300},{min:200, pts:row.len_200},{min:100, pts:row.len_100}],
     boxPts: row.box_pts, yearTiers: row.year_tiers, d100: row.d100, prizes: row.prizes,
     className: row.class_name, classCode: row.class_code,
-    verifyMode: row.verify_mode
+    verifyMode: row.verify_mode,
+    floorPts: row.floor_pts || 40, showTracker: row.show_tracker !== false
   };
 }
 /* app settings knob path -> DB column patch */
@@ -480,8 +492,51 @@ const KNOB_TO_COL = {
   "basePts":"base_pts", "fluencyPts":"fluency_pts", "belowCutoff":"below_cutoff",
   "per10L":"per_10l", "stretchCap":"stretch_cap", "boxPts":"box_pts",
   "len100":"len_100", "len200":"len_200", "len300":"len_300",
-  "className":"class_name", "classCode":"class_code", "verifyMode":"verify_mode"
+  "className":"class_name", "classCode":"class_code", "verifyMode":"verify_mode", "floorPts":"floor_pts"
 };
+
+/* ============================================================
+   STAGE 5 — THE PERSONAL DESCENT. Every crawler digs their own
+   path down: one floor per floor_pts verified points (class
+   setting, default 40). Only floor NUMBERS ever reach kid
+   devices when the tracker is on — never anyone else's points.
+   ============================================================ */
+const PFLOORS = [
+  {name:"THE SURFACE CAMP",   lore:"Every crawl begins at a door made of books."},
+  {name:"THE STONE HALLS",    lore:"The first shelves. The easy dark."},
+  {name:"THE MOSSY DEEP",     lore:"Things grow down here. Mostly stories."},
+  {name:"THE ECHOING STACKS", lore:"Shout a title and the walls shout it back."},
+  {name:"THE FUNGAL DARK",    lore:"Glowing mushrooms mark the path. Do not lick them."},
+  {name:"THE FROST CAVERNS",  lore:"Every breath hangs like an unread page."},
+  {name:"THE SUNKEN ARCHIVE", lore:"Someone flooded the nonfiction wing. Rude."},
+  {name:"THE EMBER DEPTHS",   lore:"The shelves here smolder with cliffhangers."},
+  {name:"THE BONE LIBRARY",   lore:"The librarians never left. They are just quiet now."},
+  {name:"THE CRYSTAL VAULT",  lore:"Few crawlers have ever seen these shelves."},
+  {name:"THE WHISPER MAZE",   lore:"Every plot twist ever guessed out loud lives here."},
+  {name:"THE STARLESS SEA",   lore:"A dark lake. A rowboat. A very good reading lamp."},
+  {name:"THE DRAGON'S STUDY", lore:"It has read everything, and it is judging you."},
+  {name:"THE MIDNIGHT FORGE", lore:"Where sequels are hammered out of dying stars."},
+  {name:"THE FINAL SHELF",    lore:"Legends only from here, crawler."}
+];
+/* floors 1-3 wear the base palette; every 3 floors the stone changes */
+const PFLOOR_PALS = [
+  null,
+  {dark:{stones:["#1F3A2C","#254434","#2B4E3B","#1C3527"],mortar:"#152A1F",moss:"#4E8A4A",floor:"#183023"}, light:{stones:["#DCE6D6","#D2DECA","#C8D6BE","#E2EADC"],mortar:"#B9C9AF",moss:"#8FBF85",floor:"#CCDAC2"}},
+  {dark:{stones:["#1E2C4A","#243456","#2A3C62","#1B2842"],mortar:"#152039",moss:"#4A7C9E",floor:"#1A2540"}, light:{stones:["#DCE4EE","#D2DCE9","#C8D4E4","#E4EAF2"],mortar:"#B7C4D6",moss:"#9EC0D9",floor:"#CDD8E6"}},
+  {dark:{stones:["#3A2226","#452A2C","#502F30","#332022"],mortar:"#2A181A",moss:"#8A5E3A",floor:"#2E1C1E"}, light:{stones:["#EADCD4","#E4D2C8","#DEC8BC","#F0E4DC"],mortar:"#D2B9AC",moss:"#D9A87A",floor:"#E2D0C4"}},
+  {dark:{stones:["#2C2350","#34295E","#3C2F6C","#271F48"],mortar:"#1E1840",moss:"#5FB8B4",floor:"#241D44"}, light:{stones:["#E2DCF0","#D8D2EA","#CEC6E2","#EAE4F4"],mortar:"#C2B9DA",moss:"#8FD3D0",floor:"#D6CEE8"}}
+];
+function palForFloor(n){ return PFLOOR_PALS[Math.min(PFLOOR_PALS.length - 1, Math.floor((n - 1) / 3))]; }
+function floorPtsPer(){
+  const v = (BOOT && BOOT.floor_pts) || (TD && TD.settings && TD.settings.floorPts) || 40;
+  const n = parseInt(v, 10);
+  return Math.max(5, isNaN(n) ? 40 : n);
+}
+function pfloorOf(pts){ return Math.min(PFLOORS.length, 1 + Math.floor(Math.max(0, pts || 0) / floorPtsPer())); }
+function trackerOn(){
+  if(TD && TD.settings) return TD.settings.showTracker !== false;
+  return !BOOT || BOOT.show_tracker !== false;
+}
 
 /* Quest Report question pools — the kid says whether it was a story or a
    true book, then a question is drawn from the matching pool. Every
@@ -701,8 +756,9 @@ function makeLiveAPI(){
         : await sb.from("quest_state").update({active}).eq("id", id);
       if(error) throw new Error(error.message);
     },
-    async screenRead(id){
-      const {data, error} = await withTimeout(sb.functions.invoke("screen-read", {body:{read_id:id}}), 25000);
+    async screenRead(id, alt){
+      const body = {read_id: id}; if(alt) body.alt_answer = alt;
+      const {data, error} = await withTimeout(sb.functions.invoke("screen-read", {body}), 25000);
       if(error) throw new Error(error.message || "screening unavailable");
       return data;
     },
@@ -764,7 +820,7 @@ function makeDemoAPI(){
           Rare:"Lunch with the teacher · pick the class game · choose-your-seat week · prize-box item",
           Epic:"Keep-a-book from the giveaway shelf · Librarian for a Day · epic certificate + class announcement",
           Legendary:"Full dramatic loot reveal: announcer-voice proclamation, custom certificate, one grand privilege (within reason)"},
-        className:"Room 12 — Floor 4 (DEMO)", classCode:"CRAWL", verifyMode:"report_spot"},
+        className:"Room 12 (DEMO)", classCode:"CRAWL", verifyMode:"report_spot", floorPts:40, showTracker:true},
       students:[
         {id:"st1", name:"Ember Fox", pin:"1111", levels:[{date:"2026-08-01",lvl:390}]},
         {id:"st2", name:"Storm Otter", pin:"2222", levels:[{date:"2026-08-01",lvl:700}]},
@@ -825,10 +881,17 @@ function makeDemoAPI(){
     async bootstrap(code){
       if(!okCode(code)) return {ok:false};
       const classPts = D.students.reduce((a, st)=> a + Engine.totals(st.id, D).pts, 0);
+      const FP = Math.max(5, D.settings.floorPts || 40);
+      const trk = D.settings.showTracker !== false;
       return {ok:true, class_name:D.settings.className, box_pts:D.settings.boxPts, prizes:D.settings.prizes, class_pts: classPts, year_tiers: D.settings.yearTiers,
+        floor_pts: FP, show_tracker: trk,
         ask_q: (D.settings.verifyMode || "classic") !== "classic",
         quests: (D.questState||[]).filter(r=>r.active).map(r=>r.id).sort(),
-        students: D.students.map(s=>({id:s.id, name:s.name, equipped:s.equipped||{}})).sort((a,b)=>a.name.localeCompare(b.name)),
+        students: D.students.map(s=>{
+          const o = {id:s.id, name:s.name, equipped:s.equipped||{}};
+          if(trk) o.floor = Math.min(PFLOORS.length, 1 + Math.floor(Math.max(0, Engine.totals(s.id, D).pts) / FP));
+          return o;
+        }).sort((a,b)=>a.name.localeCompare(b.name)),
         books: D.books.map(b=>({id:b.id, title:b.title, pages:b.pages, has_level:b.level!=null}))};
     },
     async login(code, sid, pin){ return auth(code, sid, pin); },
@@ -912,7 +975,15 @@ function makeDemoAPI(){
     async setFlag(id, flagged){ const r = D.reads.find(x=>x.id===id); if(r) r.flagged = !!flagged; save(D); },
     async deleteRead(id){ D.reads = D.reads.filter(x=>x.id!==id); D.questAwards = (D.questAwards||[]).filter(a=>a.readId!==id); save(D); },
     async setQuestActive(id, active){ const r = (D.questState||[]).find(x=>x.id===id); if(r) r.active = !!active; save(D); },
-    async screenRead(){ return null; },
+    async screenRead(id, alt){
+      if(!alt) return null;
+      await new Promise(res=>setTimeout(res, 700));
+      const v = String(alt).trim().length >= 15 ? "ok" : "unsure";
+      const rc = {v, note: v==="ok" ? "Spoken answer shows they know the book (demo check)." : "Still thin — your call (demo check)."};
+      const r = D.reads.find(x=>x.id===id);
+      if(r){ r.ai = Object.assign({}, r.ai||{}, {recheck: rc}); save(D); }
+      return rc;
+    },
     async setBook(id, patch){ const b = D.books.find(x=>x.id===id); if(b) Object.assign(b, patch); save(D); },
     async addBook(title, level, pages){ D.books.push({id:uid(), title, level, pages}); save(D); },
     async addBooks(rows){ for(const r of rows) D.books.push({id:uid(), title:r.title, level:r.level, pages:r.pages}); save(D); },
@@ -934,6 +1005,8 @@ function makeDemoAPI(){
         else if(col==="len_300") s.lenBands.find(b=>b.min===300).pts=v;
         else if(col==="class_name") s.className=v; else if(col==="class_code") s.classCode=String(v).trim().toUpperCase();
         else if(col==="verify_mode") s.verifyMode=v;
+        else if(col==="floor_pts") s.floorPts=v;
+        else if(col==="show_tracker") s.showTracker=v;
         else if(col==="year_tiers") s.yearTiers=v; else if(col==="d100") s.d100=v; else if(col==="prizes") s.prizes=v;
       }
       save(D);
@@ -973,7 +1046,7 @@ async function ensureBoot(force){
     const b = await api.bootstrap(CODE);
     if(!b || !b.ok){ BOOT = null; go({screen:"code"}); toast("That class code didn't work — ask your teacher"); return null; }
     BOOT = b;
-    try{ paintDungeon(); checkFloorEvent(); }catch(e){}
+    try{ paintDungeon(); }catch(e){}
     return BOOT;
   }catch(e){ toast("Can't reach the server — check wifi"); return null; }
 }
@@ -984,6 +1057,7 @@ async function loadState(){
     if(!s || !s.ok){ delete SPIN[route.who]; saveSpin(); go({screen:"gate", who:null}); return null; }
     SS = s;
     try{ checkLevelUp(); checkBounty(); }catch(e){}
+    try{ checkFloorEvent(); paintDungeon(); }catch(e){}
     return SS;
   }catch(e){ toast("Can't reach the server — check wifi"); return SS; }
 }
@@ -1101,7 +1175,7 @@ function vGate(){
     + '<span>'+esc(s.name)+'</span></button>').join("");
   return '<div class="gate">'
     + '<div class="brand display">BOOK CRAWL</div>'
-    + '<div class="sub">'+esc(BOOT.class_name)+' · '+esc(floorLabel())+'</div>'
+    + '<div class="sub">'+esc(BOOT.class_name)+'</div>'
     + '<div class="sub" style="margin-top:-16px">tap your crawler name</div>'
     + (BOOT.students.length ? '<div class="namegrid">'+cards+'</div>'
         : '<div class="card">No crawlers yet — your teacher needs to add the roster.</div>')
@@ -1153,7 +1227,7 @@ function vHome(){
         + '<span class="pill" style="background:rgba(0,0,0,.14)">OPEN →</span></button>' : "")
     + '<button class="btn gold big" data-a="tolog">📖 I finished a book!</button>'
     + (SS.gear !== undefined ? '<button class="btn" data-a="tochar">🧙 My Character · '+((SS.gear||[]).length)+' item'+(((SS.gear||[]).length)===1?"":"s")+'</button>' : '')
-    + '<button class="btn" data-a="todescent">🗺️ The Descent · Floor '+FLOORS[floorIdx()].n+'</button>'
+    + '<button class="btn" data-a="todescent">🗺️ The Descent · Floor '+pfloorOf(SS.pts)+'</button>'
     + '<div class="card"><div class="label">Next loot box</div>'
     + '<div class="row" style="margin:6px 0 4px"><div class="progressbar" style="flex:1"><i style="width:'
       + Math.min(100, Math.round(100*SS.to_next/SS.box_pts))+'%"></i></div>'
@@ -1463,6 +1537,19 @@ async function kickScreening(){
   } finally { window.__aibusy = false; }
 }
 
+function recheckHTML(r){
+  if(!r.ai) return "";
+  const rc = r.ai.recheck;
+  if(rc && rc.v){
+    return '<div class="aiv aiv-'+esc(rc.v)+'">🎤 '
+      + (rc.v==="ok" ? "Spoken answer checks out" : rc.v==="mismatch" ? "Spoken answer doesn’t match either" : "Still can’t verify — your call")
+      + (rc.note ? ' <span class="tiny">· '+esc(rc.note)+'</span>' : "") + '</div>';
+  }
+  if(r.ai.v !== "mismatch" && r.ai.v !== "unsure") return "";
+  return '<details class="rc"><summary>🎤 They explained it in person?</summary>'
+    + '<textarea id="rc_'+r.id+'" rows="2" maxlength="800" placeholder="Type the gist of what they told you…"></textarea>'
+    + '<button class="btn small primary" data-a="recheck" data-id="'+r.id+'">Check what they said</button></details>';
+}
 function tQueue(nlq, pq){
   const lvl = nlq.map(b=>{
     const waiting = TD.reads.filter(r=>r.bookId===b.id).map(r=>{const s=tstu(r.studentId); return s&&s.name;}).filter(Boolean);
@@ -1487,6 +1574,7 @@ function tQueue(nlq, pq){
           + (r.ai && r.ai.v ? '<div class="aiv aiv-'+esc(r.ai.v)+'">'
               + (r.ai.v==="ok" ? "✅ Checks out" : r.ai.v==="mismatch" ? "🚩 Doesn’t match — book talk?" : "🤔 Can’t verify — your call")
               + (r.ai.note ? ' <span class="tiny">· '+esc(r.ai.note)+'</span>' : "") + '</div>' : "")
+          + recheckHTML(r)
           + '</div>' : "")
       + peersHTML(r)
       + '</div>'
@@ -1694,6 +1782,11 @@ function tSettings(){
     + '<div class="settingrow"><label>Dungeon backdrop (this device)</label>'
     + '<input type="checkbox" '+(bgEnabled()?"checked":"")+' data-a="togglebg" style="width:24px;height:24px">'
     + '</div>'
+    + ((CLS || DEMO)
+      ? '<div class="settingrow"><label>Class tracker — kids see the whole party’s floors</label>'
+        + '<input type="checkbox" '+(S.showTracker!==false?"checked":"")+' data-a="tracktoggle" style="width:24px;height:24px"></div>'
+        + num("Points per dungeon floor","floorPts",S.floorPts||40)
+      : "")
     + '<div class="settingrow"><label>Class code (kids type this once)</label><input type="text" data-set="classCode" value="'+esc(S.classCode||"")+'" maxlength="12" style="width:130px;text-transform:uppercase"></div>'
     + '<div class="tiny" style="margin-top:6px">Changing the code signs every device out until they type the new one.</div></div>'
     + '<div class="card"><h2>Get data out</h2><div class="stack">'
@@ -1796,10 +1889,10 @@ function renderCeremony(){
   }
   if(CER.i >= N){
     const totB = CER.list.reduce((a,x)=>a+x.books,0), totP = CER.list.reduce((a,x)=>a+x.pts,0);
-    const fl = FLOORS[floorIdxFromPts(totP)];
+    const deep = CER.list.reduce((a,x)=>Math.max(a, pfloorOf(x.pts)), 1);
     ov.innerHTML = '<div class="cerewrap"><div class="cerekicker">THE CRAWL IS COMPLETE</div>'
       + '<div class="cerename">'+totB+' BOOKS</div>'
-      + '<div class="cerestats">'+totP+' points as a class \u00b7 the dungeon reached FLOOR '+fl.n+': '+esc(fl.name)+'</div>'
+      + '<div class="cerestats">'+totP+' points as a class \u00b7 the deepest crawler reached FLOOR '+deep+': '+esc(PFLOORS[deep-1].name)+'</div>'
       + '<div class="cerestats" style="font-style:italic">Well fought, crawlers. The dungeon will remember you.</div>'
       + '<div class="cerectl"><button class="btn gold" data-a="cereexit">End ceremony</button></div></div>';
     spawnBurst(ov, ["#F5CF7E","#E8A33D","#A79BE0","#7FE3E0","#FFFFFF"], 160);
@@ -1823,7 +1916,6 @@ function renderCeremony(){
   const colors = c.ti >= 0 ? CCOLORS[Math.min(c.ti,4)] : ["#B9B3D1","#7C76A0"];
   spawnBurst(ov, colors, c.ti >= 4 ? 160 : c.ti >= 0 ? 60 + c.ti*25 : 24);
 }
-function floorIdxFromPts(pts){ let i = 0; for(let k = 0; k < FLOORS.length; k++){ if(pts >= FLOORS[k].at) i = k; } return i; }
 
 /* ============================================================
    CONTROLLER
@@ -1972,6 +2064,20 @@ document.addEventListener("click", async (ev)=>{
         busy(el, false);
         toast(e.message === "timeout" ? "The server took too long \u2014 check your connection and try again" : (e.message || "Sign-in failed"));
       }
+      break;
+    }
+    case "recheck": {
+      const ta = $("#rc_" + el.dataset.id);
+      const alt = ((ta && ta.value) || "").trim();
+      if(alt.length < 5){ toast("Type what they told you first"); return; }
+      busy(el, true);
+      try{
+        const v = await api.screenRead(el.dataset.id, alt.slice(0, 800));
+        const r = TD && TD.reads.find(x=>x.id===el.dataset.id);
+        if(r && v && v.v){ r.ai = Object.assign({}, r.ai || {}, {recheck:{v:v.v, note:v.note}}); }
+        toast(v && v.v === "ok" ? "✅ Their spoken answer checks out" : v && v.v === "mismatch" ? "🚩 Still doesn’t match the book" : "🤔 Still can’t verify — your call");
+        render();
+      }catch(e){ busy(el, false); toast("Check failed — " + e.message); }
       break;
     }
     case "authmode": authMode = el.dataset.m; render(); break;
@@ -2184,6 +2290,7 @@ document.addEventListener("change", async (ev)=>{
         if(k==="verifyMode" && !VMODES[el.value]) return;
         const v = isText ? el.value.trim() : parseInt(el.value, 10);
         if(!isText && isNaN(v)) return;
+        if(k==="floorPts" && v < 5){ toast("At least 5 points per floor"); return; }
         await api.updateSettings({[col]: isText ? v : v});
         if(k==="classCode"){ TD.settings.classCode = String(v).toUpperCase(); CODE = TD.settings.classCode; try{ localStorage.setItem("bc_code", CODE); }catch(e){} }
         else if(k==="className") TD.settings.className = v;
@@ -2198,6 +2305,14 @@ document.addEventListener("change", async (ev)=>{
     TD = null; TDERR = null;
     await loadTeacher();
     render();
+    return;
+  }
+  if(el.dataset.a === "tracktoggle"){
+    try{
+      await api.updateSettings({show_tracker: el.checked});
+      if(TD && TD.settings) TD.settings.showTracker = el.checked;
+      toast(el.checked ? "Tracker on — kids see the party board" : "Tracker hidden — kids see only their own path");
+    }catch(e){ toast(e.message); el.checked = !el.checked; }
     return;
   }
   if(el.dataset.a === "questtoggle"){
@@ -2306,11 +2421,11 @@ function paintDungeon(){
     glowA:"rgba(255,190,90,.14)", glowB:"rgba(255,190,90,0)",
     vin:"rgba(120,105,80,.14)"
   };
-  // floor theme overrides
+  // floor theme override — the signed-in crawler's own depth colors the walls
   try{
-    const fl = FLOORS[floorIdx()];
-    const ov = dark ? fl.dark : fl.light;
-    if(ov) Object.assign(P, ov);
+    const pf = (SS && route.who) ? pfloorOf(SS.pts) : 1;
+    const ovp = palForFloor(pf);
+    if(ovp) Object.assign(P, dark ? ovp.dark : ovp.light);
   }catch(e){}
   // stone bricks
   const bh = 9, bw = 20;
@@ -2399,40 +2514,18 @@ function avatarFor(name){
 }
 function avImg(name, cls){ return '<img class="avatarimg' + (cls ? " " + cls : "") + '" alt="" src="' + avatarFor(name) + '">'; }
 
-/* class floors — unlocked by total verified class points */
-const FLOORS = [
-  {n:4, name:"THE STONE HALLS",   at:0,     dhue:null},
-  {n:5, name:"THE MOSSY DEEP",    at:1500,  dark:{stones:["#1F3A2C","#254434","#2B4E3B","#1C3527"],mortar:"#152A1F",moss:"#4E8A4A",floor:"#183023"}, light:{stones:["#DCE6D6","#D2DECA","#C8D6BE","#E2EADC"],mortar:"#B9C9AF",moss:"#8FBF85",floor:"#CCDAC2"}},
-  {n:6, name:"THE FROST CAVERNS", at:4000,  dark:{stones:["#1E2C4A","#243456","#2A3C62","#1B2842"],mortar:"#152039",moss:"#4A7C9E",floor:"#1A2540"}, light:{stones:["#DCE4EE","#D2DCE9","#C8D4E4","#E4EAF2"],mortar:"#B7C4D6",moss:"#9EC0D9",floor:"#CDD8E6"}},
-  {n:7, name:"THE EMBER DEPTHS",  at:8000,  dark:{stones:["#3A2226","#452A2C","#502F30","#332022"],mortar:"#2A181A",moss:"#8A5E3A",floor:"#2E1C1E"}, light:{stones:["#EADCD4","#E4D2C8","#DEC8BC","#F0E4DC"],mortar:"#D2B9AC",moss:"#D9A87A",floor:"#E2D0C4"}},
-  {n:8, name:"THE CRYSTAL VAULT", at:13000, dark:{stones:["#2C2350","#34295E","#3C2F6C","#271F48"],mortar:"#1E1840",moss:"#5FB8B4",floor:"#241D44"}, light:{stones:["#E2DCF0","#D8D2EA","#CEC6E2","#EAE4F4"],mortar:"#C2B9DA",moss:"#8FD3D0",floor:"#D6CEE8"}}
-];
-function floorIdx(){
-  const pts = (BOOT && BOOT.class_pts) || 0;
-  let i = 0;
-  for(let k = 0; k < FLOORS.length; k++){ if(pts >= FLOORS[k].at) i = k; }
-  return i;
-}
-function floorLabel(){ const f = FLOORS[floorIdx()]; return "FLOOR " + f.n + " · " + f.name; }
+
 
 /* ============================================================
-   STAGE 2 — THE DESCENT. A visible dungeon map of the class's
-   journey downward. Entirely cosmetic-narrative: floors advance
-   only on class points, which advance only on verified reads.
+   THE DESCENT BOARD — one shared shaft, every crawler's avatar
+   sitting at their own floor. Cosmetic-narrative only.
    ============================================================ */
-const FLOOR_LORE = {
-  4: "Every crawl begins at a door made of books.",
-  5: "Things grow down here. Mostly stories.",
-  6: "Every breath hangs like an unread page.",
-  7: "The shelves here smolder with cliffhangers.",
-  8: "Few classes have ever seen these shelves."
-};
 let __desc = null;
 function paintDescent(){
   const cv = document.getElementById("descmap");
   if(!cv || !__desc) return;
   const dark = isDarkTheme();
-  const RH = 34, DH = 16, W = 120, N = FLOORS.length;
+  const RH = 16, DH = 12, W = 160, N = PFLOORS.length;
   cv.width = W; cv.height = N * RH + DH;
   const x = cv.getContext("2d");
   let seed = 77;
@@ -2442,52 +2535,34 @@ function paintDescent(){
     : {stones:["#DCD8EA","#D2CEE4","#C8C2DC","#E4E0F0"], mortar:"#B9B4D0", moss:"#9BB89B", floor:"#CFCAE2"};
   const SPINES = ["#B34A44","#3F7E5A","#3E5F9E","#B08A3E","#7C4E9E"];
   for(let i = 0; i < N; i++){
-    const f = FLOORS[i];
-    const pal = (i === 0 ? BASE : (dark ? f.dark : f.light)) || BASE;
+    const fn = i + 1;
+    const ovp = palForFloor(fn);
+    const pal = ovp ? (dark ? ovp.dark : ovp.light) : BASE;
     const y0 = i * RH;
-    const locked = i > __desc.cur, current = i === __desc.cur;
+    const locked = fn > __desc.reveal;
     x.fillStyle = pal.mortar; x.fillRect(0, y0, W, RH);
-    for(let r = 0; r < RH - 6; r += 5){
+    for(let r = 0; r < RH - 5; r += 5){
       const off = (r / 5) % 2 ? 4 : 0;
       for(let c0 = -4; c0 < W; c0 += 8){
         x.fillStyle = pal.stones[Math.floor(rnd() * pal.stones.length)];
         x.fillRect(c0 + off, y0 + r, 7, 4);
       }
     }
-    x.fillStyle = pal.floor; x.fillRect(0, y0 + RH - 6, W, 6);
-    x.fillStyle = "rgba(0,0,0,.25)"; x.fillRect(0, y0 + RH - 7, W, 1);
+    x.fillStyle = pal.floor; x.fillRect(0, y0 + RH - 5, W, 5);
+    x.fillStyle = "rgba(0,0,0,.25)"; x.fillRect(0, y0 + RH - 6, W, 1);
     if(!locked){
-      for(let m = 0; m < 6; m++){ x.fillStyle = pal.moss; x.fillRect(Math.floor(rnd()*W), y0 + Math.floor(rnd()*(RH-9)), 2, 1); }
-      x.fillStyle = "#4A3524"; x.fillRect(8, y0 + RH - 16, 16, 10);
-      for(let b = 0; b < 5; b++){ x.fillStyle = SPINES[(i + b) % SPINES.length]; x.fillRect(10 + b*3, y0 + RH - 14, 2, 6); }
-      [34, W - 14].forEach(t => {
-        x.fillStyle = "#6B4520"; x.fillRect(t, y0 + 10, 2, 5);
-        x.fillStyle = "#E8A33D"; x.fillRect(t, y0 + 8, 2, 2);
-        x.fillStyle = "#F5CF7E"; x.fillRect(t, y0 + 7, 2, 1);
+      for(let m = 0; m < 8; m++){ x.fillStyle = pal.moss; x.fillRect(Math.floor(rnd()*W), y0 + Math.floor(rnd()*(RH-7)), 2, 1); }
+      x.fillStyle = "#4A3524"; x.fillRect(6, y0 + RH - 12, 14, 7);
+      for(let b = 0; b < 4; b++){ x.fillStyle = SPINES[(i + b) % SPINES.length]; x.fillRect(8 + b*3, y0 + RH - 10, 2, 4); }
+      [W - 26, W - 12].forEach(t => {
+        x.fillStyle = "#6B4520"; x.fillRect(t, y0 + 7, 2, 4);
+        x.fillStyle = "#E8A33D"; x.fillRect(t, y0 + 5, 2, 2);
+        x.fillStyle = "#F5CF7E"; x.fillRect(t, y0 + 4, 2, 1);
       });
-    }
-    if(i < __desc.cur){
-      x.fillStyle = dark ? "#0E0B20" : "#6E6890";
-      x.fillRect(W - 26, y0 + RH - 6, 14, 6);
-      x.fillRect(W - 23, y0 + RH - 4, 8, 4);
-    }
-    if(current){
-      (__desc.names || []).slice(0, 7).forEach((nm, k) => {
-        const mini = document.createElement("canvas"); mini.width = 8; mini.height = 8;
-        _redrawBase(mini.getContext("2d"), nm);
-        x.drawImage(mini, 28 + k * 13, y0 + RH - 14);
-      });
-      const nf = FLOORS[i + 1];
-      if(nf){
-        const frac = Math.max(0, Math.min(1, (__desc.pts - f.at) / (nf.at - f.at)));
-        x.fillStyle = "rgba(0,0,0,.35)"; x.fillRect(0, y0 + RH - 2, W, 2);
-        x.fillStyle = "#E8A33D"; x.fillRect(0, y0 + RH - 2, Math.round(W * frac), 2);
-      }
-    }
-    if(locked){
+    } else {
       x.fillStyle = dark ? "rgba(6,4,16,.78)" : "rgba(40,34,70,.55)";
       x.fillRect(0, y0, W, RH);
-      for(let d = 0; d < 90; d++){ x.fillStyle = "rgba(0,0,0,.5)"; x.fillRect(Math.floor(rnd()*W), y0 + Math.floor(rnd()*RH), 2, 1); }
+      for(let d = 0; d < 110; d++){ x.fillStyle = "rgba(0,0,0,.5)"; x.fillRect(Math.floor(rnd()*W), y0 + Math.floor(rnd()*RH), 2, 1); }
     }
   }
   const yD = N * RH;
@@ -2495,62 +2570,92 @@ function paintDescent(){
   x.fillStyle = "#2A2348";
   for(let g = 4; g < W; g += 10){ x.fillRect(g, yD, 2, DH); }
 }
-function descentHTML(pts, names){
-  const cur = floorIdxFromPts(pts);
-  __desc = {pts, cur, names};
+function _nmHash(t){ let h = 0; for(let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) & 0xffff; return h; }
+/* crew: [{name, equipped, floor, me}] — floor numbers only, never points */
+function descentHTML(crew, meFloor, reveal){
+  __desc = {reveal};
   setTimeout(paintDescent, 0);
-  const rows = FLOORS.map((f, i) => {
-    const next = FLOORS[i + 1];
-    let st;
-    if(i < cur) st = "CLEARED ✓";
-    else if(i === cur) st = next ? (next.at - pts) + " pts to Floor " + next.n : "the deepest known floor";
-    else st = "???";
-    return '<div class="descrow'+(i > cur ? " lk" : "")+'"><span>FLOOR '+f.n+(i <= cur ? " · "+esc(f.name) : "")+'</span><span>'+esc(st)+'</span></div>';
+  const rows = PFLOORS.map((f, i) => {
+    const fn = i + 1;
+    const locked = fn > reveal;
+    const here = (crew || []).filter(c => c.floor === fn).sort((a, b) => _nmHash(a.name) - _nmHash(b.name));
+    const avs = here.map(c =>
+      '<span class="dav' + (c.me ? " meav" : "") + '" title="' + esc(c.name) + '">'
+      + (c.equipped ? gearImg(c.name, c.equipped) : avImg(c.name))
+      + (c.me ? '<b class="youtag">YOU</b>' : '') + '</span>').join("");
+    return '<div class="descrow' + (locked ? " lk" : "") + (fn === meFloor ? " mine" : "") + '">'
+      + '<span class="fl">FLOOR ' + fn + (locked ? " · ???" : " · " + esc(f.name)) + '</span>'
+      + (avs ? '<span class="davs">' + avs + '</span>' : '')
+      + '</div>';
   }).join("");
-  return '<div class="descwrap"><canvas id="descmap" aria-label="Dungeon map of the class descent"></canvas>'
-    + '<div class="desclabels">'+rows
-    + '<div class="descrow lk"><span>THE DEPTHS</span><span>the dungeon goes deeper…</span></div></div></div>';
+  return '<div class="descwrap"><canvas id="descmap" aria-label="Map of the class spread through the dungeon"></canvas>'
+    + '<div class="desclabels">' + rows
+    + '<div class="descrow lk"><span class="fl">THE DEPTHS</span></div></div></div>';
 }
 function vDescent(){
   if(!BOOT){ ensureBoot().then(()=>render()); return topbar() + '<div class="card"><span class="spin"></span> unrolling the map…</div>'; }
-  const pts = BOOT.class_pts || 0;
-  const cur = floorIdxFromPts(pts), f = FLOORS[cur], next = FLOORS[cur + 1];
-  const names = (BOOT.students || []).map(s => s.name);
   const who = route.who && SPIN[route.who];
   if(who && !SS){ loadState().then(()=>render()); }
   const me = who && BOOT.students.find(s => s.id === route.who);
-  const torch = (who && SS && me) ? '<div class="card torchrow">'
+  const FP = floorPtsPer();
+  const mf = (who && SS) ? pfloorOf(SS.pts) : null;
+  const shown = trackerOn();
+  let crew = [];
+  if(shown){
+    crew = (BOOT.students || []).filter(s => s.floor).map(s => ({
+      name: s.name, equipped: s.equipped, floor: Math.min(PFLOORS.length, s.floor),
+      me: !!(me && s.id === me.id)}));
+    if(me && mf){
+      const mine = crew.find(c => c.me);
+      if(mine) mine.floor = mf;
+      else crew.push({name: me.name, equipped: SS.equipped, floor: mf, me: true});
+    }
+  } else if(me && mf){
+    crew = [{name: me.name, equipped: SS.equipped, floor: mf, me: true}];
+  }
+  const reveal = Math.max(mf || 1, crew.reduce((a, c) => Math.max(a, c.floor), 1));
+  const f = PFLOORS[(mf || reveal) - 1];
+  const into = mf ? SS.pts - (mf - 1) * FP : 0;
+  const head = mf
+    ? '<div class="card"><div class="label">YOUR FLOOR — ' + mf + ' · ' + esc(f.name) + '</div>'
+      + '<div class="tiny" style="font-style:italic;margin:2px 0 8px">' + esc(f.lore) + '</div>'
+      + (mf < PFLOORS.length
+          ? '<div class="row" style="margin:6px 0 4px"><div class="progressbar" style="flex:1"><i style="width:' + Math.min(100, Math.round(100 * into / FP)) + '%"></i></div><strong>' + into + ' / ' + FP + '</strong></div>'
+            + '<div class="tiny">' + (FP - into) + ' points until you break through to Floor ' + (mf + 1) + ' — every verified book digs deeper.</div>'
+          : '<div class="tiny">You stand on the deepest known shelf. Legends only from here.</div>')
+      + '</div>'
+    : '';
+  const note = shown
+    ? '<div class="tiny" style="margin:0 2px">The whole party, floor by floor — hover a crawler to see who. A floor lights up for everyone once one crawler reaches it.</div>'
+    : '<div class="tiny" style="margin:0 2px">The party crawls in secret — only your own path is shown.</div>';
+  const torch = (mf && me) ? '<div class="card torchrow">'
       + (SS.equipped !== undefined ? gearImg(me.name, SS.equipped) : avImg(me.name))
-      + '<div><strong>🔦 Your torch</strong><div class="tiny">You’ve explored '+SS.verified+' room'+(SS.verified===1?"":"s")+' of this dungeon — every verified book lights one more.</div></div></div>' : "";
-  return topbar('<button class="btn ghost small" data-a="'+(who ? "tohome" : "tostudents")+'">← back</button>')
+      + '<div><strong>🔦 Your torch</strong><div class="tiny">You’ve explored ' + SS.verified + ' room' + (SS.verified === 1 ? "" : "s") + ' of this dungeon — every verified book lights one more.</div></div></div>' : "";
+  return topbar('<button class="btn ghost small" data-a="' + (who ? "tohome" : "tostudents") + '">← back</button>')
     + '<div class="stack" style="max-width:620px;margin:0 auto">'
     + '<h2 class="display" style="font-size:22px;color:var(--violet)">🗺️ THE DESCENT</h2>'
-    + '<div class="card"><div class="label">FLOOR '+f.n+' · '+esc(f.name)+'</div>'
-    + '<div class="tiny" style="font-style:italic;margin:2px 0 8px">'+esc(FLOOR_LORE[f.n] || "")+'</div>'
-    + (next
-        ? '<div class="row" style="margin:6px 0 4px"><div class="progressbar" style="flex:1"><i style="width:'+Math.min(100, Math.round(100 * (pts - f.at) / (next.at - f.at)))+'%"></i></div><strong>'+pts+' / '+next.at+'</strong></div>'
-          + '<div class="tiny">'+(next.at - pts)+' class points until everyone breaks through to Floor '+next.n+' — the whole class digs together.</div>'
-        : '<div class="tiny">The class stands on the deepest known floor. Legends only from here.</div>')
-    + '</div>'
-    + descentHTML(pts, names)
+    + head + note
+    + descentHTML(crew, mf || 0, reveal)
     + torch
     + '</div>';
 }
 function tMap(){
-  const pts = TD.students.reduce((a, st) => a + Engine.totals(st.id, TD).pts, 0);
+  const FP = floorPtsPer();
+  const crew = TD.students.map(st => {
+    const t = Engine.totals(st.id, TD);
+    return {name: st.name, equipped: st.equipped, floor: Math.min(PFLOORS.length, 1 + Math.floor(Math.max(0, t.pts) / FP))};
+  });
+  const reveal = crew.reduce((a, c) => Math.max(a, c.floor), 1);
+  const deepest = crew.filter(c => c.floor === reveal).map(c => c.name);
   const books = TD.reads.filter(r => r.status === "verified").length;
-  const cur = floorIdxFromPts(pts), f = FLOORS[cur], next = FLOORS[cur + 1];
   return '<div class="stack">'
     + '<div class="card"><h2>🗺️ The Descent</h2>'
-    + '<div class="tiny" style="margin-bottom:8px">The whole class digs together — every verified read is a shovel of progress. Put this tab on the projector when a floor is about to fall.</div>'
-    + '<div class="label">FLOOR '+f.n+' · '+esc(f.name)+'</div>'
-    + '<div class="tiny" style="font-style:italic;margin:2px 0 8px">'+esc(FLOOR_LORE[f.n] || "")+'</div>'
-    + (next
-        ? '<div class="row" style="margin:6px 0 4px"><div class="progressbar" style="flex:1"><i style="width:'+Math.min(100, Math.round(100 * (pts - f.at) / (next.at - f.at)))+'%"></i></div><strong>'+pts+' / '+next.at+'</strong></div>'
-          + '<div class="tiny">'+(next.at - pts)+' points to Floor '+next.n+' · '+books+' quests verified so far</div>'
-        : '<div class="tiny">'+books+' quests verified — the deepest known floor.</div>')
+    + '<div class="tiny" style="margin-bottom:8px">Every crawler digs their own path — one floor per ' + FP + ' points. Hover any crawler for their name. '
+    + (trackerOn() ? 'The kids see this same board.' : 'The kids’ board is hidden right now (Settings → Class tracker).') + '</div>'
+    + '<div class="label">DEEPEST — FLOOR ' + reveal + ' · ' + esc(PFLOORS[reveal - 1].name) + '</div>'
+    + '<div class="tiny" style="font-style:italic;margin:2px 0 8px">' + esc(PFLOORS[reveal - 1].lore) + ' · down there: ' + esc(deepest.join(", ") || "—") + ' · ' + books + ' quests verified</div>'
     + '</div>'
-    + descentHTML(pts, TD.students.map(s => s.name))
+    + descentHTML(crew, 0, reveal)
     + '</div>';
 }
 
@@ -2592,28 +2697,27 @@ const TIERFX = {
   Legendary:{ms:2300, parts:150, colors:["#F5CF7E","#E8A33D","#FFFFFF","#7FE3E0"], shake:true, flash:true, flavor:"The entire dungeon is watching."}
 };
 
-/* floor-descent event (class hit a new floor since this device last looked) */
+/* floor-descent moment (YOU reached a new floor since this device last looked) */
 function checkFloorEvent(){
-  const f = floorIdx();
+  if(!SS || !route.who) return;
+  const f = pfloorOf(SS.pts);
+  const key = "bc_pfloor_" + route.who;
   let prev = null;
-  try{ prev = localStorage.getItem("bc_floor"); }catch(e){}
-  if(prev === null){ try{ localStorage.setItem("bc_floor", String(f)); }catch(e){} return; }
-  if(f > Number(prev)){
-    try{ localStorage.setItem("bc_floor", String(f)); }catch(e){}
-    const fl = FLOORS[f];
+  try{ prev = localStorage.getItem(key); }catch(e){}
+  if(prev !== null && f > Number(prev)){
+    const fl = PFLOORS[f - 1];
     const ov = document.createElement("div");
     ov.className = "overlay"; ov.id = "floorov";
-    ov.innerHTML = '<div class="floorbanner"><div class="f1">THE CLASS DESCENDS…</div>'
-      + '<div class="f2">FLOOR ' + fl.n + '</div>'
+    ov.innerHTML = '<div class="floorbanner"><div class="f1">YOU DESCEND, CRAWLER…</div>'
+      + '<div class="f2">FLOOR ' + f + '</div>'
       + '<div class="f1" style="margin-top:6px">' + esc(fl.name) + '</div>'
-      + '<div class="f3">' + esc(FLOOR_LORE[fl.n] || "") + '</div>'
+      + '<div class="f3">' + esc(fl.lore) + '</div>'
       + '<div style="margin-top:18px"><button class="btn gold" data-a="closefloor">Onward!</button></div></div>';
     document.body.appendChild(ov);
     spawnBurst(ov, ["#F5CF7E","#E8A33D","#A79BE0","#FFFFFF"], 90);
     paintDungeon();
-  } else {
-    try{ localStorage.setItem("bc_floor", String(f)); }catch(e){}
   }
+  try{ localStorage.setItem(key, String(f)); }catch(e){}
 }
 /* level-up moment (per student, per device) */
 function checkLevelUp(){

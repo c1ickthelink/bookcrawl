@@ -187,6 +187,8 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 
 /* ---- production additions ---- */
 .codegate input{font-size:26px;text-align:center;letter-spacing:.35em;text-transform:uppercase;width:230px;font-weight:700}
+.teachdoor{margin-top:38px;display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;color:var(--muted);font-size:13.5px}
+.teachdoor .tdsep{color:var(--muted);opacity:.6}
 .authform{max-width:380px;margin:0 auto;text-align:left}
 .authform input{width:100%;margin-top:4px}
 .spin{display:inline-block;width:18px;height:18px;border:3px solid var(--line);border-top-color:var(--violet);border-radius:50%;animation:sp 1s linear infinite;vertical-align:middle}
@@ -948,6 +950,7 @@ let route = {screen:"code", who:null, tab:"queue", sub:null};
 try{ const r = sessionStorage.getItem("bc_route"); if(r) route = JSON.parse(r); }catch(e){}
 let CODE = "";
 try{ CODE = localStorage.getItem("bc_code") || ""; }catch(e){}
+if(route.screen === "code" && CODE) route.screen = "gate"; // device remembers its class → skip straight to the name grid
 let SPIN = {}; // session pin per student id (this tab only)
 try{ SPIN = JSON.parse(sessionStorage.getItem("bc_spin") || "{}"); }catch(e){}
 
@@ -1082,7 +1085,10 @@ function vCode(){
     + '<div class="codegate"><input id="codein" maxlength="12" autocomplete="off" placeholder="CODE" value="'+esc(CODE)+'"></div>'
     + '<div style="margin-top:16px"><button class="btn gold" data-a="entercode">Enter →</button></div>'
     + (DEMO ? '<div class="footer-note">Demo: the code is <strong>CRAWL</strong> · teacher sign-in accepts anything<br>student PINs 1111 / 2222 / 3333</div>' : "")
-    + '<div style="margin-top:26px"><button class="btn ghost small" data-a="tteacher">🗝️ Teacher</button></div>'
+    + '<div class="teachdoor">🗝️ Teacher? '
+    + '<button class="btn ghost small" data-a="tteacher">Sign in</button>'
+    + '<span class="tdsep">·</span>'
+    + '<button class="btn ghost small" data-a="tteacher" data-m="up">Create your free class</button></div>'
     + '</div>';
 }
 
@@ -1939,7 +1945,7 @@ document.addEventListener("click", async (ev)=>{
       try{ sess = await api.teacherSession(); authOk(); }
       catch(e){ if(authRecover()) return; }
       if(sess){ TD=null; TDERR=null; go({screen:"teacher", tab:"queue", sub:null}); }
-      else go({screen:"tauth"});
+      else { authMode = (el && el.dataset.m) || "in"; go({screen:"tauth"}); }
       break;
     }
     case "tsignin": case "tsignup": {

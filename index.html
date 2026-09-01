@@ -484,7 +484,8 @@ function settingsFromRow(row){
     boxPts: row.box_pts, yearTiers: row.year_tiers, d100: row.d100, prizes: row.prizes,
     className: row.class_name, classCode: row.class_code,
     verifyMode: row.verify_mode,
-    floorPts: row.floor_pts || 40, showTracker: row.show_tracker !== false
+    floorPts: row.floor_pts || 40, showTracker: row.show_tracker !== false,
+    kind: row.kind || "classroom"
   };
 }
 /* app settings knob path -> DB column patch */
@@ -536,6 +537,11 @@ function pfloorOf(pts){ return Math.min(PFLOORS.length, 1 + Math.floor(Math.max(
 function trackerOn(){
   if(TD && TD.settings) return TD.settings.showTracker !== false;
   return !BOOT || BOOT.show_tracker !== false;
+}
+/* family crew? — same dungeon, different words */
+function fam(){
+  if(TD && TD.settings) return TD.settings.kind === "family";
+  return !!(BOOT && BOOT.kind === "family");
 }
 
 /* Quest Report question pools — the kid says whether it was a story or a
@@ -689,8 +695,8 @@ function makeLiveAPI(){
       }
       return data;
     },
-    async createClass(name){
-      const {data, error} = await sb.rpc("create_class", {p_name: name});
+    async createClass(name, kind){
+      const {data, error} = await sb.rpc("create_class", {p_name: name, p_kind: kind === "family" ? "family" : "classroom"});
       if(error) throw new Error(error.message);
       return data;
     },
@@ -820,7 +826,7 @@ function makeDemoAPI(){
           Rare:"Lunch with the teacher · pick the class game · choose-your-seat week · prize-box item",
           Epic:"Keep-a-book from the giveaway shelf · Librarian for a Day · epic certificate + class announcement",
           Legendary:"Full dramatic loot reveal: announcer-voice proclamation, custom certificate, one grand privilege (within reason)"},
-        className:"Room 12 (DEMO)", classCode:"CRAWL", verifyMode:"report_spot", floorPts:40, showTracker:true},
+        className:"Room 12 (DEMO)", classCode:"CRAWL", verifyMode:"report_spot", floorPts:40, showTracker:true, kind:"classroom"},
       students:[
         {id:"st1", name:"Ember Fox", pin:"1111", levels:[{date:"2026-08-01",lvl:390}]},
         {id:"st2", name:"Storm Otter", pin:"2222", levels:[{date:"2026-08-01",lvl:700}]},
@@ -883,7 +889,7 @@ function makeDemoAPI(){
       const classPts = D.students.reduce((a, st)=> a + Engine.totals(st.id, D).pts, 0);
       const FP = Math.max(5, D.settings.floorPts || 40);
       const trk = D.settings.showTracker !== false;
-      return {ok:true, class_name:D.settings.className, box_pts:D.settings.boxPts, prizes:D.settings.prizes, class_pts: classPts, year_tiers: D.settings.yearTiers,
+      return {ok:true, class_name:D.settings.className, kind:D.settings.kind || "classroom", box_pts:D.settings.boxPts, prizes:D.settings.prizes, class_pts: classPts, year_tiers: D.settings.yearTiers,
         floor_pts: FP, show_tracker: trk,
         ask_q: (D.settings.verifyMode || "classic") !== "classic",
         quests: (D.questState||[]).filter(r=>r.active).map(r=>r.id).sort(),
@@ -1031,6 +1037,7 @@ let BOOT = null;     // student-side bootstrap payload
 let SS = null;       // logged-in student's server state
 let TD = null;       // teacher data (full)
 let pinBuf = "", pinTarget = null, logState = null, authMode = "in";
+let ncKind = "classroom", ncName = ""; // onboarding fork state
 
 function go(patch){
   route = Object.assign({}, route, patch);
@@ -1159,7 +1166,7 @@ function vCode(){
     + '<div class="codegate"><input id="codein" maxlength="12" autocomplete="off" placeholder="CODE" value="'+esc(CODE)+'"></div>'
     + '<div style="margin-top:16px"><button class="btn gold" data-a="entercode">Enter →</button></div>'
     + (DEMO ? '<div class="footer-note">Demo: the code is <strong>CRAWL</strong> · teacher sign-in accepts anything<br>student PINs 1111 / 2222 / 3333</div>' : "")
-    + '<div class="teachdoor">🗝️ Teacher? '
+    + '<div class="teachdoor">🗝️ Teacher or parent? '
     + '<button class="btn ghost small" data-a="tteacher">Sign in</button>'
     + '<span class="tdsep">·</span>'
     + '<button class="btn ghost small" data-a="tteacher" data-m="up">Create your free class</button></div>'
@@ -1178,7 +1185,7 @@ function vGate(){
     + '<div class="sub">'+esc(BOOT.class_name)+'</div>'
     + '<div class="sub" style="margin-top:-16px">tap your crawler name</div>'
     + (BOOT.students.length ? '<div class="namegrid">'+cards+'</div>'
-        : '<div class="card">No crawlers yet — your teacher needs to add the roster.</div>')
+        : '<div class="card">No crawlers yet — ' + (fam() ? 'ask your grown-up to add you.' : 'your teacher needs to add the roster.') + '</div>')
     + '<div style="margin-top:26px" class="row" style="justify-content:center">'
     + '<button class="btn ghost small" data-a="leavecode">change class code</button> '
     + '<button class="btn ghost small" data-a="tteacher">🗝️ Teacher</button></div>'
@@ -1434,7 +1441,7 @@ function vTeacherAuth(){
     inner = '<div><div class="fieldlbl">Email</div><input id="t_email" type="email" autocomplete="username"></div>'
       + '<div><div class="fieldlbl">Password (12+ \u2014 a passphrase works great)</div><input id="t_pass" type="password" autocomplete="new-password"></div>'
       + '<div><div class="fieldlbl">Type it again</div><input id="t_pass2" type="password" autocomplete="new-password"></div>'
-      + '<button class="btn primary big" data-a="tsignup">Create the teacher account</button>' + back;
+      + '<button class="btn primary big" data-a="tsignup">Create your account</button>' + back;
   } else if(authMode === "forgot"){
     inner = '<div><div class="fieldlbl">Email</div><input id="t_email" type="email" autocomplete="username"></div>'
       + '<button class="btn primary big" data-a="tforgot">Email me a recovery link</button>' + back
@@ -1454,7 +1461,7 @@ function vTeacherAuth(){
   }
   return topbar('<button class="btn ghost small" data-a="tostudents">\u2190 back</button>')
     + '<div class="gate"><div class="brand display" style="font-size:26px">Teacher</div>'
-    + '<div class="sub">'+(DEMO?"demo mode \u2014 any email + password works":"sign in with your teacher account")+'</div>'
+    + '<div class="sub">'+(DEMO?"demo mode \u2014 any email + password works":"sign in with your account")+'</div>'
     + '<div class="card authform stack">' + inner + '</div></div>';
 }
 
@@ -1470,16 +1477,25 @@ function vTeacher(){
     return topbar() + '<div class="card"><span class="spin"></span> loading class data…</div>';
   }
   if(TD.noClass){
+    const famNC = ncKind === "family";
     return topbar('<button class="btn ghost small" data-a="tsignout">Sign out</button>')
       + '<div class="stack" style="max-width:520px;margin:0 auto">'
       + '<div class="card"><h2>🏰 Welcome, Dungeon Master</h2>'
-      + '<div class="tiny" style="margin:6px 0 12px">Name your class and Book Crawl will forge its dungeon — a class code for your crawlers, loot tables, the works. You can change everything later in Settings.</div>'
-      + '<div class="fieldlbl">Class name</div>'
-      + '<input id="nc_name" placeholder="Room 12" maxlength="60" style="width:100%">'
-      + '<div style="margin-top:14px"><button class="btn primary big" data-a="createclass">Create my class ⚔️</button></div>'
+      + '<div class="tiny" style="margin:6px 0 12px">Who is this dungeon for? Same game either way — points scaled to each reader, loot boxes, gear, the Descent.</div>'
+      + '<div class="row" style="margin-bottom:12px">'
+      + '<button class="btn'+(famNC?" ghost":"")+'" data-a="nckind" data-k="classroom" style="flex:1">🏫 My classroom</button>'
+      + '<button class="btn'+(famNC?"":" ghost")+'" data-a="nckind" data-k="family" style="flex:1">🏠 My family</button></div>'
+      + '<div class="tiny" style="margin:0 0 12px">'
+      + (famNC
+          ? 'Name your crew and Book Crawl will forge its dungeon — a crew code your kids type once, loot tables, the works. Kids get dungeon names, never real ones.'
+          : 'Name your class and Book Crawl will forge its dungeon — a class code for your crawlers, loot tables, the works. You can change everything later in Settings.')
+      + '</div>'
+      + '<div class="fieldlbl">'+(famNC?'Crew name':'Class name')+'</div>'
+      + '<input id="nc_name" placeholder="'+(famNC?'The Reading Crew':'Room 12')+'" maxlength="60" style="width:100%" value="'+esc(ncName)+'">'
+      + '<div style="margin-top:14px"><button class="btn primary big" data-a="createclass">'+(famNC?'Forge our crew ⚔️':'Create my class ⚔️')+'</button></div>'
       + '</div></div>';
   }
-  const tabs = [["queue","Queue"],["class","Class"],["map","Map"],["books","Books"],["loot","Loot"],["settings","Settings"]];
+  const tabs = [["queue","Queue"],["class",fam()?"Crew":"Class"],["map","Map"],["books","Books"],["loot","Loot"],["settings","Settings"]];
   const nlq = TD.books.filter(b=>b.level==null && TD.reads.some(r=>r.bookId===b.id));
   const pq = TD.reads.filter(r=>r.status==="pending");
   const badge = (nlq.length + pq.length) ? " ("+(nlq.length+pq.length)+")" : "";
@@ -1777,8 +1793,8 @@ function tSettings(){
       + '<strong>Quest Report + Spot Checks</strong> — reports, plus the dungeon secretly flags about 1 in 4 reads for a real book talk. Kids never see the flag, so there’s no pattern to game.'
       + '</div></div>' : "")
     + '<div class="card"><h2>Year-end boxes</h2>'+tiers
-    + '<h2 style="margin-top:16px">Class</h2>'
-    + '<div class="settingrow"><label>Class name</label><input type="text" data-set="className" value="'+esc(S.className||"")+'" style="width:200px;text-align:left"></div>'
+    + '<h2 style="margin-top:16px">'+(fam()?'Crew':'Class')+'</h2>'
+    + '<div class="settingrow"><label>'+(fam()?'Crew name':'Class name')+'</label><input type="text" data-set="className" value="'+esc(S.className||"")+'" style="width:200px;text-align:left"></div>'
     + '<div class="settingrow"><label>Dungeon backdrop (this device)</label>'
     + '<input type="checkbox" '+(bgEnabled()?"checked":"")+' data-a="togglebg" style="width:24px;height:24px">'
     + '</div>'
@@ -1787,7 +1803,7 @@ function tSettings(){
         + '<input type="checkbox" '+(S.showTracker!==false?"checked":"")+' data-a="tracktoggle" style="width:24px;height:24px"></div>'
         + num("Points per dungeon floor","floorPts",S.floorPts||40)
       : "")
-    + '<div class="settingrow"><label>Class code (kids type this once)</label><input type="text" data-set="classCode" value="'+esc(S.classCode||"")+'" maxlength="12" style="width:130px;text-transform:uppercase"></div>'
+    + '<div class="settingrow"><label>'+(fam()?'Crew code (your kids type this once)':'Class code (kids type this once)')+'</label><input type="text" data-set="classCode" value="'+esc(S.classCode||"")+'" maxlength="12" style="width:130px;text-transform:uppercase"></div>'
     + '<div class="tiny" style="margin-top:6px">Changing the code signs every device out until they type the new one.</div></div>'
     + '<div class="card"><h2>Get data out</h2><div class="stack">'
     + '<button class="btn" data-a="exportlog">⬇ Book log (CSV)</button>'
@@ -1892,7 +1908,7 @@ function renderCeremony(){
     const deep = CER.list.reduce((a,x)=>Math.max(a, pfloorOf(x.pts)), 1);
     ov.innerHTML = '<div class="cerewrap"><div class="cerekicker">THE CRAWL IS COMPLETE</div>'
       + '<div class="cerename">'+totB+' BOOKS</div>'
-      + '<div class="cerestats">'+totP+' points as a class \u00b7 the deepest crawler reached FLOOR '+deep+': '+esc(PFLOORS[deep-1].name)+'</div>'
+      + '<div class="cerestats">'+totP+' points as a '+(fam()?'crew':'class')+' \u00b7 the deepest crawler reached FLOOR '+deep+': '+esc(PFLOORS[deep-1].name)+'</div>'
       + '<div class="cerestats" style="font-style:italic">Well fought, crawlers. The dungeon will remember you.</div>'
       + '<div class="cerectl"><button class="btn gold" data-a="cereexit">End ceremony</button></div></div>';
     spawnBurst(ov, ["#F5CF7E","#E8A33D","#A79BE0","#7FE3E0","#FFFFFF"], 160);
@@ -2107,15 +2123,21 @@ document.addEventListener("click", async (ev)=>{
     }
     case "tsignout": try{ await withTimeout(api.teacherSignOut(), 8000); }catch(e){} TD=null; TDERR=null; go({screen: CODE ? "gate" : "code"}); break;
     case "trefresh": busy(el,true); await loadTeacher(); busy(el,false); render(); break;
+    case "nckind": {
+      ncName = ($("#nc_name")?.value || "").trim();
+      ncKind = el.dataset.k === "family" ? "family" : "classroom";
+      render();
+      break;
+    }
     case "createclass": {
       const nm = ($("#nc_name")?.value || "").trim();
       busy(el, true);
       try{
-        const r = await api.createClass(nm || "My Class");
+        const r = await api.createClass(nm || (ncKind === "family" ? "Our Crew" : "My Class"), ncKind);
         if(!r || !r.ok) throw new Error(r && r.err === "limit" ? "Class limit reached (5)" : "Couldn't create the class");
         try{ sessionStorage.setItem("bc_cls", r.id); }catch(e){}
         TD = null; await loadTeacher(); render();
-        toast("⚔️ " + r.name + " forged — class code " + r.code);
+        toast("⚔️ " + r.name + " forged — " + (r.kind === "family" ? "crew" : "class") + " code " + r.code);
       }catch(e){ busy(el, false); toast(e.message); }
       break;
     }

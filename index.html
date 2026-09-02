@@ -1809,9 +1809,13 @@ function tLoot(){
     const pct = (b.max - lo + 1); lo = b.max + 1;
     return '<tr><td>'+range+'</td><td><span class="chip '+tierClass(b.tier)+'">'+esc(b.tier)+'</span></td><td class="num">'+pct+'%</td></tr>';
   }).join("");
-  const prizes = Object.keys(TD.settings.prizes||{}).map(tier=>
+  /* render every canonical tier even when the stored prizes object is empty
+     (new classes start blank) — plus any custom tiers a teacher added */
+  const P = TD.settings.prizes || {};
+  const tierList = ["Common","Uncommon","Rare","Epic","Legendary"].concat(Object.keys(P).filter(k=>!["Common","Uncommon","Rare","Epic","Legendary"].includes(k)));
+  const prizes = tierList.map(tier=>
     '<div style="margin-top:10px"><div class="fieldlbl"><span class="chip '+tierClass(tier)+'">'+esc(tier)+'</span></div>'
-    + '<textarea class="paste" style="min-height:56px" data-prize="'+esc(tier)+'">'+esc(TD.settings.prizes[tier])+'</textarea></div>').join("");
+    + '<textarea class="paste" style="min-height:56px" data-prize="'+esc(tier)+'" placeholder="Prize ideas for this tier — cheap and delightful beats pricey (stickers, passes, privileges)">'+esc(P[tier]||"")+'</textarea></div>').join("");
   const ledger = TD.boxes.slice().sort((a,b)=> a.date<b.date?1:-1).map(b=>{
     const st = tstu(b.studentId);
     return '<div class="readrow"><div class="bk"><div class="t">'+esc(st?st.name:"?")+' · <span class="chip '+tierClass(b.tier)+'">'+esc(b.tier)+'</span></div>'

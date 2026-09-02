@@ -304,6 +304,11 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 .dav.meav{margin:0 4px}
 .youtag{position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:8px;font-weight:900;color:#F5CF7E;letter-spacing:.06em;text-shadow:0 1px 2px rgba(0,0,0,.8)}
 @keyframes meglow{0%,100%{outline-color:var(--accent-strong)}50%{outline-color:#F5CF7E}}
+.tour .tstep{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line)}
+.tour .tstep.done{opacity:.68}
+.tickbox{width:28px;height:28px;border-radius:8px;background:var(--surface2);display:grid;place-items:center;font-weight:800;flex-shrink:0;font-size:14px}
+.tmid{flex:1;min-width:0}
+.linkbtn{background:none;border:none;padding:0;margin:0;color:var(--accent);text-decoration:underline;cursor:pointer;font:inherit;font-size:inherit}
 .rc{margin-top:6px}
 .rc summary{cursor:pointer;font-size:12.5px;color:var(--muted);font-weight:700}
 .rc textarea{width:100%;margin:6px 0;font-size:14px;box-sizing:border-box}
@@ -485,7 +490,8 @@ function settingsFromRow(row){
     className: row.class_name, classCode: row.class_code,
     verifyMode: row.verify_mode,
     floorPts: row.floor_pts || 40, showTracker: row.show_tracker !== false,
-    kind: row.kind || "classroom"
+    kind: row.kind || "classroom",
+    comp: row.comp, trialUntil: row.trial_until, paidUntil: row.paid_until
   };
 }
 /* app settings knob path -> DB column patch */
@@ -543,6 +549,19 @@ function fam(){
   if(TD && TD.settings) return TD.settings.kind === "family";
   return !!(BOOT && BOOT.kind === "family");
 }
+/* season-pass state for the signed-in class; null = billing not present */
+function billingState(){
+  if(DEMO || !CLS || !TD || !TD.settings) return null;
+  const S = TD.settings;
+  if(S.comp === undefined && S.trialUntil === undefined && S.paidUntil === undefined) return null;
+  if(S.comp) return {st:"founder"};
+  const now = Date.now();
+  if(S.paidUntil && Date.parse(S.paidUntil) > now) return {st:"active", until:S.paidUntil};
+  if(S.trialUntil && Date.parse(S.trialUntil) > now)
+    return {st:"trial", until:S.trialUntil, days: Math.max(1, Math.ceil((Date.parse(S.trialUntil) - now) / 86400000))};
+  return {st:"frozen"};
+}
+function fmtDay(iso){ try{ return new Date(iso).toLocaleDateString(undefined, {month:"short", day:"numeric", year:"numeric"}); }catch(e){ return String(iso).slice(0,10); } }
 
 /* Quest Report question pools — the kid says whether it was a story or a
    true book, then a question is drawn from the matching pool. Every
@@ -694,6 +713,13 @@ function makeLiveAPI(){
         return null; /* table doesn't exist yet — legacy single-class mode */
       }
       return data;
+    },
+    async fetchConfig(){
+      try{
+        const {data, error} = await withTimeout(sb.from("platform_config").select("*").eq("id", 1).single(), 8000);
+        if(error) return null;
+        return data;
+      }catch(e){ return null; }
     },
     async createClass(name, kind){
       const {data, error} = await sb.rpc("create_class", {p_name: name, p_kind: kind === "family" ? "family" : "classroom"});
@@ -969,6 +995,7 @@ function makeDemoAPI(){
       if(!st.gear.some(g=>g.item===itemId) || !GEAR[itemId] || GEAR[itemId][1] !== slot) return {ok:false, err:"own"};
       st.equipped[slot] = itemId; save(D); return {ok:true};
     },
+    async fetchConfig(){ return null; },
     async teacherSession(){ try{ return sessionStorage.getItem("bc_demo_teacher") ? {} : null; }catch(e){ return null; } },
     async teacherSignIn(){ try{ sessionStorage.setItem("bc_demo_teacher","1"); }catch(e){} },
     async teacherSignUp(){ try{ sessionStorage.setItem("bc_demo_teacher","1"); }catch(e){} return {}; },
@@ -1038,6 +1065,9 @@ let SS = null;       // logged-in student's server state
 let TD = null;       // teacher data (full)
 let pinBuf = "", pinTarget = null, logState = null, authMode = "in";
 let ncKind = "classroom", ncName = ""; // onboarding fork state
+let helpBack = null; // where the help/legal pages return to
+const BC_CONTACT = ""; // published contact email for the legal pages (empty = line omitted)
+let mailSent = ""; // email awaiting confirmation after signup
 
 function go(patch){
   route = Object.assign({}, route, patch);
@@ -1105,6 +1135,7 @@ async function loadTeacher(quiet){
       CLS = cur;
       TD = await withTimeout(api.fetchAll(cur), 20000);
       TD.platform = true; TD.classes = classes; TD.classId = cur;
+      try{ TD.cfg = api.fetchConfig ? await api.fetchConfig() : null; }catch(e){ TD.cfg = null; }
     } else {
       CLS = null;
       TD = await withTimeout(api.fetchAll(), 20000);
@@ -1143,6 +1174,9 @@ function render(){
   else if(scr === "char") app.innerHTML = vChar();
   else if(scr === "descent") app.innerHTML = vDescent();
   else if(scr === "tauth") app.innerHTML = vTeacherAuth();
+  else if(scr === "help") app.innerHTML = vHelp();
+  else if(scr === "terms") app.innerHTML = vTerms();
+  else if(scr === "privacy") app.innerHTML = vPrivacy();
   else if(scr === "teacher") app.innerHTML = vTeacher();
   else app.innerHTML = vCode();
   if(DEMO && !$(".demo-pill")){ const d = document.createElement("div"); d.className="demo-pill"; d.textContent="DEMO MODE"; document.body.appendChild(d); }
@@ -1170,6 +1204,7 @@ function vCode(){
     + '<button class="btn ghost small" data-a="tteacher">Sign in</button>'
     + '<span class="tdsep">·</span>'
     + '<button class="btn ghost small" data-a="tteacher" data-m="up">Create your free class</button></div>'
+    + '<div style="margin-top:10px"><button class="btn ghost small" data-a="tohelp">❓ How it works</button></div>'
     + '</div>';
 }
 
@@ -1223,8 +1258,12 @@ function vHome(){
   }).join("") || '<div class="tiny" style="padding:8px 2px">No quests logged yet. Finish a book and hit the big button!</div>';
   const myBoxes = (SS.boxes||[]).map(b=>
     '<span class="chip '+tierClass(b.tier)+'">'+esc(b.tier)+(b.delivered?" ✓":"")+'</span>').join(" ");
+  const frozenNote = (BOOT && BOOT.frozen)
+    ? '<div class="banner">🧊 The dungeon gate is frozen right now — your points and loot are all safe. ' + (fam() ? 'Ask your grown-up!' : 'Ask your teacher!') + '</div>'
+    : "";
   return topbar('<button class="btn ghost small" data-a="tostudents">switch player</button>')
     + '<div class="stack">'
+    + frozenNote
     + '<div class="hero">' + (st ? gearImg(st.name, SS.equipped) : "") + '<div class="who"><div class="nm">'+esc(st?st.name:"")+'</div>'
     + (SS.equipped && SS.equipped.title && GEAR[SS.equipped.title] ? '<div class="title-line">\u201c' + esc(GEAR[SS.equipped.title][0]) + '\u201d</div>' : '')
     + '<div class="lvl">Level '+SS.crawler_lvl+' Crawler · '+SS.verified+' quest'+(SS.verified===1?"":"s")+' done</div></div>'
@@ -1400,7 +1439,7 @@ async function openLoot(){
   try{ res = await api.openBox(CODE, route.who, SPIN[route.who]); }
   catch(e){ busy(btn, false); toast("Can't reach the server — try again"); return; }
   busy(btn, false);
-  if(!res || !res.ok){ toast(res && res.err==="none" ? "No boxes to open yet!" : "Hmm, that didn't work — try again"); loadState().then(()=>render()); return; }
+  if(!res || !res.ok){ toast(res && res.err==="frozen" ? "🧊 The dungeon gate is frozen right now — " + (fam() ? "ask your grown-up!" : "ask your teacher!") : res && res.err==="none" ? "No boxes to open yet!" : "Hmm, that didn't work — try again"); loadState().then(()=>render()); return; }
   const st = BOOT && BOOT.students.find(s=>s.id===route.who);
   const fx = TIERFX[res.tier] || TIERFX.Common;
   const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1441,7 +1480,9 @@ function vTeacherAuth(){
     inner = '<div><div class="fieldlbl">Email</div><input id="t_email" type="email" autocomplete="username"></div>'
       + '<div><div class="fieldlbl">Password (12+ \u2014 a passphrase works great)</div><input id="t_pass" type="password" autocomplete="new-password"></div>'
       + '<div><div class="fieldlbl">Type it again</div><input id="t_pass2" type="password" autocomplete="new-password"></div>'
-      + '<button class="btn primary big" data-a="tsignup">Create your account</button>' + back;
+      + '<button class="btn primary big" data-a="tsignup">Create your account</button>'
+      + '<div class="tiny" style="margin-top:8px">By creating an account you agree to the <button class="linkbtn" data-a="toterms">Terms of Service</button> and <button class="linkbtn" data-a="toprivacy">Privacy Policy</button>.</div>'
+      + back;
   } else if(authMode === "forgot"){
     inner = '<div><div class="fieldlbl">Email</div><input id="t_email" type="email" autocomplete="username"></div>'
       + '<button class="btn primary big" data-a="tforgot">Email me a recovery link</button>' + back
@@ -1452,7 +1493,8 @@ function vTeacherAuth(){
       + '<div><div class="fieldlbl">Type it again</div><input id="t_pass2" type="password" autocomplete="new-password"></div>'
       + '<button class="btn primary big" data-a="tsetpass">Save new password</button>';
   } else {
-    inner = '<div><div class="fieldlbl">Email</div><input id="t_email" type="email" autocomplete="username"></div>'
+    inner = (mailSent ? '<div class="banner">📬 Almost in — we emailed a confirmation link to <strong>' + esc(mailSent) + '</strong>. Tap it, then sign in here.</div>' : '')
+      + '<div><div class="fieldlbl">Email</div><input id="t_email" type="email" autocomplete="username"></div>'
       + '<div><div class="fieldlbl">Password</div><input id="t_pass" type="password" autocomplete="current-password"></div>'
       + '<button class="btn primary big" data-a="tsignin">Sign in</button>'
       + '<div class="row">'
@@ -1495,11 +1537,17 @@ function vTeacher(){
       + '<div style="margin-top:14px"><button class="btn primary big" data-a="createclass">'+(famNC?'Forge our crew ⚔️':'Create my class ⚔️')+'</button></div>'
       + '</div></div>';
   }
+  const B = billingState();
+  const bNote = B && B.st === "frozen"
+    ? '<div class="banner">🧊 This dungeon is frozen — kids can look, but logging is paused and nothing is lost. Renew in Settings → Billing.</div>'
+    : (B && B.st === "trial" && B.days <= 10
+      ? '<div class="banner">⏳ Free trial ends in ' + B.days + ' day' + (B.days === 1 ? "" : "s") + ' — grab the season pass in Settings → Billing to keep the dungeon open.</div>'
+      : "");
   const tabs = [["queue","Queue"],["class",fam()?"Crew":"Class"],["map","Map"],["books","Books"],["loot","Loot"],["settings","Settings"]];
   const nlq = TD.books.filter(b=>b.level==null && TD.reads.some(r=>r.bookId===b.id));
   const pq = TD.reads.filter(r=>r.status==="pending");
   const badge = (nlq.length + pq.length) ? " ("+(nlq.length+pq.length)+")" : "";
-  const bar = '<div class="tabs">'+tabs.map(([k,l])=>
+  const bar = bNote + '<div class="tabs">'+tabs.map(([k,l])=>
     '<button class="btn'+(route.tab===k?" on":"")+'" data-a="ttab" data-t="'+k+'">'+l+(k==="queue"?badge:"")+'</button>').join("")+'</div>';
   let body = "";
   if(route.tab==="queue") body = tQueue(nlq, pq);
@@ -1514,7 +1562,39 @@ function vTeacher(){
       + '</select> '
     : "";
   return topbar(switcher + '<button class="btn ghost small" data-a="trefresh">↻</button> <button class="btn ghost small" data-a="tsignout">Sign out</button> <button class="btn ghost small" data-a="tostudents">Exit</button>')
-    + bar + body;
+    + bar + tourHTML() + body;
+}
+function tourKey(){ return "bc_tour_" + (CLS || "legacy"); }
+function tourHTML(){
+  if(DEMO || !TD || TD.noClass) return "";
+  try{ if(localStorage.getItem(tourKey())) return ""; }catch(e){}
+  const s1 = TD.students.length > 0;
+  const s2 = TD.reads.length > 0;
+  const s3 = TD.reads.some(r => r.status === "verified");
+  const step = (done, n, title, desc, act, tab) =>
+    '<div class="tstep' + (done ? " done" : "") + '"><span class="tickbox">' + (done ? "✅" : n) + '</span>'
+    + '<div class="tmid"><strong>' + title + '</strong><div class="tiny">' + desc + '</div></div>'
+    + (done ? "" : '<button class="btn small primary" data-a="ttab" data-t="' + tab + '">' + act + '</button>')
+    + '</div>';
+  const allDone = s1 && s2 && s3;
+  return '<div class="card tour">'
+    + '<div class="row" style="justify-content:space-between;align-items:flex-start"><h2>🗺️ First steps in your dungeon</h2>'
+    + '<button class="btn ghost small" data-a="tourdismiss">✕</button></div>'
+    + (allDone
+      ? '<div class="tiny" style="margin:4px 0 8px">🎉 Your dungeon is running — crawlers in, a book logged, points awarded. Dismiss this card; the same guide lives in Help forever.</div>'
+      : '<div class="tiny" style="margin:4px 0 8px">Three small steps and the game runs itself. This card checks itself off as you go — and the same guide lives in Help forever.</div>')
+    + step(s1, "1", "Add your crawlers",
+        'On the ' + (fam() ? "Crew" : "Class") + ' tab, add each kid — they get a dungeon name and a 4-digit PIN. Print the one-time key sheet: it is the only place real names ever exist.',
+        "Add kids", "class")
+    + step(s2, "2", "Hand out the " + (fam() ? "crew" : "class") + " code",
+        'Kids open this site and type <strong>' + esc(TD.settings.classCode || "") + '</strong> once, then just tap their crawler name. This step checks off when the first book gets logged.',
+        "See queue", "queue")
+    + step(s3, "3", "Verify a first read",
+        "The book lands in your Queue — give it a level if asked, read the quest report, hit ✓ Verify. Points, loot boxes, and the Descent take it from there.",
+        "Open queue", "queue")
+    + '<div class="tstep"><span class="tickbox">★</span><div class="tmid"><strong>Make it yours</strong><div class="tiny">Verification style, the bounty board, the class tracker, prize lists — all under Settings and Loot, changeable any time.</div></div>'
+    + '<button class="btn small ghost" data-a="ttab" data-t="settings">Settings</button></div>'
+    + '</div>';
 }
 function tstu(id){ return TD.students.find(s=>s.id===id); }
 function tbook(id){ return TD.books.find(b=>b.id===id); }
@@ -1815,8 +1895,30 @@ function tSettings(){
     + '<div class="row" style="margin-top:10px"><button class="btn small primary" data-a="tsetpass">Change password</button></div>'
     + (DEMO ? "" : '<div class="tiny" style="margin-top:6px">Forgot it entirely? The sign-in screen has \u201cForgot password?\u201d, and the Supabase dashboard (Authentication \u2192 Users) is the master key.</div>')
     + '</div>'
+    + billingCardHTML()
+    + '<div class="card"><h2>Help</h2><div class="tiny" style="margin-bottom:8px">How the game works, for kids and grown-ups — plus the privacy story.</div>'
+    + '<button class="btn" data-a="tohelp">❓ Open the help page</button></div>'
     + (DEMO ? '<div class="card"><h2>Demo</h2><button class="btn ghost danger" data-a="demoreset" data-arm="1">Reset demo data</button></div>' : "")
     + '</div>';
+}
+function billingCardHTML(){
+  const B = billingState();
+  if(!B) return "";
+  const cfg = TD.cfg || {};
+  const price = cfg.price_label || "the yearly pass";
+  const dgn = fam() ? "crew" : "class";
+  let line, btn = "";
+  if(B.st === "founder") line = '🏅 <strong>Founder dungeon</strong> — free forever, with thanks for being here first.';
+  else if(B.st === "active") line = '✅ <strong>Season pass active</strong> until ' + fmtDay(B.until) + '. Renewing adds a full year on top.';
+  else if(B.st === "trial") line = '⏳ <strong>Free trial</strong> — ' + B.days + ' day' + (B.days === 1 ? "" : "s") + ' left (until ' + fmtDay(B.until) + '). After that the ' + dgn + ' costs ' + esc(price) + '.';
+  else line = '🧊 <strong>Frozen</strong> — kids keep every point and item and can still look around; logging and loot are paused until the pass is renewed. Nothing is ever deleted.';
+  if(B.st !== "founder"){
+    btn = cfg.stripe_link
+      ? '<div style="margin-top:10px"><button class="btn gold" data-a="renew">' + (B.st === "active" ? '🎟️ Add another year' : '🎟️ Get the season pass — ' + esc(price)) + '</button></div>'
+        + '<div class="tiny" style="margin-top:6px">Card checkout via Stripe. The dungeon ' + (B.st === "frozen" ? 'thaws' : 'stays open') + ' automatically within a minute of paying — refresh after.</div>'
+      : '<div class="tiny" style="margin-top:8px">(Payments aren’t switched on yet.)</div>';
+  }
+  return '<div class="card"><h2>🪙 Billing</h2><div style="margin:4px 0">' + line + '</div>' + btn + '</div>';
 }
 
 /* ---- exports (real downloads on a real site) ---- */
@@ -2029,7 +2131,8 @@ document.addEventListener("click", async (ev)=>{
       catch(e){ busy(el,false); toast("Can't reach the server — try again"); return; }
       busy(el, false);
       if(!res || !res.ok){
-        toast(res && res.err==="too_many_pending" ? "Whoa, 10 books waiting already — let your teacher catch up!"
+        toast(res && res.err==="frozen" ? "🧊 The dungeon gate is frozen right now — " + (fam() ? "ask your grown-up!" : "ask your teacher!")
+          : res && res.err==="too_many_pending" ? "Whoa, 10 books waiting already — let your teacher catch up!"
           : res && res.err==="answer" ? "Fill in your Quest Report first — a sentence or two about the book!"
           : "That didn’t save — check it and try again");
         return;
@@ -2069,12 +2172,12 @@ document.addEventListener("click", async (ev)=>{
       try{
         if(a==="tsignup"){
           const r = await withTimeout(api.teacherSignUp(email, pass), 20000);
-          if(r && r.user && !r.session){ busy(el,false); authMode="in"; render(); toast("Account created \u2014 check your email to confirm, then sign in"); return; }
+          if(r && r.user && !r.session){ busy(el,false); mailSent = email; authMode="in"; render(); toast("Account created \u2014 check your email to confirm, then sign in"); return; }
         }
         else await withTimeout(api.teacherSignIn(email, pass), 20000);
         busy(el, false);
         authOk();
-        authMode = "in";
+        authMode = "in"; mailSent = "";
         TD = null; TDERR = null; go({screen:"teacher", tab:"queue", sub:null});
       }catch(e){
         busy(el, false);
@@ -2082,6 +2185,27 @@ document.addEventListener("click", async (ev)=>{
       }
       break;
     }
+    case "renew": {
+      const link = TD && TD.cfg && TD.cfg.stripe_link;
+      if(!link || !CLS){ toast("Payments aren’t switched on yet"); return; }
+      window.open(link + (link.includes("?") ? "&" : "?") + "client_reference_id=" + encodeURIComponent(CLS), "_blank", "noopener");
+      break;
+    }
+    case "tohelp": helpBack = route.screen; go({screen:"help"}); break;
+    case "toterms": helpBack = route.screen; go({screen:"terms"}); break;
+    case "toprivacy": helpBack = route.screen; go({screen:"privacy"}); break;
+    case "tourdismiss": try{ localStorage.setItem(tourKey(), "1"); }catch(e){} render(); break;
+    case "tourreset": {
+      try{
+        const drop = [];
+        for(let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if(k && k.startsWith("bc_tour_")) drop.push(k); }
+        drop.forEach(k => localStorage.removeItem(k));
+      }catch(e){}
+      toast("First-steps checklist restored — it's back on your dashboard");
+      render();
+      break;
+    }
+    case "helpback": go({screen: (helpBack && helpBack !== route.screen) ? helpBack : (CODE ? "gate" : "code")}); helpBack = null; break;
     case "recheck": {
       const ta = $("#rc_" + el.dataset.id);
       const alt = ((ta && ta.value) || "").trim();
@@ -2660,6 +2784,78 @@ function vDescent(){
     + descentHTML(crew, mf || 0, reveal)
     + torch
     + '</div>';
+}
+function vHelp(){
+  const H = (icon, title, body) => '<div class="card"><h2>' + icon + ' ' + title + '</h2>' + body + '</div>';
+  const t = (x) => '<div class="tiny" style="margin:6px 0">' + x + '</div>';
+  return topbar('<button class="btn ghost small" data-a="helpback">← back</button>')
+    + '<div class="stack" style="max-width:640px;margin:0 auto">'
+    + '<h2 class="display" style="font-size:22px;color:var(--violet)">❓ HOW BOOK CRAWL WORKS</h2>'
+    + H("🎒", "For crawlers (kids)",
+        t("<strong>Get in:</strong> type your class or crew code once, tap your crawler name, enter your 4-digit PIN.")
+      + t("<strong>Finished a book?</strong> Hit the big gold button, find or add the book, and (in Quest Report classes) answer one question about it — a sentence or two you could only know by really reading it.")
+      + t("<strong>Points:</strong> books near YOUR level earn full points, harder books earn stretch bonuses, longer books earn more. Your teacher checks each book before points land.")
+      + t("<strong>Loot:</strong> every " + (BOOT ? BOOT.box_pts : 50) + "-ish points earns a loot box — roll for gear, equip it on your crawler. Gear is for style; nobody ever loses points.")
+      + t("<strong>The Descent:</strong> your own verified points dig you deeper, floor by floor. The board shows the whole party spread through the dungeon — floors only, never anyone’s points.")
+      + t("<strong>Bounties:</strong> when the board is up, finishing a bounty pays a bonus loot box. The dungeon pays automatically."))
+    + H("🗝️", "For Dungeon Masters (teachers & parents)",
+        t("<strong>Setup:</strong> create your class or family crew — you get a 5-letter code kids type once per device. Add crawlers on the " + (fam() ? "Crew" : "Class") + " tab; each gets a dungeon name and PIN, and a one-time key sheet maps them to real names (print it — it is never stored).")
+      + t("<strong>Books need a level once:</strong> the queue links a Lexile lookup; save the level and every future reader of that book scores automatically.")
+      + t("<strong>Verifying:</strong> pick your mode in Settings — Classic (book talk per book), Quest Report (read their written answer, ~15 seconds), or Report + Spot Checks (the dungeon secretly flags ~1 in 4 for a real talk).")
+      + t("<strong>AI second opinion:</strong> answers get a quiet ✅ / 🤔 / 🚩 pre-screen for you alone — it never rejects anything, kids never see it. On a doubtful card, the 🎤 box lets you type what the kid told you in person and re-check it instantly.")
+      + t("<strong>Dials:</strong> bounty toggles live on Loot; the class tracker (kids seeing the party board) and points-per-floor live in Settings; CSV exports too.")
+      + t("<strong>Lost access?</strong> “Forgot password?” on the sign-in screen emails a reset link.")
+      + '<div class="row" style="margin-top:8px"><button class="btn small ghost" data-a="tourreset">↺ Show the first-steps checklist again</button></div>')
+    + H("🚀", "Your first five minutes",
+        t("<strong>1.</strong> Teacher or parent → Create your account → pick classroom or family → name it. Your 5-letter code appears immediately.")
+      + t("<strong>2.</strong> Add your crawlers on the " + (fam() ? "Crew" : "Class") + " tab and print the key sheet while it’s on screen.")
+      + t("<strong>3.</strong> On the kids’ device(s), open the site, type the code once, tap a crawler name, enter the PIN — they’re in for the year.")
+      + t("<strong>4.</strong> When the first “I finished a book!” lands, your Queue badge lights up: set the book’s level (one time per book), read the report, ✓ Verify.")
+      + t("<strong>5.</strong> Watch the first loot box get opened. That’s the whole loop — everything else (bounties, the Descent, gear) feeds itself from verified reads."))
+    + H("🛡️", "Privacy — the short version",
+        t("Book Crawl stores <strong>no student personal information</strong>. Kids appear only as dungeon names (Ember Fox, Storm Otter) with 4-digit PINs — no real names, no emails, no accounts for kids, nothing to breach. The one-time key sheet linking dungeon names to real kids exists only on paper, in the grown-up’s hands. The only email in the system is the account owner’s. Classes and crews are walled off from each other by the database itself."))
+    + H("🪙", "The season pass",
+        t("Every dungeon starts with a <strong>free trial</strong> — no card needed. After that, one small yearly price per class or crew keeps it open (the exact price is in Settings → Billing).")
+      + t("If a pass lapses, the dungeon <strong>freezes — it never dies</strong>: kids keep every point, box, and item and can still look around; logging just pauses until it’s renewed. Renewals go through Stripe card checkout and unlock automatically.")
+      + t("<em>Don’t see a Billing screen in Settings? Then your dungeon is in Book Crawl’s free early period — nothing to pay yet.</em>"))
+    + H("📜", "The fine print",
+        t("The full documents, in plain language:")
+      + '<div class="row"><button class="btn small ghost" data-a="toterms">Terms of Service</button><button class="btn small ghost" data-a="toprivacy">Privacy Policy</button></div>')
+    + '</div>';
+}
+function legalShell(title, inner){
+  return topbar('<button class="btn ghost small" data-a="helpback">← back</button>')
+    + '<div class="stack" style="max-width:660px;margin:0 auto">'
+    + '<h2 class="display" style="font-size:22px;color:var(--violet)">' + title + '</h2>'
+    + '<div class="tiny">Book Crawl · last updated September 2026 · written in plain language on purpose.</div>'
+    + inner
+    + (BC_CONTACT ? '<div class="card"><h2>✉️ Contact</h2><div class="tiny">Questions about any of this: <strong>' + esc(BC_CONTACT) + '</strong></div></div>' : '')
+    + '</div>';
+}
+function vTerms(){
+  const C = (h, b) => '<div class="card"><h2>' + h + '</h2><div class="tiny" style="line-height:1.55">' + b + '</div></div>';
+  return legalShell("📜 Terms of Service",
+      C("The deal", "Book Crawl is a reading game for classrooms and families: kids log books, a grown-up verifies them, points become loot. These terms are the agreement between you (the adult who makes an account) and the operator of Book Crawl. Using the service means you accept them.")
+    + C("Accounts", "Accounts are for adults — teachers, parents, and other grown-ups running a class or crew. Kids never have accounts here; they use a code, a dungeon name, and a PIN that you create and control. Keep your password safe and your key sheet (the paper linking dungeon names to real kids) in your own hands — it is yours, and it never touches our servers.")
+    + C("The season pass", "Every new class or crew starts with a free trial, no card required. After the trial, keeping a dungeon open costs the yearly price shown on your Billing screen, paid by card through Stripe. If a pass runs out, the dungeon <strong>freezes</strong>: everything is kept — points, boxes, gear, history — kids can still look, and logging simply pauses until the pass is renewed. Nothing is deleted for non-payment, ever. If a purchase was a mistake, write within 30 days for a full refund.")
+    + C("Fair use", "Use Book Crawl for real classes and families. Don’t probe or attack the service, harvest data, resell access, or use it to harm or harass anyone. We can suspend accounts doing those things.")
+    + C("Your data is yours", "The reading records in your dungeon belong to your class or family. You can export them as CSV at any time, delete students or whole classes yourself, and ask us to delete your account entirely. You give us permission to store and process this data only as needed to run the game.")
+    + C("Honesty about the service", "Book Crawl is provided as-is, built and run by a small operation. We work hard to keep it fast and safe, but we can’t promise zero downtime or zero bugs, and features may change as the game grows. If the service ever winds down, you’ll get notice and a way to export your data first. Our total liability to you is capped at what you paid us in the previous 12 months.")
+    + C("Changes", "If these terms change in a way that matters, the site will say so before the change applies. Continuing to use Book Crawl after that means you accept the update."));
+}
+function vPrivacy(){
+  const C = (h, b) => '<div class="card"><h2>' + h + '</h2><div class="tiny" style="line-height:1.55">' + b + '</div></div>';
+  return legalShell("🛡️ Privacy Policy",
+      C("The short version", "Book Crawl stores <strong>no personal information about children</strong>. No ads, no trackers, no analytics, no selling or sharing of data — for anyone. This page lists everything we store, which doesn’t take long.")
+    + C("What we store about you (the adult)", "Your email address and a securely hashed password, used only to sign you in (handled by Supabase, our database provider). Your class or crew’s name, settings, and season-pass status. That’s the whole list.")
+    + C("What we store about kids", "A made-up dungeon name (like <em>Ember Fox</em>), a 4-digit PIN, and their reading log: book titles, dates, points, gear, and quest-report answers. None of it names, identifies, or contacts a real child. The paper key sheet that links dungeon names to real kids is printed once on your device and never uploaded — we could not identify a child in our own database if we tried.")
+    + C("Children’s privacy (COPPA)", "Book Crawl is designed so that children never provide personal information: no child accounts, no names, no emails, no photos, no location. Accounts, and every decision about a class’s data, belong to the supervising adult — a teacher for a class, a parent for a family crew.")
+    + C("Payments", "Cards are processed by Stripe on Stripe’s own pages. We never see or store card numbers — we only record that a dungeon’s season pass is paid, and until when.")
+    + C("The AI reading check", "When a class uses Quest Reports, the child’s answer, the question, and the book’s title are sent to our AI provider (Anthropic) for one purpose: generating the private advisory hint the teacher sees (✅/🤔/🚩). The hint is stored with the reading log; the AI never grades, blocks, or messages a child.")
+    + C("Cookies & tracking", "Book Crawl sets no advertising or analytics trackers. Your browser keeps only what the game needs to work: your sign-in session, your class code, and small conveniences like which device already saw a welcome screen.")
+    + C("Who can see what", "Each class or crew is walled off from every other by database-level security. You see only your own dungeon. Kids see their classmates’ dungeon names, avatars, and floor numbers (if the tracker is on) — never anyone’s points or reading details.")
+    + C("Retention & deletion", "You can delete a student, a book, or a whole class yourself at any moment, and it’s gone. A frozen dungeon is kept, not deleted. To delete your account and everything in it, just ask" + (BC_CONTACT ? " at the address below" : " through the site") + ".")
+    + C("Changes", "If this policy changes in a way that matters, the site will say so. It will never change into one that collects information about children."));
 }
 function tMap(){
   const FP = floorPtsPer();

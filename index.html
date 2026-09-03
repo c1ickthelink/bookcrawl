@@ -858,7 +858,12 @@ function makeLiveAPI(){
     },
     async screenRead(id, alt){
       const body = {read_id: id}; if(alt) body.alt_answer = alt;
-      const {data, error} = await withTimeout(sb.functions.invoke("screen-read", {body}), 25000);
+      /* attach the teacher's session token EXPLICITLY — the library sometimes
+         falls back to the public key mid-refresh, which the function rejects */
+      let tok = null;
+      try{ const {data: sd} = await withTimeout(sb.auth.getSession(), 8000); tok = sd && sd.session && sd.session.access_token; }catch(e){}
+      if(!tok) throw new Error("your sign-in needs a refresh — sign out and back in");
+      const {data, error} = await withTimeout(sb.functions.invoke("screen-read", {body, headers: {Authorization: "Bearer " + tok}}), 25000);
       if(error) throw new Error(error.message || "screening unavailable");
       return data;
     },

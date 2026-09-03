@@ -309,6 +309,7 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 .tickbox{width:28px;height:28px;border-radius:8px;background:var(--surface2);display:grid;place-items:center;font-weight:800;flex-shrink:0;font-size:14px}
 .tmid{flex:1;min-width:0}
 .linkbtn{background:none;border:none;padding:0;margin:0;color:var(--accent);text-decoration:underline;cursor:pointer;font:inherit;font-size:inherit}
+.chip.reread{background:#F7E9CE;color:#8A5E14;border:1px solid #E8A33D}
 .rc{margin-top:6px}
 .rc summary{cursor:pointer;font-size:12.5px;color:var(--muted);font-weight:700}
 .rc textarea{width:100%;margin:6px 0;font-size:14px;box-sizing:border-box}
@@ -605,6 +606,37 @@ const VMODES = {
   report: "Quest Report — kids answer one question; verify from their answer",
   report_spot: "Quest Report + Spot Checks — the dungeon flags ~1 in 4 for a real talk"
 };
+/* title helpers: kids spell creatively */
+function titleCase(t){
+  const small = {a:1, an:1, the:1, of:1, and:1, or:1, to:1, in:1, on:1, at:1, for:1};
+  return String(t).trim().replace(/\s+/g, " ").split(" ").map((w, i) =>
+    (i > 0 && small[w.toLowerCase()]) ? w.toLowerCase() : (w.charAt(0).toUpperCase() + w.slice(1))).join(" ");
+}
+function _edist(a, b){
+  if(Math.abs(a.length - b.length) > 3) return 99;
+  const m = a.length, n = b.length;
+  let prev = Array.from({length: n + 1}, (_, j) => j);
+  for(let i = 1; i <= m; i++){
+    const cur = [i];
+    for(let j = 1; j <= n; j++)
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[n];
+}
+function fuzzyBook(title){
+  const norm = t => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const q = norm(title);
+  if(q.length < 3 || !BOOT || !BOOT.books) return null;
+  let best = null, bestD = 99;
+  for(const b of BOOT.books){
+    const d = _edist(q, norm(b.title));
+    if(d < bestD){ bestD = d; best = b; }
+  }
+  const tol = q.length <= 5 ? 1 : Math.max(2, Math.floor(q.length / 6));
+  return (best && bestD <= tol) ? best : null;
+}
+
 /* does this student's log form ask a quest question? freshest source wins:
    student_state refreshes constantly; bootstrap only at page load */
 function askQ(){
@@ -753,12 +785,13 @@ function makeLiveAPI(){
         q("students"), q("levels", false), q("books"), q("reads"), q("boxes")
       ]);
       /* quest tables exist only after migration-5 — degrade gracefully */
-      let questState = null, questAwards = [];
+      let questState = null, questAwards = [], customQuests = [];
       try{
         if(P){
           const {data: cq, error: cqe} = await sb.from("class_quests").select("*").eq("class_id", classId);
           if(cqe) throw new Error(cqe.message);
-          questState = cq.map(r=>({id: r.quest_id, active: r.active}));
+          questState = cq.map(r=>({id: r.quest_id, active: r.active, param: r.param}));
+          try{ const {data: cu} = await sb.from("custom_quests").select("*").eq("class_id", classId); customQuests = cu || []; }catch(e2){}
           questAwards = await q("quest_awards");
         } else {
           questState = await q("quest_state", false);
@@ -775,7 +808,7 @@ function makeLiveAPI(){
         books: books.map(b=>({id:b.id, title:b.title, pages:b.pages, level:b.level})),
         reads: reads.map(r=>({id:r.id, studentId:r.student_id, bookId:r.book_id, date:r.on_date, status:r.status, q:r.q, a:r.a, flagged:!!r.flagged, ai:r.ai})),
         boxes: boxes.map(b=>({id:b.id, studentId:b.student_id, tier:b.tier, n:b.roll, date:b.on_date, delivered:b.delivered})),
-        questState: questState,
+        questState: questState, customQuests: customQuests,
         questAwards: questAwards.map(a=>({id:a.id, studentId:a.student_id, q:a.quest_id, month:a.month, readId:a.read_id}))
       };
     },
@@ -786,6 +819,41 @@ function makeLiveAPI(){
       const {error} = CLS
         ? await sb.from("class_quests").update({active}).eq("class_id", CLS).eq("quest_id", id)
         : await sb.from("quest_state").update({active}).eq("id", id);
+      if(error) throw new Error(error.message);
+    },
+    async setQuestParam(id, param){
+      const {error} = await sb.from("class_quests").update({param}).eq("class_id", CLS).eq("quest_id", id);
+      if(error) throw new Error(error.message);
+    },
+    async addCustomQuest(emoji, name, descr){
+      const {error} = await sb.from("custom_quests").insert({class_id: CLS, emoji: emoji || "⭐", name, descr: descr || ""});
+      if(error) throw new Error(error.message);
+    },
+    async setCustomQuest(id, patch){
+      const {error} = await sb.from("custom_quests").update(patch).eq("id", id);
+      if(error) throw new Error(error.message);
+    },
+    async delCustomQuest(id){
+      const {error} = await sb.from("custom_quests").delete().eq("id", id);
+      if(error) throw new Error(error.message);
+    },
+    async awardCustom(qid, studentId){
+      const {error} = await sb.from("quest_awards").insert({quest_id: "c:" + qid, student_id: studentId, month: todayISO().slice(0, 7), class_id: CLS});
+      if(error) throw new Error(/duplicate|unique/i.test(error.message) ? "Already earned this month" : error.message);
+    },
+    async unawardCustom(awardId){
+      const {error} = await sb.from("quest_awards").delete().eq("id", awardId);
+      if(error) throw new Error(error.message);
+    },
+    async mergeBook(fromId, intoId){
+      const {error} = await sb.from("reads").update({book_id: intoId}).eq("book_id", fromId);
+      if(error) throw new Error(error.message);
+      const {error: e2} = await sb.from("books").delete().eq("id", fromId);
+      if(e2) throw new Error(e2.message);
+    },
+    async quartermaster(code, sid, pin){ return rpc("quartermaster", {p_code: code, p_student: sid, p_pin: pin}); },
+    async sendFeedback(kind, body){
+      const {error} = await sb.from("feedback").insert({kind, body, class_id: CLS});
       if(error) throw new Error(error.message);
     },
     async screenRead(id, alt){
@@ -880,7 +948,8 @@ function makeDemoAPI(){
          a:"When the ninth bell rang at midnight and the whole graveyard woke up. I read that chapter twice.", flagged:true,
          ai:{v:"unsure", note:"Book unknown to AI — answer is specific and coherent; your call."}}],
       boxes:[],
-      questState:[{id:"tome",active:true},{id:"giant",active:false},{id:"truth",active:true},{id:"climb",active:false},{id:"trio",active:true}],
+      questState:[{id:"tome",active:true,param:null},{id:"giant",active:false,param:null},{id:"truth",active:true,param:null},{id:"climb",active:false,param:null},{id:"trio",active:true,param:null}],
+      customQuests:[],
       questAwards:[]};
   }
   function load(){ try{ const raw = localStorage.getItem(KEY); if(raw) return JSON.parse(raw); }catch(e){} return MEM || seed(); }
@@ -891,22 +960,22 @@ function makeDemoAPI(){
   const auth = (c,sid,pin) => okCode(c) && !!stu(sid) && stu(sid).pin === pin;
   /* mirror of the server-side bounty judge (migration-5 eval_quests) */
   function demoEval(r){
-    const act = {}; (D.questState||[]).forEach(x=>act[x.id]=x.active);
+    const act = {}, pm = {}; (D.questState||[]).forEach(x=>{act[x.id]=x.active; pm[x.id]=x.param;});
     const b = D.books.find(x=>x.id===r.bookId) || {};
     const mon = String(r.date).slice(0,7);
     D.questAwards = D.questAwards || [];
     const has = (qid) => D.questAwards.some(a=>a.q===qid && a.studentId===r.studentId && a.month===mon);
     const grant = (qid) => { if(act[qid] && !has(qid)) D.questAwards.push({id:uid(), q:qid, studentId:r.studentId, readId:r.id, month:mon}); };
-    if((b.pages||0) >= 200) grant("tome");
-    if((b.pages||0) >= 300) grant("giant");
+    if((b.pages||0) >= (pm.tome || 200)) grant("tome");
+    if((b.pages||0) >= (pm.giant || 300)) grant("giant");
     if(r.q && /^Nonfiction/.test(r.q)) grant("truth");
     if(b.level != null){
       const st = stu(r.studentId);
       const lv = st && st.levels.filter(l=>l.date <= r.date).sort((a,c)=>a.date<c.date?1:-1)[0];
-      if(lv && b.level - lv.lvl >= 100) grant("climb");
+      if(lv && b.level - lv.lvl >= (pm.climb || 100)) grant("climb");
     }
     const cnt = D.reads.filter(x=>x.studentId===r.studentId && x.status==="verified" && String(x.date).slice(0,7)===mon).length;
-    if(cnt >= 3) grant("trio");
+    if(cnt >= (pm.trio || 3)) grant("trio");
   }
   return {
     demo: true,
@@ -918,7 +987,9 @@ function makeDemoAPI(){
       return {ok:true, class_name:D.settings.className, kind:D.settings.kind || "classroom", box_pts:D.settings.boxPts, prizes:D.settings.prizes, class_pts: classPts, year_tiers: D.settings.yearTiers,
         floor_pts: FP, show_tracker: trk,
         ask_q: (D.settings.verifyMode || "classic") !== "classic",
-        quests: (D.questState||[]).filter(r=>r.active).map(r=>r.id).sort(),
+        quests: (D.questState||[]).filter(r=>r.active).map(r=>({id:r.id, param:r.param||null})).sort((a,b)=>a.id<b.id?-1:1),
+        custom_quests: (D.customQuests||[]).filter(c=>c.active).map(c=>({id:c.id, emoji:c.emoji, name:c.name, descr:c.descr||""})),
+        d100: D.settings.d100,
         students: D.students.map(s=>{
           const o = {id:s.id, name:s.name, equipped:s.equipped||{}};
           if(trk) o.floor = Math.min(PFLOORS.length, 1 + Math.floor(Math.max(0, Engine.totals(s.id, D).pts) / FP));
@@ -996,6 +1067,37 @@ function makeDemoAPI(){
       st.equipped[slot] = itemId; save(D); return {ok:true};
     },
     async fetchConfig(){ return null; },
+    async setQuestParam(id, param){ const r = (D.questState||[]).find(x=>x.id===id); if(r) r.param = param; save(D); },
+    async addCustomQuest(emoji, name, descr){ D.customQuests = D.customQuests || []; D.customQuests.push({id: uid(), emoji: emoji || "⭐", name, descr: descr || "", active: true}); save(D); },
+    async setCustomQuest(id, patch){ const c = (D.customQuests||[]).find(x=>x.id===id); if(c) Object.assign(c, patch); save(D); },
+    async delCustomQuest(id){ D.customQuests = (D.customQuests||[]).filter(x=>x.id!==id); D.questAwards = (D.questAwards||[]).filter(a=>a.q!=="c:"+id); save(D); },
+    async awardCustom(qid, studentId){
+      const mon = todayISO().slice(0, 7);
+      D.questAwards = D.questAwards || [];
+      if(D.questAwards.some(a=>a.q==="c:"+qid && a.studentId===studentId && a.month===mon)) throw new Error("Already earned this month");
+      D.questAwards.push({id: uid(), q: "c:"+qid, studentId, readId: null, month: mon}); save(D);
+    },
+    async unawardCustom(awardId){ D.questAwards = (D.questAwards||[]).filter(a=>a.id!==awardId); save(D); },
+    async mergeBook(fromId, intoId){
+      D.reads.forEach(r=>{ if(r.bookId===fromId) r.bookId = intoId; });
+      D.books = D.books.filter(b=>b.id!==fromId); save(D);
+    },
+    async quartermaster(code, sid, pin){
+      if(!auth(code, sid, pin)) return {ok:false, err:"auth"};
+      const stx = stu(sid);
+      const lv = stx && stx.levels.slice().sort((a,b)=>a.date<b.date?1:-1)[0];
+      if(!lv) return {ok:true, recs:[]};
+      const cap = Math.max(50, D.settings.stretchCap || 250);
+      const readIds = new Set(D.reads.filter(r=>r.studentId===sid).map(r=>r.bookId));
+      const recs = D.books
+        .filter(b=>b.level!=null && b.level >= lv.lvl - 100 && b.level <= lv.lvl + cap && !readIds.has(b.id))
+        .map(b=>({title: b.title, pages: b.pages, stretch: b.level > lv.lvl,
+                  fans: new Set(D.reads.filter(r=>r.bookId===b.id && r.status==="verified").map(r=>r.studentId)).size}))
+        .sort((a,b)=> (b.stretch - a.stretch) || (b.fans - a.fans))
+        .slice(0, 3);
+      return {ok:true, recs};
+    },
+    async sendFeedback(){ return; },
     async teacherSession(){ try{ return sessionStorage.getItem("bc_demo_teacher") ? {} : null; }catch(e){ return null; } },
     async teacherSignIn(){ try{ sessionStorage.setItem("bc_demo_teacher","1"); }catch(e){} },
     async teacherSignUp(){ try{ sessionStorage.setItem("bc_demo_teacher","1"); }catch(e){} return {}; },
@@ -1173,6 +1275,7 @@ function render(){
   else if(scr === "log") app.innerHTML = vLog();
   else if(scr === "char") app.innerHTML = vChar();
   else if(scr === "descent") app.innerHTML = vDescent();
+  else if(scr === "codex") app.innerHTML = vCodex();
   else if(scr === "tauth") app.innerHTML = vTeacherAuth();
   else if(scr === "help") app.innerHTML = vHelp();
   else if(scr === "terms") app.innerHTML = vTerms();
@@ -1274,12 +1377,14 @@ function vHome(){
     + '<button class="btn gold big" data-a="tolog">📖 I finished a book!</button>'
     + (SS.gear !== undefined ? '<button class="btn" data-a="tochar">🧙 My Character · '+((SS.gear||[]).length)+' item'+(((SS.gear||[]).length)===1?"":"s")+'</button>' : '')
     + '<button class="btn" data-a="todescent">🗺️ The Descent · Floor '+pfloorOf(SS.pts)+'</button>'
+    + '<button class="btn" data-a="tocodex">🏆 Treasure Codex</button>'
     + '<div class="card"><div class="label">Next loot box</div>'
     + '<div class="row" style="margin:6px 0 4px"><div class="progressbar" style="flex:1"><i style="width:'
       + Math.min(100, Math.round(100*SS.to_next/SS.box_pts))+'%"></i></div>'
     + '<strong>'+SS.to_next+' / '+SS.box_pts+'</strong></div>'
     + '<div class="tiny">'+(SS.box_pts - SS.to_next)+' points to go</div></div>'
     + bountyHTML()
+    + qmHTML()
     + vaultHTML()
     + '<div class="card"><h2>My quest log</h2>'+rows+'</div>'
     + (myBoxes ? '<div class="card"><h2>My loot</h2><div class="row">'+myBoxes+'</div>'
@@ -1368,19 +1473,30 @@ function vLog(){
 }
 
 /* ---- bounty board (student home card) ---- */
+function qNorm(raw){ return (raw || []).map(q => typeof q === "string" ? {id: q, param: null} : q); }
+function ordinal(n){ return n + (n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"); }
+function qDesc(id, p){
+  if(id === "tome")  return "Finish a book of " + (p || 200) + "+ pages";
+  if(id === "giant") return "Finish a book of " + (p || 300) + "+ pages";
+  if(id === "trio")  return "Finish your " + ordinal(p || 3) + " book in one month";
+  return QUESTS[id][2];
+}
 function bountyHTML(){
-  const act = (BOOT && BOOT.quests) || [];
-  if(!act.length) return "";
+  const act = qNorm(BOOT && BOOT.quests).filter(q => QUESTS[q.id]);
+  const customs = (BOOT && BOOT.custom_quests) || [];
+  if(!act.length && !customs.length) return "";
   const mon = todayISO().slice(0, 7);
   const mine = (SS && SS.quest_awards) || [];
-  const rows = act.filter(id => QUESTS[id]).map(id => {
-    const qd = QUESTS[id];
-    const done = mine.some(a => a.q === id && a.month === mon);
-    return '<div class="bounty'+(done ? " done" : "")+'"><span class="bicon">'+qd[0]+'</span>'
-      + '<div class="binfo"><strong>'+esc(qd[1])+'</strong><div class="tiny">'+esc(qd[2])+'</div></div>'
+  const brow = (icon, name, desc, done) =>
+    '<div class="bounty'+(done ? " done" : "")+'"><span class="bicon">'+icon+'</span>'
+      + '<div class="binfo"><strong>'+esc(name)+'</strong><div class="tiny">'+esc(desc)+'</div></div>'
       + (done ? '<span class="chip legendary">CLAIMED ✓</span>' : '<span class="chip">+1 box</span>')
       + '</div>';
-  }).join("");
+  const rows = act.map(q => brow(QUESTS[q.id][0], QUESTS[q.id][1], qDesc(q.id, q.param),
+      mine.some(a => a.q === q.id && a.month === mon))).join("")
+    + customs.map(c => brow(c.emoji || "⭐", c.name,
+        c.descr || ("Ask your " + (fam() ? "grown-up" : "teacher") + " how to earn this one"),
+        mine.some(a => a.q === "c:" + c.id && a.month === mon))).join("");
   return '<div class="card"><div class="label">📜 Bounty Board</div>'
     + '<div class="tiny" style="margin:2px 0 4px">Complete a bounty with a verified book — each pays a bonus loot box, once a month.</div>'
     + rows + '</div>';
@@ -1394,11 +1510,66 @@ function checkBounty(){
   const cur = SS.quest_awards.length;
   if(prev !== null && cur > Number(prev)){
     const last = SS.quest_awards[SS.quest_awards.length - 1];
-    const qd = last && QUESTS[last.q];
-    toast("🏹 BOUNTY COMPLETE — " + (qd ? qd[1] : "quest") + "! +1 loot box");
+    let nm = last && QUESTS[last.q] && QUESTS[last.q][1];
+    if(!nm && last && String(last.q).startsWith("c:")){
+      const c = (BOOT && BOOT.custom_quests || []).find(x => "c:" + x.id === last.q);
+      nm = c && c.name;
+    }
+    toast("🏹 BOUNTY COMPLETE — " + (nm || "quest") + "! +1 loot box");
     spawnBurst(document.body, ["#F5CF7E","#E8A33D","#7FE3E0","#FFFFFF"], 80);
   }
   try{ sessionStorage.setItem(key, String(cur)); }catch(e){}
+}
+
+/* ---- the Quartermaster: stretch-zone picks ---- */
+let QM = {};
+function qmHTML(){
+  if(!route.who || !api.quartermaster) return "";
+  const got = QM[route.who];
+  if(got === undefined){
+    QM[route.who] = null; // fetching
+    api.quartermaster(CODE, route.who, SPIN[route.who])
+      .then(r => { QM[route.who] = (r && r.recs) || []; if(route.screen === "home" && !typing()) render(); })
+      .catch(() => { QM[route.who] = []; });
+    return "";
+  }
+  if(!got || !got.length) return "";
+  const rows = got.map(r =>
+    '<div class="readrow"><div class="bk"><div class="t">'+esc(r.title)+'</div>'
+    + '<div class="d">'+(r.pages ? r.pages + ' pages · ' : '')
+    + (r.fans ? r.fans + ' crawler' + (r.fans === 1 ? '' : 's') + ' cleared it' : 'uncharted — be the first') + '</div></div>'
+    + (r.stretch ? '<span class="chip epic">💪 stretch</span>' : '<span class="chip">solid pick</span>')
+    + '</div>').join("");
+  return '<div class="card"><h2>📜 The Quartermaster suggests</h2>'
+    + '<div class="tiny" style="margin-bottom:4px">Picked for where YOU are in the dungeon — stretch books pay bonus points.</div>'
+    + rows + '</div>';
+}
+
+/* ---- Treasure Codex: what loot is worth, and the odds ---- */
+function vCodex(){
+  if(!BOOT){ ensureBoot().then(()=>render()); return topbar() + '<div class="card"><span class="spin"></span> opening the codex…</div>'; }
+  const P = BOOT.prizes || {};
+  const d100 = Array.isArray(BOOT.d100) ? BOOT.d100 : null;
+  let lo = 1; const oddsFor = {};
+  if(d100) d100.forEach(b => { oddsFor[b.tier] = (b.max - lo + 1); lo = b.max + 1; });
+  const tiers = ["Common","Uncommon","Rare","Epic","Legendary"];
+  const cards = tiers.map(t => {
+    const gearNames = ((typeof GEAR_POOLS !== "undefined" && GEAR_POOLS[t]) || [])
+      .map(id => GEAR[id] && GEAR[id][0]).filter(Boolean);
+    return '<div class="card"><div class="row" style="justify-content:space-between;align-items:center">'
+      + '<span class="chip '+tierClass(t)+'" style="font-size:14px">'+t+'</span>'
+      + (oddsFor[t] ? '<span class="tiny">'+oddsFor[t]+'% of every roll</span>' : '')
+      + '</div>'
+      + (P[t] ? '<div style="margin:8px 0 2px"><strong>Real-world prizes:</strong> <span class="tiny">'+esc(P[t])+'</span></div>'
+              : '<div class="tiny" style="margin:8px 0 2px">Ask your '+(fam()?'grown-up':'teacher')+' what this tier is worth!</div>')
+      + (gearNames.length ? '<div class="tiny" style="margin-top:4px"><strong>Gear that can drop:</strong> '+esc(gearNames.join(" · "))+'</div>' : '')
+      + '</div>';
+  }).join("");
+  return topbar('<button class="btn ghost small" data-a="tohome">← back</button>')
+    + '<div class="stack" style="max-width:620px;margin:0 auto">'
+    + '<h2 class="display" style="font-size:22px;color:var(--violet)">🏆 TREASURE CODEX</h2>'
+    + '<div class="tiny" style="margin:0 2px">Every loot box rolls a d100. Posted odds, honest dungeon — earning boxes is pure reading.</div>'
+    + cards + '</div>';
 }
 
 /* ---- my character ---- */
@@ -1634,14 +1805,13 @@ async function kickScreening(){
 }
 
 function recheckHTML(r){
-  if(!r.ai) return "";
-  const rc = r.ai.recheck;
+  if(!r.q) return "";
+  const rc = r.ai && r.ai.recheck;
   if(rc && rc.v){
     return '<div class="aiv aiv-'+esc(rc.v)+'">🎤 '
       + (rc.v==="ok" ? "Spoken answer checks out" : rc.v==="mismatch" ? "Spoken answer doesn’t match either" : "Still can’t verify — your call")
       + (rc.note ? ' <span class="tiny">· '+esc(rc.note)+'</span>' : "") + '</div>';
   }
-  if(r.ai.v !== "mismatch" && r.ai.v !== "unsure") return "";
   return '<details class="rc"><summary>🎤 They explained it in person?</summary>'
     + '<textarea id="rc_'+r.id+'" rows="2" maxlength="800" placeholder="Type the gist of what they told you…"></textarea>'
     + '<button class="btn small primary" data-a="recheck" data-id="'+r.id+'">Check what they said</button></details>';
@@ -1665,7 +1835,7 @@ function tQueue(nlq, pq){
       + (r.flagged ? ' <span class="chip spotchk">🎲 Spot check — book talk!</span>' : "")
       + '<div class="tiny">'+fmtDate(r.date)
       + (b && b.level==null ? ' · <span class="chip lvlwait">needs level first</span>' : (sc.state==="ok" ? " · will earn "+sc.total+" pts" : ""))
-      + (prior ? ' · re-read #'+(prior+1) : "") + '</div>'
+      + (prior ? ' <span class="chip reread">↺ re-read #'+(prior+1)+'</span>' : "") + '</div>'
       + (r.a ? '<div class="qanswer"><span class="tiny">'+esc(r.q||"Quest Report")+'</span><br>“'+esc(r.a)+'”'
           + (r.ai && r.ai.v ? '<div class="aiv aiv-'+esc(r.ai.v)+'">'
               + (r.ai.v==="ok" ? "✅ Checks out" : r.ai.v==="mismatch" ? "🚩 Doesn’t match — book talk?" : "🤔 Can’t verify — your call")
@@ -1775,6 +1945,25 @@ function tStudent(id){
     + '<input id="nl_date" type="date" value="'+todayISO()+'">'
     + '<button class="btn small primary" data-a="addlevel" data-id="'+id+'">Add</button></div>'
     + '<div class="tiny" style="margin-top:6px">Add an entry each time you re-test (each quarter). Old reads keep the level that was current when they happened.</div></div>'
+    + (function(){
+        const cqs = (TD.customQuests || []).filter(c=>c.active);
+        if(!cqs.length) return "";
+        const mon = todayISO().slice(0, 7);
+        const qa = (TD.questAwards || []).filter(a => (a.studentId || a.student_id) === id
+          && String(a.q || a.quest_id).startsWith("c:") && a.month === mon);
+        const mine = qa.map(a=>{
+          const cid = String(a.q || a.quest_id).slice(2);
+          const c = (TD.customQuests||[]).find(x=>x.id===cid);
+          return '<span class="chip legendary" style="margin:2px">'+esc(c?c.emoji+" "+c.name:"bounty")
+            + ' <button class="linkbtn" data-a="cqunaward" data-aid="'+(a.id)+'" title="Take it back">✕</button></span>';
+        }).join(" ");
+        return '<div class="card"><h2>✍️ Award a bounty</h2>'
+          + '<div class="row"><select id="ca_pick" style="max-width:260px">'
+          + cqs.map(c=>'<option value="'+c.id+'">'+esc(c.emoji+" "+c.name)+'</option>').join("")
+          + '</select><button class="btn small primary" data-a="cqaward" data-id="'+id+'">Award +1 box</button></div>'
+          + (mine ? '<div class="tiny" style="margin-top:8px">This month:</div><div style="margin-top:4px">'+mine+'</div>' : '')
+          + '</div>';
+      })()
     + '<div class="card"><h2>Their log</h2>'+reads+'</div></div>';
 }
 
@@ -1797,6 +1986,13 @@ function tBooks(){
     + '<textarea class="paste" id="bulkbooks" placeholder="The One and Only Ivan, 570, 305&#10;Front Desk, 640, 296"></textarea>'
     + '<div class="row" style="margin-top:8px"><button class="btn small" data-a="bulkbooks">Add all</button>'
     + '<span class="tiny">Pre-loading your class library = fewer “needs level” moments later.</span></div></div>'
+    + (TD.books.length > 1 ? '<div class="card"><h2>🔧 Merge duplicate books</h2>'
+      + '<div class="tiny" style="margin-bottom:8px">Kids spell creatively. Point the misspelled copy at the real one — its reads move over (keeping their points), the duplicate disappears, the real book keeps its level.</div>'
+      + '<div class="row"><select id="mg_from" style="flex:1;min-width:160px">'
+      + TD.books.slice().sort((a,b)=>a.title.localeCompare(b.title)).map(b=>'<option value="'+b.id+'">'+esc(b.title)+'</option>').join("")
+      + '</select><span class="tiny">into →</span><select id="mg_into" style="flex:1;min-width:160px">'
+      + TD.books.slice().sort((a,b)=>a.title.localeCompare(b.title)).map(b=>'<option value="'+b.id+'">'+esc(b.title)+'</option>').join("")
+      + '</select><button class="btn small primary" data-a="mergebook" data-arm="1">Merge</button></div></div>' : "")
     + '<div class="card"><h2>Class library ('+TD.books.length+')</h2>'
     + '<div class="tablewrap"><table><thead><tr><th>Title</th><th class="num">Pages</th><th class="num">Level</th><th class="num">Reads</th><th></th></tr></thead><tbody>'
     + rows + '</tbody></table></div></div></div>';
@@ -1824,19 +2020,39 @@ function tLoot(){
       + '<input type="checkbox" '+(b.delivered?"checked":"")+' data-a="delivered" data-id="'+b.id+'" style="width:22px;height:22px"></label></div>';
   }).join("") || '<div class="tiny">No boxes opened yet.</div>';
   const bounties = TD.questState ? (function(){
-    const st = {}; TD.questState.forEach(r=>st[r.id]=r.active);
+    const st = {}, pm = {}; TD.questState.forEach(r=>{st[r.id]=r.active; pm[r.id]=r.param;});
+    const DIAL = {tome:["pages", 200], giant:["pages", 300], climb:["L above", 100], trio:["books", 3]};
     const rows = Object.keys(QUESTS).map(id=>{
       const qd = QUESTS[id];
+      const dial = DIAL[id]
+        ? '<span class="tiny" style="margin-right:4px">'+DIAL[id][0]+':</span><input type="number" data-a="qparam" data-id="'+id+'" value="'+(pm[id]||"")+'" placeholder="'+DIAL[id][1]+'" style="width:70px;margin-right:10px">'
+        : '';
       return '<div class="settingrow"><label>'+qd[0]+' <strong>'+esc(qd[1])+'</strong><span class="tiny" style="display:block">'+esc(qd[3])+'</span></label>'
-        + '<input type="checkbox" data-a="questtoggle" data-id="'+id+'" '+(st[id]?"checked":"")+' style="width:24px;height:24px">'
+        + '<span style="display:flex;align-items:center">'+dial
+        + '<input type="checkbox" data-a="questtoggle" data-id="'+id+'" '+(st[id]?"checked":"")+' style="width:24px;height:24px"></span>'
         + '</div>';
     }).join("");
     return '<div class="card"><h2>📜 Bounty Board</h2>'
       + '<div class="tiny" style="margin-bottom:8px">Post a bounty and the dungeon pays it automatically: when a verified read meets the rule, that crawler earns <strong>+1 bonus loot box</strong> — once per bounty per month, judged server-side, zero extra work for you. Un-verifying a read takes its bounty back. Budget note: each active bounty adds at most one box per kid per month.</div>'
-      + rows + '</div>';
+      + rows
+      + '<div class="tiny" style="margin-top:8px">The number dials let you retune a bounty (a 150-page Tome, a 5-book Delve). Blank = the default shown.</div>'
+      + '</div>';
   })() : "";
+  const cqs = TD.customQuests || [];
+  const customCard = (TD.questState ? '<div class="card"><h2>✍️ Your own bounties</h2>'
+    + '<div class="tiny" style="margin-bottom:8px">Bounties the dungeon can’t judge — YOU award them, one per kid per month, from a crawler’s page. Same +1 box.</div>'
+    + (cqs.map(c=>'<div class="settingrow"><label>'+esc(c.emoji)+' <strong>'+esc(c.name)+'</strong><span class="tiny" style="display:block">'+esc(c.descr||"")+'</span></label>'
+        + '<span style="display:flex;align-items:center;gap:8px">'
+        + '<input type="checkbox" data-a="cqtoggle" data-id="'+c.id+'" '+(c.active?"checked":"")+' style="width:24px;height:24px">'
+        + '<button class="btn small ghost danger" data-a="cqdel" data-id="'+c.id+'" data-arm="1">✕</button></span></div>').join("")
+      || '<div class="tiny">None yet.</div>')
+    + '<div class="row" style="margin-top:10px"><input id="cq_emoji" placeholder="⭐" maxlength="4" style="width:56px;text-align:center">'
+    + '<input id="cq_name" placeholder="Bounty name" maxlength="60" style="flex:1;min-width:140px">'
+    + '<input id="cq_desc" placeholder="How to earn it (kids see this)" maxlength="120" style="flex:2;min-width:180px">'
+    + '<button class="btn small primary" data-a="cqadd">Post it</button></div>'
+    + '</div>' : "");
   return '<div class="grid2">'
-    + bounties
+    + bounties + customCard
     + '<div class="card"><h2>Drop odds (d100)</h2><table><thead><tr><th>Roll</th><th>Box</th><th class="num">Odds</th></tr></thead><tbody>'+odds+'</tbody></table>'
     + '<div class="tiny" style="margin-top:8px">Posted odds, nothing purchased, earning is pure effort — that’s the answer if anyone asks about “loot boxes.”</div></div>'
     + '<div class="card"><h2>Prizes per tier</h2>'+prizes+'</div>'
@@ -1900,6 +2116,11 @@ function tSettings(){
     + (DEMO ? "" : '<div class="tiny" style="margin-top:6px">Forgot it entirely? The sign-in screen has \u201cForgot password?\u201d, and the Supabase dashboard (Authentication \u2192 Users) is the master key.</div>')
     + '</div>'
     + billingCardHTML()
+    + '<div class="card"><h2>🕊️ Found a bug? Have an idea?</h2>'
+    + '<div class="tiny" style="margin-bottom:8px">Goes straight to the Book Crawl forge. What were you doing, what happened, what did you expect?</div>'
+    + '<div class="row"><select id="fb_kind" style="max-width:120px"><option value="bug">Bug</option><option value="idea">Idea</option><option value="other">Other</option></select></div>'
+    + '<textarea class="paste" id="fb_body" maxlength="2000" placeholder="Tell it like a story — the forge reads every one."></textarea>'
+    + '<div class="row" style="margin-top:8px"><button class="btn small primary" data-a="sendfb">Send it</button></div></div>'
     + '<div class="card"><h2>Help</h2><div class="tiny" style="margin-bottom:8px">How the game works, for kids and grown-ups — plus the privacy story.</div>'
     + '<button class="btn" data-a="tohelp">❓ Open the help page</button></div>'
     + (DEMO ? '<div class="card"><h2>Demo</h2><button class="btn ghost danger" data-a="demoreset" data-arm="1">Reset demo data</button></div>' : "")
@@ -2122,6 +2343,24 @@ document.addEventListener("click", async (ev)=>{
         if(!title){ toast("Type the book’s title first!"); return; }
       }
       if(!bookId && !title){ toast("Pick your book from the list (or add it as new)"); return; }
+      const _norm = t => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+      if(logState.mode === "new" && title){
+        const hit = fuzzyBook(title);
+        if(hit && _norm(hit.title) === _norm(title)){
+          bookId = hit.id; title = null; pages = null;      // same book, different costume — adopt silently
+        } else if(hit){
+          if(logState.dymFor === _norm(title)){ bookId = hit.id; title = null; pages = null; }
+          else { logState.dymFor = _norm(title); toast('📖 Did you mean “' + hit.title + '”? Tap again to log that one — or fix the title first.'); return; }
+        } else {
+          title = titleCase(title);
+        }
+      }
+      const dupTitle = bookId ? ((BOOT.books.find(b => b.id === bookId) || {}).title || "") : title;
+      if(!logState.dupeOk && dupTitle && SS && (SS.reads || []).some(r => _norm(r.title) === _norm(dupTitle))){
+        logState.dupeOk = true;
+        toast("↺ You’ve logged this book before — re-reads are fine! Tap again to log it anyway.");
+        return;
+      }
       let qtext = null, ans = null;
       if(askQ()){
         if(!logState.genre){ toast("First pick what kind of book it was — a story or a true book!"); return; }
@@ -2195,6 +2434,7 @@ document.addEventListener("click", async (ev)=>{
       window.open(link + (link.includes("?") ? "&" : "?") + "client_reference_id=" + encodeURIComponent(CLS), "_blank", "noopener");
       break;
     }
+    case "tocodex": go({screen:"codex"}); break;
     case "tohelp": helpBack = route.screen; go({screen:"help"}); break;
     case "toterms": helpBack = route.screen; go({screen:"terms"}); break;
     case "toprivacy": helpBack = route.screen; go({screen:"privacy"}); break;
@@ -2210,6 +2450,63 @@ document.addEventListener("click", async (ev)=>{
       break;
     }
     case "helpback": go({screen: (helpBack && helpBack !== route.screen) ? helpBack : (CODE ? "gate" : "code")}); helpBack = null; break;
+    case "cqadd": {
+      const nm = ($("#cq_name")?.value || "").trim();
+      if(nm.length < 2){ toast("Give the bounty a name"); return; }
+      busy(el, true);
+      try{
+        await api.addCustomQuest(($("#cq_emoji")?.value || "").trim() || "⭐", nm.slice(0, 60), ($("#cq_desc")?.value || "").trim().slice(0, 120));
+        TD = null; await loadTeacher(); render();
+        toast("✍️ Bounty posted to the board");
+      }catch(e){ busy(el, false); toast(e.message); }
+      break;
+    }
+    case "cqdel": {
+      if(!arm(el)) return;
+      try{ await api.delCustomQuest(el.dataset.id); TD = null; await loadTeacher(); render(); toast("Bounty removed"); }
+      catch(e){ toast(e.message); }
+      break;
+    }
+    case "cqaward": {
+      const qid = $("#ca_pick")?.value;
+      if(!qid) return;
+      busy(el, true);
+      try{
+        await api.awardCustom(qid, el.dataset.id);
+        TD = null; await loadTeacher(); render();
+        toast("🏹 Bounty awarded — +1 box lands on their next visit");
+      }catch(e){ busy(el, false); toast(e.message); }
+      break;
+    }
+    case "cqunaward": {
+      try{ await api.unawardCustom(el.dataset.aid); TD = null; await loadTeacher(); render(); toast("Bounty taken back"); }
+      catch(e){ toast(e.message); }
+      break;
+    }
+    case "mergebook": {
+      const from = $("#mg_from")?.value, into = $("#mg_into")?.value;
+      if(!from || !into || from === into){ toast("Pick two different books"); return; }
+      if(!arm(el)) return;
+      busy(el, true);
+      try{
+        await api.mergeBook(from, into);
+        TD = null; await loadTeacher(); render();
+        toast("📚 Merged — reads moved, duplicate gone");
+      }catch(e){ busy(el, false); toast(e.message); }
+      break;
+    }
+    case "sendfb": {
+      const body = ($("#fb_body")?.value || "").trim();
+      if(body.length < 3){ toast("Tell the forge a little more first"); return; }
+      busy(el, true);
+      try{
+        await api.sendFeedback($("#fb_kind")?.value || "bug", body.slice(0, 2000));
+        $("#fb_body").value = "";
+        busy(el, false);
+        toast("🕊️ Sent to the dungeon forge — thank you!");
+      }catch(e){ busy(el, false); toast(e.message); }
+      break;
+    }
     case "recheck": {
       const ta = $("#rc_" + el.dataset.id);
       const alt = ((ta && ta.value) || "").trim();
@@ -2455,6 +2752,24 @@ document.addEventListener("change", async (ev)=>{
     TD = null; TDERR = null;
     await loadTeacher();
     render();
+    return;
+  }
+  if(el.dataset.a === "qparam"){
+    const v = parseInt(el.value, 10);
+    const val = isNaN(v) || v < 1 ? null : v;
+    try{
+      await api.setQuestParam(el.dataset.id, val);
+      if(TD && TD.questState){ const r = TD.questState.find(x=>x.id===el.dataset.id); if(r) r.param = val; }
+      toast(val ? "Bounty dial set — kids see the new number" : "Bounty dial back to default");
+    }catch(e){ toast(e.message); }
+    return;
+  }
+  if(el.dataset.a === "cqtoggle"){
+    try{
+      await api.setCustomQuest(el.dataset.id, {active: el.checked});
+      if(TD && TD.customQuests){ const c = TD.customQuests.find(x=>x.id===el.dataset.id); if(c) c.active = el.checked; }
+      toast(el.checked ? "Bounty posted!" : "Bounty taken down");
+    }catch(e){ toast(e.message); el.checked = !el.checked; }
     return;
   }
   if(el.dataset.a === "tracktoggle"){

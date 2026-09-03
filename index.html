@@ -2051,11 +2051,13 @@ function tLoot(){
     + '<input id="cq_desc" placeholder="How to earn it (kids see this)" maxlength="120" style="flex:2;min-width:180px">'
     + '<button class="btn small primary" data-a="cqadd">Post it</button></div>'
     + '</div>' : "");
-  return '<div class="grid2">'
-    + bounties + customCard
+  return '<div class="grid2" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))">'
+    + ((bounties || customCard) ? '<div class="stack">' + bounties + customCard + '</div>' : '')
+    + '<div class="stack">'
     + '<div class="card"><h2>Drop odds (d100)</h2><table><thead><tr><th>Roll</th><th>Box</th><th class="num">Odds</th></tr></thead><tbody>'+odds+'</tbody></table>'
     + '<div class="tiny" style="margin-top:8px">Posted odds, nothing purchased, earning is pure effort — that’s the answer if anyone asks about “loot boxes.”</div></div>'
     + '<div class="card"><h2>Prizes per tier</h2>'+prizes+'</div>'
+    + '</div>'
     + '<div class="card" style="grid-column:1/-1"><h2>Year-end ceremony</h2>'
     + '<div class="tiny" style="margin-bottom:8px">June mode: full-screen, projector-friendly. Reveals every crawler\u2019s guaranteed year-end box one at a time, lowest tier first, building to the finale. Advance with the button, spacebar, or \u2192. Kids below the first tier get a warm crawler card, never an empty one.</div>'
     + '<button class="btn gold" data-a="startcere">\ud83c\udfc6 Begin the Year-End Ceremony</button></div>'

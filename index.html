@@ -147,6 +147,11 @@ h2{font-size:17px; margin-bottom:8px}
 
 /* loot reveal overlay */
 .overlay{position:fixed; inset:0; background:rgba(18,14,40,.86); display:grid; place-items:center; z-index:100; padding:20px}
+/* 📷 scan-a-book */
+.scanbox{width:min(94vw,520px);max-height:92vh;overflow-y:auto;background:#1D1740;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:14px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+#scanvid{width:100%;max-height:44vh;border-radius:12px;background:#000;object-fit:cover}
+.scancover{height:86px;border-radius:6px;float:right;margin:0 0 8px 10px;box-shadow:0 4px 12px rgba(0,0,0,.35)}
+.scanbox .card{background:var(--card,#fff)}
 .lootstage{text-align:center; color:#fff; max-width:420px; width:100%}
 .chestbig{font-size:110px; display:inline-block}
 .chestbig.rumble{animation:rumble 1.1s ease-in-out}
@@ -371,6 +376,13 @@ ${v}`}var R=class extends Error{constructor({message:e,code:r,cause:s,name:n}){v
 
 </script>
 <script>
+(()=>{var Z;(function(e){e[e.AZTEC=0]="AZTEC",e[e.CODABAR=1]="CODABAR",e[e.CODE_39=2]="CODE_39",e[e.CODE_93=3]="CODE_93",e[e.CODE_128=4]="CODE_128",e[e.DATA_MATRIX=5]="DATA_MATRIX",e[e.EAN_8=6]="EAN_8",e[e.EAN_13=7]="EAN_13",e[e.ITF=8]="ITF",e[e.MAXICODE=9]="MAXICODE",e[e.PDF_417=10]="PDF_417",e[e.QR_CODE=11]="QR_CODE",e[e.RSS_14=12]="RSS_14",e[e.RSS_EXPANDED=13]="RSS_EXPANDED",e[e.UPC_A=14]="UPC_A",e[e.UPC_E=15]="UPC_E",e[e.UPC_EAN_EXTENSION=16]="UPC_EAN_EXTENSION"})(Z||(Z={}));var A=Z;var Y;(function(e){e[e.OTHER=0]="OTHER",e[e.PURE_BARCODE=1]="PURE_BARCODE",e[e.POSSIBLE_FORMATS=2]="POSSIBLE_FORMATS",e[e.TRY_HARDER=3]="TRY_HARDER",e[e.CHARACTER_SET=4]="CHARACTER_SET",e[e.ALLOWED_LENGTHS=5]="ALLOWED_LENGTHS",e[e.ASSUME_CODE_39_CHECK_DIGIT=6]="ASSUME_CODE_39_CHECK_DIGIT",e[e.ENABLE_CODE_39_EXTENDED_MODE=7]="ENABLE_CODE_39_EXTENDED_MODE",e[e.ASSUME_GS1=8]="ASSUME_GS1",e[e.RETURN_CODABAR_START_END=9]="RETURN_CODABAR_START_END",e[e.NEED_RESULT_POINT_CALLBACK=10]="NEED_RESULT_POINT_CALLBACK",e[e.ALLOWED_EAN_EXTENSIONS=11]="ALLOWED_EAN_EXTENSIONS"})(Y||(Y={}));var x=Y;var wt=(function(){function e(){}return e.arraycopy=function(t,r,n,o,i){for(;i--;)n[o++]=t[r++]},e.currentTimeMillis=function(){return Date.now()},e})(),R=wt;var Ct=(function(){function e(t,r,n,o,i,a){n===void 0&&(n=r==null?0:8*r.length),a===void 0&&(a=R.currentTimeMillis()),this.text=t,this.rawBytes=r,this.numBits=n,this.resultPoints=o,this.format=i,this.timestamp=a,this.text=t,this.rawBytes=r,n==null?this.numBits=r==null?0:8*r.length:this.numBits=n,this.resultPoints=o,this.format=i,this.resultMetadata=null,a==null?this.timestamp=R.currentTimeMillis():this.timestamp=a}return e.prototype.getText=function(){return this.text},e.prototype.getRawBytes=function(){return this.rawBytes},e.prototype.getNumBits=function(){return this.numBits},e.prototype.getResultPoints=function(){return this.resultPoints},e.prototype.getBarcodeFormat=function(){return this.format},e.prototype.getResultMetadata=function(){return this.resultMetadata},e.prototype.putMetadata=function(t,r){this.resultMetadata===null&&(this.resultMetadata=new Map),this.resultMetadata.set(t,r)},e.prototype.putAllMetadata=function(t){t!==null&&(this.resultMetadata===null?this.resultMetadata=t:this.resultMetadata=new Map(t))},e.prototype.addResultPoints=function(t){var r=this.resultPoints;if(r===null)this.resultPoints=t;else if(t!==null&&t.length>0){var n=new Array(r.length+t.length);R.arraycopy(r,0,n,0,r.length),R.arraycopy(t,0,n,r.length,t.length),this.resultPoints=n}},e.prototype.getTimestamp=function(){return this.timestamp},e.prototype.toString=function(){return this.text},e})(),B=Ct;function xt(e,t){var r=Object.setPrototypeOf;r?r(e,t):e.__proto__=t}function Nt(e,t){t===void 0&&(t=e.constructor);var r=Error.captureStackTrace;r&&r(e,t)}var Rt=(function(){var e=function(r,n){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(o,i){o.__proto__=i}||function(o,i){for(var a in i)Object.prototype.hasOwnProperty.call(i,a)&&(o[a]=i[a])},e(r,n)};return function(t,r){if(typeof r!="function"&&r!==null)throw new TypeError("Class extends value "+String(r)+" is not a constructor or null");e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),it=(function(e){Rt(t,e);function t(r,n){var o=this.constructor,i=e.call(this,r,n)||this;return Object.defineProperty(i,"name",{value:o.name,enumerable:!1,configurable:!0}),xt(i,o.prototype),Nt(i),i}return t})(Error);var Tt=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),Pt=(function(e){Tt(t,e);function t(r){r===void 0&&(r=void 0);var n=e.call(this,r)||this;return n.message=r,n}return t.prototype.getKind=function(){var r=this.constructor;return r.kind},t.kind="Exception",t})(it),T=Pt;var Ut=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),Mt=(function(e){Ut(t,e);function t(){return e!==null&&e.apply(this,arguments)||this}return t.kind="IllegalArgumentException",t})(T),w=Mt;var Ft=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),Bt=(function(e){Ft(t,e);function t(){return e!==null&&e.apply(this,arguments)||this}return t.kind="IndexOutOfBoundsException",t})(T),at=Bt;var Dt=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),bt=(function(e){Dt(t,e);function t(r,n){r===void 0&&(r=void 0),n===void 0&&(n=void 0);var o=e.call(this,n)||this;return o.index=r,o.message=n,o}return t.kind="ArrayIndexOutOfBoundsException",t})(at),J=bt;var Lt=function(e){var t=typeof Symbol=="function"&&Symbol.iterator,r=t&&e[t],n=0;if(r)return r.call(e);if(e&&typeof e.length=="number")return{next:function(){return e&&n>=e.length&&(e=void 0),{value:e&&e[n++],done:!e}}};throw new TypeError(t?"Object is not iterable.":"Symbol.iterator is not defined.")},kt=(function(){function e(){}return e.fill=function(t,r){for(var n=0,o=t.length;n<o;n++)t[n]=r},e.fillWithin=function(t,r,n,o){e.rangeCheck(t.length,r,n);for(var i=r;i<n;i++)t[i]=o},e.rangeCheck=function(t,r,n){if(r>n)throw new w("fromIndex("+r+") > toIndex("+n+")");if(r<0)throw new J(r);if(n>t)throw new J(n)},e.asList=function(){for(var t=[],r=0;r<arguments.length;r++)t[r]=arguments[r];return t},e.create=function(t,r,n){var o=Array.from({length:t});return o.map(function(i){return Array.from({length:r}).fill(n)})},e.createInt32Array=function(t,r,n){var o=Array.from({length:t});return o.map(function(i){return Int32Array.from({length:r}).fill(n)})},e.equals=function(t,r){if(!t||!r||!t.length||!r.length||t.length!==r.length)return!1;for(var n=0,o=t.length;n<o;n++)if(t[n]!==r[n])return!1;return!0},e.hashCode=function(t){var r,n;if(t===null)return 0;var o=1;try{for(var i=Lt(t),a=i.next();!a.done;a=i.next()){var f=a.value;o=31*o+f}}catch(u){r={error:u}}finally{try{a&&!a.done&&(n=i.return)&&n.call(i)}finally{if(r)throw r.error}}return o},e.fillUint8Array=function(t,r){for(var n=0;n!==t.length;n++)t[n]=r},e.copyOf=function(t,r){return t.slice(0,r)},e.copyOfUint8Array=function(t,r){if(t.length<=r){var n=new Uint8Array(r);return n.set(t),n}return t.slice(0,r)},e.copyOfRange=function(t,r,n){var o=n-r,i=new Int32Array(o);return R.arraycopy(t,r,i,0,o),i},e.binarySearch=function(t,r,n){n===void 0&&(n=e.numberComparator);for(var o=0,i=t.length-1;o<=i;){var a=i+o>>1,f=n(r,t[a]);if(f>0)o=a+1;else if(f<0)i=a-1;else return a}return-o-1},e.numberComparator=function(t,r){return t-r},e})(),z=kt;var zt=(function(){function e(){}return e.numberOfTrailingZeros=function(t){var r;if(t===0)return 32;var n=31;return r=t<<16,r!==0&&(n-=16,t=r),r=t<<8,r!==0&&(n-=8,t=r),r=t<<4,r!==0&&(n-=4,t=r),r=t<<2,r!==0&&(n-=2,t=r),n-(t<<1>>>31)},e.numberOfLeadingZeros=function(t){if(t===0)return 32;var r=1;return t>>>16||(r+=16,t<<=16),t>>>24||(r+=8,t<<=8),t>>>28||(r+=4,t<<=4),t>>>30||(r+=2,t<<=2),r-=t>>>31,r},e.toHexString=function(t){return t.toString(16)},e.toBinaryString=function(t){return String(parseInt(String(t),2))},e.bitCount=function(t){return t=t-(t>>>1&1431655765),t=(t&858993459)+(t>>>2&858993459),t=t+(t>>>4)&252645135,t=t+(t>>>8),t=t+(t>>>16),t&63},e.truncDivision=function(t,r){return Math.trunc(t/r)},e.parseInt=function(t,r){return r===void 0&&(r=void 0),parseInt(t,r)},e.MIN_VALUE_32_BITS=-2147483648,e.MAX_VALUE=Number.MAX_SAFE_INTEGER,e})(),q=zt;var Gt=(function(){function e(t,r){t===void 0?(this.size=0,this.bits=new Int32Array(1)):(this.size=t,r==null?this.bits=e.makeArray(t):this.bits=r)}return e.prototype.getSize=function(){return this.size},e.prototype.getSizeInBytes=function(){return Math.floor((this.size+7)/8)},e.prototype.ensureCapacity=function(t){if(t>this.bits.length*32){var r=e.makeArray(t);R.arraycopy(this.bits,0,r,0,this.bits.length),this.bits=r}},e.prototype.get=function(t){return(this.bits[Math.floor(t/32)]&1<<(t&31))!==0},e.prototype.set=function(t){this.bits[Math.floor(t/32)]|=1<<(t&31)},e.prototype.flip=function(t){this.bits[Math.floor(t/32)]^=1<<(t&31)},e.prototype.getNextSet=function(t){var r=this.size;if(t>=r)return r;var n=this.bits,o=Math.floor(t/32),i=n[o];i&=~((1<<(t&31))-1);for(var a=n.length;i===0;){if(++o===a)return r;i=n[o]}var f=o*32+q.numberOfTrailingZeros(i);return f>r?r:f},e.prototype.getNextUnset=function(t){var r=this.size;if(t>=r)return r;var n=this.bits,o=Math.floor(t/32),i=~n[o];i&=~((1<<(t&31))-1);for(var a=n.length;i===0;){if(++o===a)return r;i=~n[o]}var f=o*32+q.numberOfTrailingZeros(i);return f>r?r:f},e.prototype.setBulk=function(t,r){this.bits[Math.floor(t/32)]=r},e.prototype.setRange=function(t,r){if(r<t||t<0||r>this.size)throw new w;if(r!==t){r--;for(var n=Math.floor(t/32),o=Math.floor(r/32),i=this.bits,a=n;a<=o;a++){var f=a>n?0:t&31,u=a<o?31:r&31,s=(2<<u)-(1<<f);i[a]|=s}}},e.prototype.clear=function(){for(var t=this.bits.length,r=this.bits,n=0;n<t;n++)r[n]=0},e.prototype.isRange=function(t,r,n){if(r<t||t<0||r>this.size)throw new w;if(r===t)return!0;r--;for(var o=Math.floor(t/32),i=Math.floor(r/32),a=this.bits,f=o;f<=i;f++){var u=f>o?0:t&31,s=f<i?31:r&31,h=(2<<s)-(1<<u)&4294967295;if((a[f]&h)!==(n?h:0))return!1}return!0},e.prototype.appendBit=function(t){this.ensureCapacity(this.size+1),t&&(this.bits[Math.floor(this.size/32)]|=1<<(this.size&31)),this.size++},e.prototype.appendBits=function(t,r){if(r<0||r>32)throw new w("Num bits must be between 0 and 32");this.ensureCapacity(this.size+r);for(var n=r;n>0;n--)this.appendBit((t>>n-1&1)===1)},e.prototype.appendBitArray=function(t){var r=t.size;this.ensureCapacity(this.size+r);for(var n=0;n<r;n++)this.appendBit(t.get(n))},e.prototype.xor=function(t){if(this.size!==t.size)throw new w("Sizes don't match");for(var r=this.bits,n=0,o=r.length;n<o;n++)r[n]^=t.bits[n]},e.prototype.toBytes=function(t,r,n,o){for(var i=0;i<o;i++){for(var a=0,f=0;f<8;f++)this.get(t)&&(a|=1<<7-f),t++;r[n+i]=a}},e.prototype.getBitArray=function(){return this.bits},e.prototype.reverse=function(){for(var t=new Int32Array(this.bits.length),r=Math.floor((this.size-1)/32),n=r+1,o=this.bits,i=0;i<n;i++){var a=o[i];a=a>>1&1431655765|(a&1431655765)<<1,a=a>>2&858993459|(a&858993459)<<2,a=a>>4&252645135|(a&252645135)<<4,a=a>>8&16711935|(a&16711935)<<8,a=a>>16&65535|(a&65535)<<16,t[r-i]=a}if(this.size!==n*32){for(var f=n*32-this.size,u=t[0]>>>f,i=1;i<n;i++){var s=t[i];u|=s<<32-f,t[i-1]=u,u=s>>>f}t[n-1]=u}this.bits=t},e.makeArray=function(t){return new Int32Array(Math.floor((t+31)/32))},e.prototype.equals=function(t){if(!(t instanceof e))return!1;var r=t;return this.size===r.size&&z.equals(this.bits,r.bits)},e.prototype.hashCode=function(){return 31*this.size+z.hashCode(this.bits)},e.prototype.toString=function(){for(var t="",r=0,n=this.size;r<n;r++)(r&7)===0&&(t+=" "),t+=this.get(r)?"X":".";return t},e.prototype.clone=function(){return new e(this.size,this.bits.slice())},e.prototype.toArray=function(){for(var t=[],r=0,n=this.size;r<n;r++)t.push(this.get(r));return t},e})(),b=Gt;var Q;(function(e){e[e.OTHER=0]="OTHER",e[e.ORIENTATION=1]="ORIENTATION",e[e.BYTE_SEGMENTS=2]="BYTE_SEGMENTS",e[e.ERROR_CORRECTION_LEVEL=3]="ERROR_CORRECTION_LEVEL",e[e.ISSUE_NUMBER=4]="ISSUE_NUMBER",e[e.SUGGESTED_PRICE=5]="SUGGESTED_PRICE",e[e.POSSIBLE_COUNTRY=6]="POSSIBLE_COUNTRY",e[e.UPC_EAN_EXTENSION=7]="UPC_EAN_EXTENSION",e[e.PDF417_EXTRA_METADATA=8]="PDF417_EXTRA_METADATA",e[e.STRUCTURED_APPEND_SEQUENCE=9]="STRUCTURED_APPEND_SEQUENCE",e[e.STRUCTURED_APPEND_PARITY=10]="STRUCTURED_APPEND_PARITY"})(Q||(Q={}));var P=Q;var jt=(function(){function e(){}return e.round=function(t){return isNaN(t)?0:t<=Number.MIN_SAFE_INTEGER?Number.MIN_SAFE_INTEGER:t>=Number.MAX_SAFE_INTEGER?Number.MAX_SAFE_INTEGER:t+(t<0?-.5:.5)|0},e.distance=function(t,r,n,o){var i=t-n,a=r-o;return Math.sqrt(i*i+a*a)},e.sum=function(t){for(var r=0,n=0,o=t.length;n!==o;n++){var i=t[n];r+=i}return r},e})(),ft=jt;var Kt=(function(){function e(){}return e.floatToIntBits=function(t){return t},e.MAX_VALUE=Number.MAX_SAFE_INTEGER,e})(),$=Kt;var Wt=(function(){function e(t,r){this.x=t,this.y=r}return e.prototype.getX=function(){return this.x},e.prototype.getY=function(){return this.y},e.prototype.equals=function(t){if(t instanceof e){var r=t;return this.x===r.x&&this.y===r.y}return!1},e.prototype.hashCode=function(){return 31*$.floatToIntBits(this.x)+$.floatToIntBits(this.y)},e.prototype.toString=function(){return"("+this.x+","+this.y+")"},e.orderBestPatterns=function(t){var r=this.distance(t[0],t[1]),n=this.distance(t[1],t[2]),o=this.distance(t[0],t[2]),i,a,f;if(n>=r&&n>=o?(a=t[0],i=t[1],f=t[2]):o>=n&&o>=r?(a=t[1],i=t[0],f=t[2]):(a=t[2],i=t[0],f=t[1]),this.crossProductZ(i,a,f)<0){var u=i;i=f,f=u}t[0]=i,t[1]=a,t[2]=f},e.distance=function(t,r){return ft.distance(t.x,t.y,r.x,r.y)},e.crossProductZ=function(t,r,n){var o=r.x,i=r.y;return(n.x-o)*(t.y-i)-(n.y-i)*(t.x-o)},e})(),N=Wt;var Xt=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),Ht=(function(e){Xt(t,e);function t(){return e!==null&&e.apply(this,arguments)||this}return t.getNotFoundInstance=function(){return new t},t.kind="NotFoundException",t})(T),S=Ht;var Zt=(function(){function e(){}return e.prototype.decode=function(t,r){try{return this.doDecode(t,r)}catch{var n=r&&r.get(x.TRY_HARDER)===!0;if(n&&t.isRotateSupported()){var o=t.rotateCounterClockwise(),i=this.doDecode(o,r),a=i.getResultMetadata(),f=270;a!==null&&a.get(P.ORIENTATION)===!0&&(f=f+a.get(P.ORIENTATION)%360),i.putMetadata(P.ORIENTATION,f);var u=i.getResultPoints();if(u!==null)for(var s=o.getHeight(),h=0;h<u.length;h++)u[h]=new N(s-u[h].getY()-1,u[h].getX());return i}else throw new S}},e.prototype.reset=function(){},e.prototype.doDecode=function(t,r){var n=t.getWidth(),o=t.getHeight(),i=new b(n),a=r&&r.get(x.TRY_HARDER)===!0,f=Math.max(1,o>>(a?8:5)),u;a?u=o:u=15;for(var s=Math.trunc(o/2),h=0;h<u;h++){var c=Math.trunc((h+1)/2),l=(h&1)===0,v=s+f*(l?c:-c);if(v<0||v>=o)break;try{i=t.getBlackRow(v,i)}catch{continue}for(var p=function(m){if(m===1&&(i.reverse(),r&&r.get(x.NEED_RESULT_POINT_CALLBACK)===!0)){var g=new Map;r.forEach(function(F,L){return g.set(L,F)}),g.delete(x.NEED_RESULT_POINT_CALLBACK),r=g}try{var E=d.decodeRow(v,i,r);if(m===1){E.putMetadata(P.ORIENTATION,180);var C=E.getResultPoints();C!==null&&(C[0]=new N(n-C[0].getX()-1,C[0].getY()),C[1]=new N(n-C[1].getX()-1,C[1].getY()))}return{value:E}}catch{}},d=this,_=0;_<2;_++){var I=p(_);if(typeof I=="object")return I.value}}throw new S},e.recordPattern=function(t,r,n){for(var o=n.length,i=0;i<o;i++)n[i]=0;var a=t.getSize();if(r>=a)throw new S;for(var f=!t.get(r),u=0,s=r;s<a;){if(t.get(s)!==f)n[u]++;else{if(++u===o)break;n[u]=1,f=!f}s++}if(!(u===o||u===o-1&&s===a))throw new S},e.recordPatternInReverse=function(t,r,n){for(var o=n.length,i=t.get(r);r>0&&o>=0;)t.get(--r)!==i&&(o--,i=!i);if(o>=0)throw new S;e.recordPattern(t,r+1,n)},e.patternMatchVariance=function(t,r,n){for(var o=t.length,i=0,a=0,f=0;f<o;f++)i+=t[f],a+=r[f];if(i<a)return Number.POSITIVE_INFINITY;var u=i/a;n*=u;for(var s=0,h=0;h<o;h++){var c=t[h],l=r[h]*u,v=c>l?c-l:l-c;if(v>n)return Number.POSITIVE_INFINITY;s+=v}return s/i},e})(),G=Zt;var Yt=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),Jt=(function(e){Yt(t,e);function t(){return e!==null&&e.apply(this,arguments)||this}return t.getFormatInstance=function(){return new t},t.kind="FormatException",t})(T),U=Jt;var qt=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),Qt=(function(e){qt(t,e);function t(){var r=e!==null&&e.apply(this,arguments)||this;return r.decodeRowStringBuffer="",r}return t.findStartGuardPattern=function(r){for(var n=!1,o,i=0,a=Int32Array.from([0,0,0]);!n;){a=Int32Array.from([0,0,0]),o=t.findGuardPattern(r,i,!1,this.START_END_PATTERN,a);var f=o[0];i=o[1];var u=f-(i-f);u>=0&&(n=r.isRange(u,f,!1))}return o},t.checkChecksum=function(r){return t.checkStandardUPCEANChecksum(r)},t.checkStandardUPCEANChecksum=function(r){var n=r.length;if(n===0)return!1;var o=parseInt(r.charAt(n-1),10);return t.getStandardUPCEANChecksum(r.substring(0,n-1))===o},t.getStandardUPCEANChecksum=function(r){for(var n=r.length,o=0,i=n-1;i>=0;i-=2){var a=r.charAt(i).charCodeAt(0)-48;if(a<0||a>9)throw new U;o+=a}o*=3;for(var i=n-2;i>=0;i-=2){var a=r.charAt(i).charCodeAt(0)-48;if(a<0||a>9)throw new U;o+=a}return(1e3-o)%10},t.decodeEnd=function(r,n){return t.findGuardPattern(r,n,!1,t.START_END_PATTERN,new Int32Array(t.START_END_PATTERN.length).fill(0))},t.findGuardPatternWithoutCounters=function(r,n,o,i){return this.findGuardPattern(r,n,o,i,new Int32Array(i.length))},t.findGuardPattern=function(r,n,o,i,a){var f=r.getSize();n=o?r.getNextUnset(n):r.getNextSet(n);for(var u=0,s=n,h=i.length,c=o,l=n;l<f;l++)if(r.get(l)!==c)a[u]++;else{if(u===h-1){if(G.patternMatchVariance(a,i,t.MAX_INDIVIDUAL_VARIANCE)<t.MAX_AVG_VARIANCE)return Int32Array.from([s,l]);s+=a[0]+a[1];for(var v=a.slice(2,a.length),p=0;p<u-1;p++)a[p]=v[p];a[u-1]=0,a[u]=0,u--}else u++;a[u]=1,c=!c}throw new S},t.decodeDigit=function(r,n,o,i){this.recordPattern(r,o,n);for(var a=this.MAX_AVG_VARIANCE,f=-1,u=i.length,s=0;s<u;s++){var h=i[s],c=G.patternMatchVariance(n,h,t.MAX_INDIVIDUAL_VARIANCE);c<a&&(a=c,f=s)}if(f>=0)return f;throw new S},t.MAX_AVG_VARIANCE=.48,t.MAX_INDIVIDUAL_VARIANCE=.7,t.START_END_PATTERN=Int32Array.from([1,1,1]),t.MIDDLE_PATTERN=Int32Array.from([1,1,1,1,1]),t.END_PATTERN=Int32Array.from([1,1,1,1,1,1]),t.L_PATTERNS=[Int32Array.from([3,2,1,1]),Int32Array.from([2,2,2,1]),Int32Array.from([2,1,2,2]),Int32Array.from([1,4,1,1]),Int32Array.from([1,1,3,2]),Int32Array.from([1,2,3,1]),Int32Array.from([1,1,1,4]),Int32Array.from([1,3,1,2]),Int32Array.from([1,2,1,3]),Int32Array.from([3,1,1,2])],t})(G),D=Qt;var $t=function(e){var t=typeof Symbol=="function"&&Symbol.iterator,r=t&&e[t],n=0;if(r)return r.call(e);if(e&&typeof e.length=="number")return{next:function(){return e&&n>=e.length&&(e=void 0),{value:e&&e[n++],done:!e}}};throw new TypeError(t?"Object is not iterable.":"Symbol.iterator is not defined.")},Vt=(function(){function e(){this.CHECK_DIGIT_ENCODINGS=[24,20,18,17,12,6,3,10,9,5],this.decodeMiddleCounters=Int32Array.from([0,0,0,0]),this.decodeRowStringBuffer=""}return e.prototype.decodeRow=function(t,r,n){var o=this.decodeRowStringBuffer,i=this.decodeMiddle(r,n,o),a=o.toString(),f=e.parseExtensionString(a),u=[new N((n[0]+n[1])/2,t),new N(i,t)],s=new B(a,null,0,u,A.UPC_EAN_EXTENSION,new Date().getTime());return f!=null&&s.putAllMetadata(f),s},e.prototype.decodeMiddle=function(t,r,n){var o,i,a=this.decodeMiddleCounters;a[0]=0,a[1]=0,a[2]=0,a[3]=0;for(var f=t.getSize(),u=r[1],s=0,h=0;h<5&&u<f;h++){var c=D.decodeDigit(t,a,u,D.L_AND_G_PATTERNS);n+=String.fromCharCode(48+c%10);try{for(var l=(o=void 0,$t(a)),v=l.next();!v.done;v=l.next()){var p=v.value;u+=p}}catch(_){o={error:_}}finally{try{v&&!v.done&&(i=l.return)&&i.call(l)}finally{if(o)throw o.error}}c>=10&&(s|=1<<4-h),h!==4&&(u=t.getNextSet(u),u=t.getNextUnset(u))}if(n.length!==5)throw new S;var d=this.determineCheckDigit(s);if(e.extensionChecksum(n.toString())!==d)throw new S;return u},e.extensionChecksum=function(t){for(var r=t.length,n=0,o=r-2;o>=0;o-=2)n+=t.charAt(o).charCodeAt(0)-48;n*=3;for(var o=r-1;o>=0;o-=2)n+=t.charAt(o).charCodeAt(0)-48;return n*=3,n%10},e.prototype.determineCheckDigit=function(t){for(var r=0;r<10;r++)if(t===this.CHECK_DIGIT_ENCODINGS[r])return r;throw new S},e.parseExtensionString=function(t){if(t.length!==5)return null;var r=e.parseExtension5String(t);return r==null?null:new Map([[P.SUGGESTED_PRICE,r]])},e.parseExtension5String=function(t){var r;switch(t.charAt(0)){case"0":r="\xA3";break;case"5":r="$";break;case"9":switch(t){case"90000":return null;case"99991":return"0.00";case"99990":return"Used"}r="";break;default:r="";break}var n=parseInt(t.substring(1)),o=(n/100).toString(),i=n%100,a=i<10?"0"+i:i.toString();return r+o+"."+a},e})(),ut=Vt;var tr=function(e){var t=typeof Symbol=="function"&&Symbol.iterator,r=t&&e[t],n=0;if(r)return r.call(e);if(e&&typeof e.length=="number")return{next:function(){return e&&n>=e.length&&(e=void 0),{value:e&&e[n++],done:!e}}};throw new TypeError(t?"Object is not iterable.":"Symbol.iterator is not defined.")},rr=(function(){function e(){this.decodeMiddleCounters=Int32Array.from([0,0,0,0]),this.decodeRowStringBuffer=""}return e.prototype.decodeRow=function(t,r,n){var o=this.decodeRowStringBuffer,i=this.decodeMiddle(r,n,o),a=o.toString(),f=e.parseExtensionString(a),u=[new N((n[0]+n[1])/2,t),new N(i,t)],s=new B(a,null,0,u,A.UPC_EAN_EXTENSION,new Date().getTime());return f!=null&&s.putAllMetadata(f),s},e.prototype.decodeMiddle=function(t,r,n){var o,i,a=this.decodeMiddleCounters;a[0]=0,a[1]=0,a[2]=0,a[3]=0;for(var f=t.getSize(),u=r[1],s=0,h=0;h<2&&u<f;h++){var c=D.decodeDigit(t,a,u,D.L_AND_G_PATTERNS);n+=String.fromCharCode(48+c%10);try{for(var l=(o=void 0,tr(a)),v=l.next();!v.done;v=l.next()){var p=v.value;u+=p}}catch(d){o={error:d}}finally{try{v&&!v.done&&(i=l.return)&&i.call(l)}finally{if(o)throw o.error}}c>=10&&(s|=1<<1-h),h!==1&&(u=t.getNextSet(u),u=t.getNextUnset(u))}if(n.length!==2)throw new S;if(parseInt(n.toString())%4!==s)throw new S;return u},e.parseExtensionString=function(t){return t.length!==2?null:new Map([[P.ISSUE_NUMBER,parseInt(t)]])},e})(),st=rr;var er=(function(){function e(){}return e.decodeRow=function(t,r,n){var o=D.findGuardPattern(r,n,!1,this.EXTENSION_START_PATTERN,new Int32Array(this.EXTENSION_START_PATTERN.length).fill(0));try{var i=new ut;return i.decodeRow(t,r,o)}catch{var a=new st;return a.decodeRow(t,r,o)}},e.EXTENSION_START_PATTERN=Int32Array.from([1,1,2]),e})(),ct=er;var nr=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),or=(function(e){nr(t,e);function t(){return e!==null&&e.apply(this,arguments)||this}return t.getChecksumInstance=function(){return new t},t.kind="ChecksumException",t})(T),ht=or;var ir=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),ar=(function(e){ir(t,e);function t(){var r=e.call(this)||this;r.decodeRowStringBuffer="",t.L_AND_G_PATTERNS=t.L_PATTERNS.map(function(f){return Int32Array.from(f)});for(var n=10;n<20;n++){for(var o=t.L_PATTERNS[n-10],i=new Int32Array(o.length),a=0;a<o.length;a++)i[a]=o[o.length-a-1];t.L_AND_G_PATTERNS[n]=i}return r}return t.prototype.decodeRow=function(r,n,o){var i=t.findStartGuardPattern(n),a=o==null?null:o.get(x.NEED_RESULT_POINT_CALLBACK);if(a!=null){var f=new N((i[0]+i[1])/2,r);a.foundPossibleResultPoint(f)}var u=this.decodeMiddle(n,i,this.decodeRowStringBuffer),s=u.rowOffset,h=u.resultString;if(a!=null){var c=new N(s,r);a.foundPossibleResultPoint(c)}var l=t.decodeEnd(n,s);if(a!=null){var v=new N((l[0]+l[1])/2,r);a.foundPossibleResultPoint(v)}var p=l[1],d=p+(p-l[0]);if(d>=n.getSize()||!n.isRange(p,d,!1))throw new S;var _=h.toString();if(_.length<8)throw new U;if(!t.checkChecksum(_))throw new ht;var I=(i[1]+i[0])/2,m=(l[1]+l[0])/2,g=this.getBarcodeFormat(),E=[new N(I,r),new N(m,r)],C=new B(_,null,0,E,g,new Date().getTime()),F=0;try{var L=ct.decodeRow(r,n,l[1]);C.putMetadata(P.UPC_EAN_EXTENSION,L.getText()),C.putAllMetadata(L.getResultMetadata()),C.addResultPoints(L.getResultPoints()),F=L.getText().length}catch{}var nt=o==null?null:o.get(x.ALLOWED_EAN_EXTENSIONS);if(nt!=null){var ot=!1;for(var It in nt)if(F.toString()===It){ot=!0;break}if(!ot)throw new S}return g===A.EAN_13||A.UPC_A,C},t.checkChecksum=function(r){return t.checkStandardUPCEANChecksum(r)},t.checkStandardUPCEANChecksum=function(r){var n=r.length;if(n===0)return!1;var o=parseInt(r.charAt(n-1),10);return t.getStandardUPCEANChecksum(r.substring(0,n-1))===o},t.getStandardUPCEANChecksum=function(r){for(var n=r.length,o=0,i=n-1;i>=0;i-=2){var a=r.charAt(i).charCodeAt(0)-48;if(a<0||a>9)throw new U;o+=a}o*=3;for(var i=n-2;i>=0;i-=2){var a=r.charAt(i).charCodeAt(0)-48;if(a<0||a>9)throw new U;o+=a}return(1e3-o)%10},t.decodeEnd=function(r,n){return t.findGuardPattern(r,n,!1,t.START_END_PATTERN,new Int32Array(t.START_END_PATTERN.length).fill(0))},t})(D),O=ar;var fr=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),lt=function(e){var t=typeof Symbol=="function"&&Symbol.iterator,r=t&&e[t],n=0;if(r)return r.call(e);if(e&&typeof e.length=="number")return{next:function(){return e&&n>=e.length&&(e=void 0),{value:e&&e[n++],done:!e}}};throw new TypeError(t?"Object is not iterable.":"Symbol.iterator is not defined.")},ur=(function(e){fr(t,e);function t(){var r=e.call(this)||this;return r.decodeMiddleCounters=Int32Array.from([0,0,0,0]),r}return t.prototype.decodeMiddle=function(r,n,o){var i,a,f,u,s=this.decodeMiddleCounters;s[0]=0,s[1]=0,s[2]=0,s[3]=0;for(var h=r.getSize(),c=n[1],l=0,v=0;v<6&&c<h;v++){var p=O.decodeDigit(r,s,c,O.L_AND_G_PATTERNS);o+=String.fromCharCode(48+p%10);try{for(var d=(i=void 0,lt(s)),_=d.next();!_.done;_=d.next()){var I=_.value;c+=I}}catch(C){i={error:C}}finally{try{_&&!_.done&&(a=d.return)&&a.call(d)}finally{if(i)throw i.error}}p>=10&&(l|=1<<5-v)}o=t.determineFirstDigit(o,l);var m=O.findGuardPattern(r,c,!0,O.MIDDLE_PATTERN,new Int32Array(O.MIDDLE_PATTERN.length).fill(0));c=m[1];for(var v=0;v<6&&c<h;v++){var p=O.decodeDigit(r,s,c,O.L_PATTERNS);o+=String.fromCharCode(48+p);try{for(var g=(f=void 0,lt(s)),E=g.next();!E.done;E=g.next()){var I=E.value;c+=I}}catch(L){f={error:L}}finally{try{E&&!E.done&&(u=g.return)&&u.call(g)}finally{if(f)throw f.error}}}return{rowOffset:c,resultString:o}},t.prototype.getBarcodeFormat=function(){return A.EAN_13},t.determineFirstDigit=function(r,n){for(var o=0;o<10;o++)if(n===this.FIRST_DIGIT_ENCODINGS[o])return r=String.fromCharCode(48+o)+r,r;throw new S},t.FIRST_DIGIT_ENCODINGS=[0,11,13,14,19,25,28,21,22,26],t})(O),K=ur;var sr=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),pt=function(e){var t=typeof Symbol=="function"&&Symbol.iterator,r=t&&e[t],n=0;if(r)return r.call(e);if(e&&typeof e.length=="number")return{next:function(){return e&&n>=e.length&&(e=void 0),{value:e&&e[n++],done:!e}}};throw new TypeError(t?"Object is not iterable.":"Symbol.iterator is not defined.")},cr=(function(e){sr(t,e);function t(){var r=e.call(this)||this;return r.decodeMiddleCounters=Int32Array.from([0,0,0,0]),r}return t.prototype.decodeMiddle=function(r,n,o){var i,a,f,u,s=this.decodeMiddleCounters;s[0]=0,s[1]=0,s[2]=0,s[3]=0;for(var h=r.getSize(),c=n[1],l=0;l<4&&c<h;l++){var v=O.decodeDigit(r,s,c,O.L_PATTERNS);o+=String.fromCharCode(48+v);try{for(var p=(i=void 0,pt(s)),d=p.next();!d.done;d=p.next()){var _=d.value;c+=_}}catch(E){i={error:E}}finally{try{d&&!d.done&&(a=p.return)&&a.call(p)}finally{if(i)throw i.error}}}var I=O.findGuardPattern(r,c,!0,O.MIDDLE_PATTERN,new Int32Array(O.MIDDLE_PATTERN.length).fill(0));c=I[1];for(var l=0;l<4&&c<h;l++){var v=O.decodeDigit(r,s,c,O.L_PATTERNS);o+=String.fromCharCode(48+v);try{for(var m=(f=void 0,pt(s)),g=m.next();!g.done;g=m.next()){var _=g.value;c+=_}}catch(F){f={error:F}}finally{try{g&&!g.done&&(u=m.return)&&u.call(m)}finally{if(f)throw f.error}}}return{rowOffset:c,resultString:o}},t.prototype.getBarcodeFormat=function(){return A.EAN_8},t})(O),V=cr;var hr=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),lr=(function(e){hr(t,e);function t(){var r=e!==null&&e.apply(this,arguments)||this;return r.ean13Reader=new K,r}return t.prototype.getBarcodeFormat=function(){return A.UPC_A},t.prototype.decode=function(r,n){return this.maybeReturnResult(this.ean13Reader.decode(r))},t.prototype.decodeRow=function(r,n,o){return this.maybeReturnResult(this.ean13Reader.decodeRow(r,n,o))},t.prototype.decodeMiddle=function(r,n,o){return this.ean13Reader.decodeMiddle(r,n,o)},t.prototype.maybeReturnResult=function(r){var n=r.getText();if(n.charAt(0)==="0"){var o=new B(n.substring(1),null,null,r.getResultPoints(),A.UPC_A);return r.getResultMetadata()!=null&&o.putAllMetadata(r.getResultMetadata()),o}else throw new S},t.prototype.reset=function(){this.ean13Reader.reset()},t})(O),tt=lr;var pr=function(e){var t=typeof Symbol=="function"&&Symbol.iterator,r=t&&e[t],n=0;if(r)return r.call(e);if(e&&typeof e.length=="number")return{next:function(){return e&&n>=e.length&&(e=void 0),{value:e&&e[n++],done:!e}}};throw new TypeError(t?"Object is not iterable.":"Symbol.iterator is not defined.")},y;(function(e){e[e.Cp437=0]="Cp437",e[e.ISO8859_1=1]="ISO8859_1",e[e.ISO8859_2=2]="ISO8859_2",e[e.ISO8859_3=3]="ISO8859_3",e[e.ISO8859_4=4]="ISO8859_4",e[e.ISO8859_5=5]="ISO8859_5",e[e.ISO8859_6=6]="ISO8859_6",e[e.ISO8859_7=7]="ISO8859_7",e[e.ISO8859_8=8]="ISO8859_8",e[e.ISO8859_9=9]="ISO8859_9",e[e.ISO8859_10=10]="ISO8859_10",e[e.ISO8859_11=11]="ISO8859_11",e[e.ISO8859_13=12]="ISO8859_13",e[e.ISO8859_14=13]="ISO8859_14",e[e.ISO8859_15=14]="ISO8859_15",e[e.ISO8859_16=15]="ISO8859_16",e[e.SJIS=16]="SJIS",e[e.Cp1250=17]="Cp1250",e[e.Cp1251=18]="Cp1251",e[e.Cp1252=19]="Cp1252",e[e.Cp1256=20]="Cp1256",e[e.UnicodeBigUnmarked=21]="UnicodeBigUnmarked",e[e.UTF8=22]="UTF8",e[e.ASCII=23]="ASCII",e[e.Big5=24]="Big5",e[e.GB18030=25]="GB18030",e[e.EUC_KR=26]="EUC_KR"})(y||(y={}));var vr=(function(){function e(t,r,n){for(var o,i,a=[],f=3;f<arguments.length;f++)a[f-3]=arguments[f];this.valueIdentifier=t,this.name=n,typeof r=="number"?this.values=Int32Array.from([r]):this.values=r,this.otherEncodingNames=a,e.VALUE_IDENTIFIER_TO_ECI.set(t,this),e.NAME_TO_ECI.set(n,this);for(var u=this.values,s=0,h=u.length;s!==h;s++){var c=u[s];e.VALUES_TO_ECI.set(c,this)}try{for(var l=pr(a),v=l.next();!v.done;v=l.next()){var p=v.value;e.NAME_TO_ECI.set(p,this)}}catch(d){o={error:d}}finally{try{v&&!v.done&&(i=l.return)&&i.call(l)}finally{if(o)throw o.error}}}return e.prototype.getValueIdentifier=function(){return this.valueIdentifier},e.prototype.getName=function(){return this.name},e.prototype.getValue=function(){return this.values[0]},e.getCharacterSetECIByValue=function(t){if(t<0||t>=900)throw new U("incorect value");var r=e.VALUES_TO_ECI.get(t);if(r===void 0)throw new U("incorect value");return r},e.getCharacterSetECIByName=function(t){var r=e.NAME_TO_ECI.get(t);if(r===void 0)throw new U("incorect value");return r},e.prototype.equals=function(t){if(!(t instanceof e))return!1;var r=t;return this.getName()===r.getName()},e.VALUE_IDENTIFIER_TO_ECI=new Map,e.VALUES_TO_ECI=new Map,e.NAME_TO_ECI=new Map,e.Cp437=new e(y.Cp437,Int32Array.from([0,2]),"Cp437"),e.ISO8859_1=new e(y.ISO8859_1,Int32Array.from([1,3]),"ISO-8859-1","ISO88591","ISO8859_1"),e.ISO8859_2=new e(y.ISO8859_2,4,"ISO-8859-2","ISO88592","ISO8859_2"),e.ISO8859_3=new e(y.ISO8859_3,5,"ISO-8859-3","ISO88593","ISO8859_3"),e.ISO8859_4=new e(y.ISO8859_4,6,"ISO-8859-4","ISO88594","ISO8859_4"),e.ISO8859_5=new e(y.ISO8859_5,7,"ISO-8859-5","ISO88595","ISO8859_5"),e.ISO8859_6=new e(y.ISO8859_6,8,"ISO-8859-6","ISO88596","ISO8859_6"),e.ISO8859_7=new e(y.ISO8859_7,9,"ISO-8859-7","ISO88597","ISO8859_7"),e.ISO8859_8=new e(y.ISO8859_8,10,"ISO-8859-8","ISO88598","ISO8859_8"),e.ISO8859_9=new e(y.ISO8859_9,11,"ISO-8859-9","ISO88599","ISO8859_9"),e.ISO8859_10=new e(y.ISO8859_10,12,"ISO-8859-10","ISO885910","ISO8859_10"),e.ISO8859_11=new e(y.ISO8859_11,13,"ISO-8859-11","ISO885911","ISO8859_11"),e.ISO8859_13=new e(y.ISO8859_13,15,"ISO-8859-13","ISO885913","ISO8859_13"),e.ISO8859_14=new e(y.ISO8859_14,16,"ISO-8859-14","ISO885914","ISO8859_14"),e.ISO8859_15=new e(y.ISO8859_15,17,"ISO-8859-15","ISO885915","ISO8859_15"),e.ISO8859_16=new e(y.ISO8859_16,18,"ISO-8859-16","ISO885916","ISO8859_16"),e.SJIS=new e(y.SJIS,20,"SJIS","Shift_JIS"),e.Cp1250=new e(y.Cp1250,21,"Cp1250","windows-1250"),e.Cp1251=new e(y.Cp1251,22,"Cp1251","windows-1251"),e.Cp1252=new e(y.Cp1252,23,"Cp1252","windows-1252"),e.Cp1256=new e(y.Cp1256,24,"Cp1256","windows-1256"),e.UnicodeBigUnmarked=new e(y.UnicodeBigUnmarked,25,"UnicodeBigUnmarked","UTF-16BE","UnicodeBig"),e.UTF8=new e(y.UTF8,26,"UTF8","UTF-8"),e.ASCII=new e(y.ASCII,Int32Array.from([27,170]),"ASCII","US-ASCII"),e.Big5=new e(y.Big5,28,"Big5"),e.GB18030=new e(y.GB18030,29,"GB18030","GB2312","EUC_CN","GBK"),e.EUC_KR=new e(y.EUC_KR,30,"EUC_KR","EUC-KR"),e})(),M=vr;var dr=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),_r=(function(e){dr(t,e);function t(){return e!==null&&e.apply(this,arguments)||this}return t.kind="UnsupportedOperationException",t})(T),j=_r;var Er=(function(){function e(){}return e.decode=function(t,r){var n=this.encodingName(r);return this.customDecoder?this.customDecoder(t,n):typeof TextDecoder>"u"||this.shouldDecodeOnFallback(n)?this.decodeFallback(t,n):new TextDecoder(n).decode(t)},e.shouldDecodeOnFallback=function(t){return!e.isBrowser()&&t==="ISO-8859-1"},e.encode=function(t,r){var n=this.encodingName(r);return this.customEncoder?this.customEncoder(t,n):typeof TextEncoder>"u"?this.encodeFallback(t):new TextEncoder().encode(t)},e.isBrowser=function(){return typeof window<"u"&&{}.toString.call(window)==="[object Window]"},e.encodingName=function(t){return typeof t=="string"?t:t.getName()},e.encodingCharacterSet=function(t){return t instanceof M?t:M.getCharacterSetECIByName(t)},e.decodeFallback=function(t,r){var n=this.encodingCharacterSet(r);if(e.isDecodeFallbackSupported(n)){for(var o="",i=0,a=t.length;i<a;i++){var f=t[i].toString(16);f.length<2&&(f="0"+f),o+="%"+f}return decodeURIComponent(o)}if(n.equals(M.UnicodeBigUnmarked))return String.fromCharCode.apply(null,new Uint16Array(t.buffer));throw new j("Encoding "+this.encodingName(r)+" not supported by fallback.")},e.isDecodeFallbackSupported=function(t){return t.equals(M.UTF8)||t.equals(M.ISO8859_1)||t.equals(M.ASCII)},e.encodeFallback=function(t){for(var r=btoa(unescape(encodeURIComponent(t))),n=r.split(""),o=[],i=0;i<n.length;i++)o.push(n[i].charCodeAt(0));return new Uint8Array(o)},e})(),rt=Er;var gr=(function(){function e(){}return e.castAsNonUtf8Char=function(t,r){r===void 0&&(r=null);var n=r?r.getName():this.ISO88591;return rt.decode(new Uint8Array([t]),n)},e.guessEncoding=function(t,r){if(r!=null&&r.get(x.CHARACTER_SET)!==void 0)return r.get(x.CHARACTER_SET).toString();for(var n=t.length,o=!0,i=!0,a=!0,f=0,u=0,s=0,h=0,c=0,l=0,v=0,p=0,d=0,_=0,I=0,m=t.length>3&&t[0]===239&&t[1]===187&&t[2]===191,g=0;g<n&&(o||i||a);g++){var E=t[g]&255;a&&(f>0?(E&128)===0?a=!1:f--:(E&128)!==0&&((E&64)===0?a=!1:(f++,(E&32)===0?u++:(f++,(E&16)===0?s++:(f++,(E&8)===0?h++:a=!1))))),o&&(E>127&&E<160?o=!1:E>159&&(E<192||E===215||E===247)&&I++),i&&(c>0?E<64||E===127||E>252?i=!1:c--:E===128||E===160||E>239?i=!1:E>160&&E<224?(l++,p=0,v++,v>d&&(d=v)):E>127?(c++,v=0,p++,p>_&&(_=p)):(v=0,p=0))}return a&&f>0&&(a=!1),i&&c>0&&(i=!1),a&&(m||u+s+h>0)?e.UTF8:i&&(e.ASSUME_SHIFT_JIS||d>=3||_>=3)?e.SHIFT_JIS:o&&i?d===2&&l===2||I*10>=n?e.SHIFT_JIS:e.ISO88591:o?e.ISO88591:i?e.SHIFT_JIS:a?e.UTF8:e.PLATFORM_DEFAULT_ENCODING},e.format=function(t){for(var r=[],n=1;n<arguments.length;n++)r[n-1]=arguments[n];var o=-1;function i(f,u,s,h,c,l){if(f==="%%")return"%";if(r[++o]!==void 0){f=h?parseInt(h.substr(1)):void 0;var v=c?parseInt(c.substr(1)):void 0,p;switch(l){case"s":p=r[o];break;case"c":p=r[o][0];break;case"f":p=parseFloat(r[o]).toFixed(f);break;case"p":p=parseFloat(r[o]).toPrecision(f);break;case"e":p=parseFloat(r[o]).toExponential(f);break;case"x":p=parseInt(r[o]).toString(v||16);break;case"d":p=parseFloat(parseInt(r[o],v||10).toPrecision(f)).toFixed(0);break}p=typeof p=="object"?JSON.stringify(p):(+p).toString(v);for(var d=parseInt(s),_=s&&s[0]+""=="0"?"0":" ";p.length<d;)p=u!==void 0?p+_:_+p;return p}}var a=/%(-)?(0?[0-9]+)?([.][0-9]+)?([#][0-9]+)?([scfpexd%])/g;return t.replace(a,i)},e.getBytes=function(t,r){return rt.encode(t,r)},e.getCharCode=function(t,r){return r===void 0&&(r=0),t.charCodeAt(r)},e.getCharAt=function(t){return String.fromCharCode(t)},e.SHIFT_JIS=M.SJIS.getName(),e.GB2312="GB2312",e.ISO88591=M.ISO8859_1.getName(),e.EUC_JP="EUC_JP",e.UTF8=M.UTF8.getName(),e.PLATFORM_DEFAULT_ENCODING=e.UTF8,e.ASSUME_SHIFT_JIS=!1,e})(),vt=gr;var Sr=(function(){function e(t){t===void 0&&(t=""),this.value=t}return e.prototype.enableDecoding=function(t){return this.encoding=t,this},e.prototype.append=function(t){return typeof t=="string"?this.value+=t.toString():this.encoding?this.value+=vt.castAsNonUtf8Char(t,this.encoding):this.value+=String.fromCharCode(t),this},e.prototype.appendChars=function(t,r,n){for(var o=r;r<r+n;o++)this.append(t[o]);return this},e.prototype.length=function(){return this.value.length},e.prototype.charAt=function(t){return this.value.charAt(t)},e.prototype.deleteCharAt=function(t){this.value=this.value.substr(0,t)+this.value.substring(t+1)},e.prototype.setCharAt=function(t,r){this.value=this.value.substr(0,t)+r+this.value.substr(t+1)},e.prototype.substring=function(t,r){return this.value.substring(t,r)},e.prototype.setLengthToZero=function(){this.value=""},e.prototype.toString=function(){return this.value},e.prototype.insert=function(t,r){this.value=this.value.substring(0,t)+r+this.value.substring(t)},e})(),k=Sr;var yr=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),Ar=function(e){var t=typeof Symbol=="function"&&Symbol.iterator,r=t&&e[t],n=0;if(r)return r.call(e);if(e&&typeof e.length=="number")return{next:function(){return e&&n>=e.length&&(e=void 0),{value:e&&e[n++],done:!e}}};throw new TypeError(t?"Object is not iterable.":"Symbol.iterator is not defined.")},mr=(function(e){yr(t,e);function t(){var r=e.call(this)||this;return r.decodeMiddleCounters=new Int32Array(4),r}return t.prototype.decodeMiddle=function(r,n,o){var i,a,f=this.decodeMiddleCounters.map(function(_){return _});f[0]=0,f[1]=0,f[2]=0,f[3]=0;for(var u=r.getSize(),s=n[1],h=0,c=0;c<6&&s<u;c++){var l=t.decodeDigit(r,f,s,t.L_AND_G_PATTERNS);o+=String.fromCharCode(48+l%10);try{for(var v=(i=void 0,Ar(f)),p=v.next();!p.done;p=v.next()){var d=p.value;s+=d}}catch(_){i={error:_}}finally{try{p&&!p.done&&(a=v.return)&&a.call(v)}finally{if(i)throw i.error}}l>=10&&(h|=1<<5-c)}return t.determineNumSysAndCheckDigit(new k(o),h),s},t.prototype.decodeEnd=function(r,n){return t.findGuardPatternWithoutCounters(r,n,!0,t.MIDDLE_END_PATTERN)},t.prototype.checkChecksum=function(r){return O.checkChecksum(t.convertUPCEtoUPCA(r))},t.determineNumSysAndCheckDigit=function(r,n){for(var o=0;o<=1;o++)for(var i=0;i<10;i++)if(n===this.NUMSYS_AND_CHECK_DIGIT_PATTERNS[o][i]){r.insert(0,"0"+o),r.append("0"+i);return}throw S.getNotFoundInstance()},t.prototype.getBarcodeFormat=function(){return A.UPC_E},t.convertUPCEtoUPCA=function(r){var n=r.slice(1,7).split("").map(function(a){return a.charCodeAt(0)}),o=new k;o.append(r.charAt(0));var i=n[5];switch(i){case 0:case 1:case 2:o.appendChars(n,0,2),o.append(i),o.append("0000"),o.appendChars(n,2,3);break;case 3:o.appendChars(n,0,3),o.append("00000"),o.appendChars(n,3,2);break;case 4:o.appendChars(n,0,4),o.append("00000"),o.append(n[4]);break;default:o.appendChars(n,0,5),o.append("0000"),o.append(i);break}return r.length>=8&&o.append(r.charAt(7)),o.toString()},t.MIDDLE_END_PATTERN=Int32Array.from([1,1,1,1,1,1]),t.NUMSYS_AND_CHECK_DIGIT_PATTERNS=[Int32Array.from([56,52,50,49,44,38,35,42,41,37]),Int32Array.from([7,11,13,14,19,25,28,21,22,1])],t})(O),et=mr;var Or=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),dt=function(e){var t=typeof Symbol=="function"&&Symbol.iterator,r=t&&e[t],n=0;if(r)return r.call(e);if(e&&typeof e.length=="number")return{next:function(){return e&&n>=e.length&&(e=void 0),{value:e&&e[n++],done:!e}}};throw new TypeError(t?"Object is not iterable.":"Symbol.iterator is not defined.")},Ir=(function(e){Or(t,e);function t(r){var n=e.call(this)||this,o=r==null?null:r.get(x.POSSIBLE_FORMATS),i=[];return o!=null&&(o.indexOf(A.EAN_13)>-1&&i.push(new K),o.indexOf(A.UPC_A)>-1&&i.push(new tt),o.indexOf(A.EAN_8)>-1&&i.push(new V),o.indexOf(A.UPC_E)>-1&&i.push(new et)),i.length===0&&(i.push(new K),i.push(new tt),i.push(new V),i.push(new et)),n.readers=i,n}return t.prototype.decodeRow=function(r,n,o){var i,a;try{for(var f=dt(this.readers),u=f.next();!u.done;u=f.next()){var s=u.value;try{var h=s.decodeRow(r,n,o),c=h.getBarcodeFormat()===A.EAN_13&&h.getText().charAt(0)==="0",l=o==null?null:o.get(x.POSSIBLE_FORMATS),v=l==null||l.includes(A.UPC_A);if(c&&v){var p=h.getRawBytes(),d=new B(h.getText().substring(1),p,p?p.length:null,h.getResultPoints(),A.UPC_A);return d.putAllMetadata(h.getResultMetadata()),d}return h}catch{}}}catch(_){i={error:_}}finally{try{u&&!u.done&&(a=f.return)&&a.call(f)}finally{if(i)throw i.error}}throw new S},t.prototype.reset=function(){var r,n;try{for(var o=dt(this.readers),i=o.next();!i.done;i=o.next()){var a=i.value;a.reset()}}catch(f){r={error:f}}finally{try{i&&!i.done&&(n=o.return)&&n.call(o)}finally{if(r)throw r.error}}},t})(G),_t=Ir;var wr=(function(){function e(t,r){this.width=t,this.height=r}return e.prototype.getWidth=function(){return this.width},e.prototype.getHeight=function(){return this.height},e.prototype.isCropSupported=function(){return!1},e.prototype.crop=function(t,r,n,o){throw new j("This luminance source does not support cropping.")},e.prototype.isRotateSupported=function(){return!1},e.prototype.rotateCounterClockwise=function(){throw new j("This luminance source does not support rotation by 90 degrees.")},e.prototype.rotateCounterClockwise45=function(){throw new j("This luminance source does not support rotation by 45 degrees.")},e.prototype.toString=function(){for(var t=new Uint8ClampedArray(this.width),r=new k,n=0;n<this.height;n++){for(var o=this.getRow(n,t),i=0;i<this.width;i++){var a=o[i]&255,f=void 0;a<64?f="#":a<128?f="+":a<192?f=".":f=" ",r.append(f)}r.append(`
+`)}return r.toString()},e})(),W=wr;var Cr=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),xr=(function(e){Cr(t,e);function t(r){var n=e.call(this,r.getWidth(),r.getHeight())||this;return n.delegate=r,n}return t.prototype.getRow=function(r,n){for(var o=this.delegate.getRow(r,n),i=this.getWidth(),a=0;a<i;a++)o[a]=255-(o[a]&255);return o},t.prototype.getMatrix=function(){for(var r=this.delegate.getMatrix(),n=this.getWidth()*this.getHeight(),o=new Uint8ClampedArray(n),i=0;i<n;i++)o[i]=255-(r[i]&255);return o},t.prototype.isCropSupported=function(){return this.delegate.isCropSupported()},t.prototype.crop=function(r,n,o,i){return new t(this.delegate.crop(r,n,o,i))},t.prototype.isRotateSupported=function(){return this.delegate.isRotateSupported()},t.prototype.invert=function(){return this.delegate},t.prototype.rotateCounterClockwise=function(){return new t(this.delegate.rotateCounterClockwise())},t.prototype.rotateCounterClockwise45=function(){return new t(this.delegate.rotateCounterClockwise45())},t})(W),Et=xr;var Nr=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),Rr=(function(e){Nr(t,e);function t(r,n,o,i,a,f,u){var s=e.call(this,n,o)||this;if(s.dataWidth=i,s.dataHeight=a,s.left=f,s.top=u,r.BYTES_PER_ELEMENT===4){for(var h=n*o,c=new Uint8ClampedArray(h),l=0;l<h;l++){var v=r[l],p=v>>16&255,d=v>>7&510,_=v&255;c[l]=(p+d+_)/4&255}s.luminances=c}else s.luminances=r;if(i===void 0&&(s.dataWidth=n),a===void 0&&(s.dataHeight=o),f===void 0&&(s.left=0),u===void 0&&(s.top=0),s.left+n>s.dataWidth||s.top+o>s.dataHeight)throw new w("Crop rectangle does not fit within image data.");return s}return t.prototype.getRow=function(r,n){if(r<0||r>=this.getHeight())throw new w("Requested row is outside the image: "+r);var o=this.getWidth();(n==null||n.length<o)&&(n=new Uint8ClampedArray(o));var i=(r+this.top)*this.dataWidth+this.left;return R.arraycopy(this.luminances,i,n,0,o),n},t.prototype.getMatrix=function(){var r=this.getWidth(),n=this.getHeight();if(r===this.dataWidth&&n===this.dataHeight)return this.luminances;var o=r*n,i=new Uint8ClampedArray(o),a=this.top*this.dataWidth+this.left;if(r===this.dataWidth)return R.arraycopy(this.luminances,a,i,0,o),i;for(var f=0;f<n;f++){var u=f*r;R.arraycopy(this.luminances,a,i,u,r),a+=this.dataWidth}return i},t.prototype.isCropSupported=function(){return!0},t.prototype.crop=function(r,n,o,i){return new t(this.luminances,o,i,this.dataWidth,this.dataHeight,this.left+r,this.top+n)},t.prototype.invert=function(){return new Et(this)},t})(W),gt=Rr;var Tr=(function(){function e(t){if(this.binarizer=t,t===null)throw new w("Binarizer must be non-null.")}return e.prototype.getWidth=function(){return this.binarizer.getWidth()},e.prototype.getHeight=function(){return this.binarizer.getHeight()},e.prototype.getBlackRow=function(t,r){return this.binarizer.getBlackRow(t,r)},e.prototype.getBlackMatrix=function(){return(this.matrix===null||this.matrix===void 0)&&(this.matrix=this.binarizer.getBlackMatrix()),this.matrix},e.prototype.isCropSupported=function(){return this.binarizer.getLuminanceSource().isCropSupported()},e.prototype.crop=function(t,r,n,o){var i=this.binarizer.getLuminanceSource().crop(t,r,n,o);return new e(this.binarizer.createBinarizer(i))},e.prototype.isRotateSupported=function(){return this.binarizer.getLuminanceSource().isRotateSupported()},e.prototype.rotateCounterClockwise=function(){var t=this.binarizer.getLuminanceSource().rotateCounterClockwise();return new e(this.binarizer.createBinarizer(t))},e.prototype.rotateCounterClockwise45=function(){var t=this.binarizer.getLuminanceSource().rotateCounterClockwise45();return new e(this.binarizer.createBinarizer(t))},e.prototype.toString=function(){try{return this.getBlackMatrix().toString()}catch{return""}},e})(),St=Tr;var Pr=(function(){function e(t){this.source=t}return e.prototype.getLuminanceSource=function(){return this.source},e.prototype.getWidth=function(){return this.source.getWidth()},e.prototype.getHeight=function(){return this.source.getHeight()},e})(),yt=Pr;var Ur=(function(){function e(t,r,n,o){if(this.width=t,this.height=r,this.rowSize=n,this.bits=o,r==null&&(r=t),this.height=r,t<1||r<1)throw new w("Both dimensions must be greater than 0");n==null&&(n=Math.floor((t+31)/32)),this.rowSize=n,o==null&&(this.bits=new Int32Array(this.rowSize*this.height))}return e.parseFromBooleanArray=function(t){for(var r=t.length,n=t[0].length,o=new e(n,r),i=0;i<r;i++)for(var a=t[i],f=0;f<n;f++)a[f]&&o.set(f,i);return o},e.parseFromString=function(t,r,n){if(t===null)throw new w("stringRepresentation cannot be null");for(var o=new Array(t.length),i=0,a=0,f=-1,u=0,s=0;s<t.length;)if(t.charAt(s)===`
+`||t.charAt(s)==="\r"){if(i>a){if(f===-1)f=i-a;else if(i-a!==f)throw new w("row lengths do not match");a=i,u++}s++}else if(t.substring(s,s+r.length)===r)s+=r.length,o[i]=!0,i++;else if(t.substring(s,s+n.length)===n)s+=n.length,o[i]=!1,i++;else throw new w("illegal character encountered: "+t.substring(s));if(i>a){if(f===-1)f=i-a;else if(i-a!==f)throw new w("row lengths do not match");u++}for(var h=new e(f,u),c=0;c<i;c++)o[c]&&h.set(Math.floor(c%f),Math.floor(c/f));return h},e.prototype.get=function(t,r){var n=r*this.rowSize+Math.floor(t/32);return(this.bits[n]>>>(t&31)&1)!==0},e.prototype.set=function(t,r){var n=r*this.rowSize+Math.floor(t/32);this.bits[n]|=1<<(t&31)&4294967295},e.prototype.unset=function(t,r){var n=r*this.rowSize+Math.floor(t/32);this.bits[n]&=~(1<<(t&31)&4294967295)},e.prototype.flip=function(t,r){var n=r*this.rowSize+Math.floor(t/32);this.bits[n]^=1<<(t&31)&4294967295},e.prototype.xor=function(t){if(this.width!==t.getWidth()||this.height!==t.getHeight()||this.rowSize!==t.getRowSize())throw new w("input matrix dimensions do not match");for(var r=new b(Math.floor(this.width/32)+1),n=this.rowSize,o=this.bits,i=0,a=this.height;i<a;i++)for(var f=i*n,u=t.getRow(i,r).getBitArray(),s=0;s<n;s++)o[f+s]^=u[s]},e.prototype.clear=function(){for(var t=this.bits,r=t.length,n=0;n<r;n++)t[n]=0},e.prototype.setRegion=function(t,r,n,o){if(r<0||t<0)throw new w("Left and top must be nonnegative");if(o<1||n<1)throw new w("Height and width must be at least 1");var i=t+n,a=r+o;if(a>this.height||i>this.width)throw new w("The region must fit inside the matrix");for(var f=this.rowSize,u=this.bits,s=r;s<a;s++)for(var h=s*f,c=t;c<i;c++)u[h+Math.floor(c/32)]|=1<<(c&31)&4294967295},e.prototype.getRow=function(t,r){r==null||r.getSize()<this.width?r=new b(this.width):r.clear();for(var n=this.rowSize,o=this.bits,i=t*n,a=0;a<n;a++)r.setBulk(a*32,o[i+a]);return r},e.prototype.setRow=function(t,r){R.arraycopy(r.getBitArray(),0,this.bits,t*this.rowSize,this.rowSize)},e.prototype.rotate180=function(){for(var t=this.getWidth(),r=this.getHeight(),n=new b(t),o=new b(t),i=0,a=Math.floor((r+1)/2);i<a;i++)n=this.getRow(i,n),o=this.getRow(r-1-i,o),n.reverse(),o.reverse(),this.setRow(i,o),this.setRow(r-1-i,n)},e.prototype.getEnclosingRectangle=function(){for(var t=this.width,r=this.height,n=this.rowSize,o=this.bits,i=t,a=r,f=-1,u=-1,s=0;s<r;s++)for(var h=0;h<n;h++){var c=o[s*n+h];if(c!==0){if(s<a&&(a=s),s>u&&(u=s),h*32<i){for(var l=0;(c<<31-l&4294967295)===0;)l++;h*32+l<i&&(i=h*32+l)}if(h*32+31>f){for(var l=31;!(c>>>l);)l--;h*32+l>f&&(f=h*32+l)}}}return f<i||u<a?null:Int32Array.from([i,a,f-i+1,u-a+1])},e.prototype.getTopLeftOnBit=function(){for(var t=this.rowSize,r=this.bits,n=0;n<r.length&&r[n]===0;)n++;if(n===r.length)return null;for(var o=n/t,i=n%t*32,a=r[n],f=0;(a<<31-f&4294967295)===0;)f++;return i+=f,Int32Array.from([i,o])},e.prototype.getBottomRightOnBit=function(){for(var t=this.rowSize,r=this.bits,n=r.length-1;n>=0&&r[n]===0;)n--;if(n<0)return null;for(var o=Math.floor(n/t),i=Math.floor(n%t)*32,a=r[n],f=31;!(a>>>f);)f--;return i+=f,Int32Array.from([i,o])},e.prototype.getWidth=function(){return this.width},e.prototype.getHeight=function(){return this.height},e.prototype.getRowSize=function(){return this.rowSize},e.prototype.equals=function(t){if(!(t instanceof e))return!1;var r=t;return this.width===r.width&&this.height===r.height&&this.rowSize===r.rowSize&&z.equals(this.bits,r.bits)},e.prototype.hashCode=function(){var t=this.width;return t=31*t+this.width,t=31*t+this.height,t=31*t+this.rowSize,t=31*t+z.hashCode(this.bits),t},e.prototype.toString=function(t,r,n){return t===void 0&&(t="X "),r===void 0&&(r="  "),n===void 0&&(n=`
+`),this.buildToString(t,r,n)},e.prototype.buildToString=function(t,r,n){for(var o=new k,i=0,a=this.height;i<a;i++){for(var f=0,u=this.width;f<u;f++)o.append(this.get(f,i)?t:r);o.append(n)}return o.toString()},e.prototype.clone=function(){return new e(this.width,this.height,this.rowSize,this.bits.slice())},e})(),X=Ur;var Mr=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),Fr=(function(e){Mr(t,e);function t(r){var n=e.call(this,r)||this;return n.luminances=t.EMPTY,n.buckets=new Int32Array(t.LUMINANCE_BUCKETS),n}return t.prototype.getBlackRow=function(r,n){var o=this.getLuminanceSource(),i=o.getWidth();n==null||n.getSize()<i?n=new b(i):n.clear(),this.initArrays(i);for(var a=o.getRow(r,this.luminances),f=this.buckets,u=0;u<i;u++)f[(a[u]&255)>>t.LUMINANCE_SHIFT]++;var s=t.estimateBlackPoint(f);if(i<3)for(var u=0;u<i;u++)(a[u]&255)<s&&n.set(u);else for(var h=a[0]&255,c=a[1]&255,u=1;u<i-1;u++){var l=a[u+1]&255;(c*4-h-l)/2<s&&n.set(u),h=c,c=l}return n},t.prototype.getBlackMatrix=function(){var r=this.getLuminanceSource(),n=r.getWidth(),o=r.getHeight(),i=new X(n,o);this.initArrays(n);for(var a=this.buckets,f=1;f<5;f++)for(var u=Math.floor(o*f/5),s=r.getRow(u,this.luminances),h=Math.floor(n*4/5),c=Math.floor(n/5);c<h;c++){var l=s[c]&255;a[l>>t.LUMINANCE_SHIFT]++}for(var v=t.estimateBlackPoint(a),p=r.getMatrix(),f=0;f<o;f++)for(var d=f*n,c=0;c<n;c++){var l=p[d+c]&255;l<v&&i.set(c,f)}return i},t.prototype.createBinarizer=function(r){return new t(r)},t.prototype.initArrays=function(r){this.luminances.length<r&&(this.luminances=new Uint8ClampedArray(r));for(var n=this.buckets,o=0;o<t.LUMINANCE_BUCKETS;o++)n[o]=0},t.estimateBlackPoint=function(r){for(var n=r.length,o=0,i=0,a=0,f=0;f<n;f++)r[f]>a&&(i=f,a=r[f]),r[f]>o&&(o=r[f]);for(var u=0,s=0,f=0;f<n;f++){var h=f-i,c=r[f]*h*h;c>s&&(u=f,s=c)}if(i>u){var l=i;i=u,u=l}if(u-i<=n/16)throw new S;for(var v=u-1,p=-1,f=u-1;f>i;f--){var d=f-i,c=d*d*(u-f)*(o-r[f]);c>p&&(v=f,p=c)}return v<<t.LUMINANCE_SHIFT},t.LUMINANCE_BITS=5,t.LUMINANCE_SHIFT=8-t.LUMINANCE_BITS,t.LUMINANCE_BUCKETS=1<<t.LUMINANCE_BITS,t.EMPTY=Uint8ClampedArray.from([0]),t})(yt),At=Fr;var Br=(function(){var e=function(t,r){return e=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(n,o){n.__proto__=o}||function(n,o){for(var i in o)o.hasOwnProperty(i)&&(n[i]=o[i])},e(t,r)};return function(t,r){e(t,r);function n(){this.constructor=t}t.prototype=r===null?Object.create(r):(n.prototype=r.prototype,new n)}})(),Dr=(function(e){Br(t,e);function t(r){var n=e.call(this,r)||this;return n.matrix=null,n}return t.prototype.getBlackMatrix=function(){if(this.matrix!==null)return this.matrix;var r=this.getLuminanceSource(),n=r.getWidth(),o=r.getHeight();if(n>=t.MINIMUM_DIMENSION&&o>=t.MINIMUM_DIMENSION){var i=r.getMatrix(),a=n>>t.BLOCK_SIZE_POWER;(n&t.BLOCK_SIZE_MASK)!==0&&a++;var f=o>>t.BLOCK_SIZE_POWER;(o&t.BLOCK_SIZE_MASK)!==0&&f++;var u=t.calculateBlackPoints(i,a,f,n,o),s=new X(n,o);t.calculateThresholdForBlock(i,a,f,n,o,u,s),this.matrix=s}else this.matrix=e.prototype.getBlackMatrix.call(this);return this.matrix},t.prototype.createBinarizer=function(r){return new t(r)},t.calculateThresholdForBlock=function(r,n,o,i,a,f,u){for(var s=a-t.BLOCK_SIZE,h=i-t.BLOCK_SIZE,c=0;c<o;c++){var l=c<<t.BLOCK_SIZE_POWER;l>s&&(l=s);for(var v=t.cap(c,2,o-3),p=0;p<n;p++){var d=p<<t.BLOCK_SIZE_POWER;d>h&&(d=h);for(var _=t.cap(p,2,n-3),I=0,m=-2;m<=2;m++){var g=f[v+m];I+=g[_-2]+g[_-1]+g[_]+g[_+1]+g[_+2]}var E=I/25;t.thresholdBlock(r,d,l,E,i,u)}}},t.cap=function(r,n,o){return r<n?n:r>o?o:r},t.thresholdBlock=function(r,n,o,i,a,f){for(var u=0,s=o*a+n;u<t.BLOCK_SIZE;u++,s+=a)for(var h=0;h<t.BLOCK_SIZE;h++)(r[s+h]&255)<=i&&f.set(n+h,o+u)},t.calculateBlackPoints=function(r,n,o,i,a){for(var f=a-t.BLOCK_SIZE,u=i-t.BLOCK_SIZE,s=new Array(o),h=0;h<o;h++){s[h]=new Int32Array(n);var c=h<<t.BLOCK_SIZE_POWER;c>f&&(c=f);for(var l=0;l<n;l++){var v=l<<t.BLOCK_SIZE_POWER;v>u&&(v=u);for(var p=0,d=255,_=0,I=0,m=c*i+v;I<t.BLOCK_SIZE;I++,m+=i){for(var g=0;g<t.BLOCK_SIZE;g++){var E=r[m+g]&255;p+=E,E<d&&(d=E),E>_&&(_=E)}if(_-d>t.MIN_DYNAMIC_RANGE)for(I++,m+=i;I<t.BLOCK_SIZE;I++,m+=i)for(var g=0;g<t.BLOCK_SIZE;g++)p+=r[m+g]&255}var C=p>>t.BLOCK_SIZE_POWER*2;if(_-d<=t.MIN_DYNAMIC_RANGE&&(C=d/2,h>0&&l>0)){var F=(s[h-1][l]+2*s[h][l-1]+s[h-1][l-1])/4;d<F&&(C=F)}s[h][l]=C}}return s},t.BLOCK_SIZE_POWER=3,t.BLOCK_SIZE=1<<t.BLOCK_SIZE_POWER,t.BLOCK_SIZE_MASK=t.BLOCK_SIZE-1,t.MINIMUM_DIMENSION=t.BLOCK_SIZE*5,t.MIN_DYNAMIC_RANGE=24,t})(At),mt=Dr;var H=new Map;H.set(x.POSSIBLE_FORMATS,[A.EAN_13,A.UPC_A]);H.set(x.TRY_HARDER,!0);function br(e,t,r){let n=new Uint8ClampedArray(t*r);for(let o=0,i=0;o<n.length;o++,i+=4)n[o]=e[i]*306+e[i+1]*601+e[i+2]*117>>10;return n}function Ot(e,t,r){try{let n=new St(new mt(new gt(e,t,r)));return new _t(H).decode(n,H).getText()}catch{return null}}window.__decodeBarcode=function(e){let{data:t,width:r,height:n}=e,o=br(t,r,n),i=Ot(o,r,n);if(i)return i;let a=new Uint8ClampedArray(r*n);for(let f=0;f<n;f++)for(let u=0;u<r;u++)a[u*n+(n-1-f)]=o[f*r+u];return Ot(a,n,r)};})();
+
+</script>
+<script>
 "use strict";
 /* ============================================================
    BOOK CRAWL — production app
@@ -491,6 +503,7 @@ function settingsFromRow(row){
     className: row.class_name, classCode: row.class_code,
     verifyMode: row.verify_mode,
     floorPts: row.floor_pts || 40, showTracker: row.show_tracker !== false,
+    showLexile: row.show_lexile === true, /* default OFF — teacher opt-in */
     kind: row.kind || "classroom",
     comp: row.comp, trialUntil: row.trial_until, paidUntil: row.paid_until
   };
@@ -805,7 +818,7 @@ function makeLiveAPI(){
       return {
         settings: settingsFromRow(row),
         students: Object.values(stuMap),
-        books: books.map(b=>({id:b.id, title:b.title, pages:b.pages, level:b.level})),
+        books: books.map(b=>({id:b.id, title:b.title, pages:b.pages, level:b.level, isbn:b.isbn || null})),
         reads: reads.map(r=>({id:r.id, studentId:r.student_id, bookId:r.book_id, date:r.on_date, status:r.status, q:r.q, a:r.a, flagged:!!r.flagged, ai:r.ai})),
         boxes: boxes.map(b=>({id:b.id, studentId:b.student_id, tier:b.tier, n:b.roll, date:b.on_date, delivered:b.delivered})),
         questState: questState, customQuests: customQuests,
@@ -872,9 +885,23 @@ function makeLiveAPI(){
       const p = {}; if("level" in patch) p.level = patch.level; if("pages" in patch) p.pages = patch.pages;
       const {error} = await sb.from("books").update(p).eq("id", id); if(error) throw new Error(error.message);
     },
-    async addBook(title, level, pages){
+    async addBook(title, level, pages, isbn){
       const row = {title, level, pages}; if(CLS) row.class_id = CLS;
-      const {error} = await sb.from("books").insert(row); if(error) throw new Error(error.message);
+      if(isbn && CLS) row.isbn = isbn;
+      let {error} = await sb.from("books").insert(row);
+      if(error && row.isbn && /isbn/i.test(error.message || "")){
+        /* pre-migration-15 database — save the book, drop the barcode */
+        delete row.isbn;
+        ({error} = await sb.from("books").insert(row));
+      }
+      if(error) throw new Error(error.message);
+    },
+    async levelHint(isbn){
+      try{
+        const {data, error} = await withTimeout(sb.rpc("level_hint", {p_isbn: isbn}), 8000);
+        if(error || !data || !data.ok || !data.hit) return null;
+        return {level: data.level, n: data.n};
+      }catch(e){ return null; }
     },
     async addBooks(rows){
       const rs = CLS ? rows.map(r=>Object.assign({class_id: CLS}, r)) : rows;
@@ -925,7 +952,7 @@ function makeDemoAPI(){
           Rare:"Lunch with the teacher · pick the class game · choose-your-seat week · prize-box item",
           Epic:"Keep-a-book from the giveaway shelf · Librarian for a Day · epic certificate + class announcement",
           Legendary:"Full dramatic loot reveal: announcer-voice proclamation, custom certificate, one grand privilege (within reason)"},
-        className:"Room 12 (DEMO)", classCode:"CRAWL", verifyMode:"report_spot", floorPts:40, showTracker:true, kind:"classroom"},
+        className:"Room 12 (DEMO)", classCode:"CRAWL", verifyMode:"report_spot", floorPts:40, showTracker:true, showLexile:false, kind:"classroom"},
       students:[
         {id:"st1", name:"Ember Fox", pin:"1111", levels:[{date:"2026-08-01",lvl:390}]},
         {id:"st2", name:"Storm Otter", pin:"2222", levels:[{date:"2026-08-01",lvl:700}]},
@@ -1007,8 +1034,10 @@ function makeDemoAPI(){
       if(!auth(code, sid, pin)) return {ok:false};
       const t = Engine.totals(sid, D);
       const stx = stu(sid);
+      const _lv = currentLevel(stx);
       return {ok:true, pts:t.pts, crawler_lvl:t.crawlerLvl, verified:t.verified, pending:t.pending,
         available:t.available, to_next:t.toNext, box_pts:D.settings.boxPts,
+        lex: (D.settings.showLexile === true && _lv != null) ? {lo:_lv - 100, hi:_lv + 50} : null,
         ask_q: (D.settings.verifyMode || "classic") !== "classic",
         quest_awards: (D.questAwards||[]).filter(a=>a.studentId===sid).map(a=>({q:a.q, month:a.month})),
         gear: stx.gear || [], equipped: stx.equipped || {},
@@ -1125,7 +1154,8 @@ function makeDemoAPI(){
       return rc;
     },
     async setBook(id, patch){ const b = D.books.find(x=>x.id===id); if(b) Object.assign(b, patch); save(D); },
-    async addBook(title, level, pages){ D.books.push({id:uid(), title, level, pages}); save(D); },
+    async addBook(title, level, pages, isbn){ D.books.push({id:uid(), title, level, pages, isbn: isbn || null}); save(D); },
+    async levelHint(){ return null; },
     async addBooks(rows){ for(const r of rows) D.books.push({id:uid(), title:r.title, level:r.level, pages:r.pages}); save(D); },
     async deleteBook(id){ D.books = D.books.filter(b=>b.id!==id); save(D); },
     async addStudent(name, pin, lvl, date){ const id=uid(); D.students.push({id, name, pin, levels:[{date, lvl}]}); save(D); return id; },
@@ -1147,6 +1177,7 @@ function makeDemoAPI(){
         else if(col==="verify_mode") s.verifyMode=v;
         else if(col==="floor_pts") s.floorPts=v;
         else if(col==="show_tracker") s.showTracker=v;
+        else if(col==="show_lexile") s.showLexile=v;
         else if(col==="year_tiers") s.yearTiers=v; else if(col==="d100") s.d100=v; else if(col==="prizes") s.prizes=v;
       }
       save(D);
@@ -1376,6 +1407,7 @@ function vHome(){
     + (SS.equipped && SS.equipped.title && GEAR[SS.equipped.title] ? '<div class="title-line">\u201c' + esc(GEAR[SS.equipped.title][0]) + '\u201d</div>' : '')
     + '<div class="lvl">Level '+SS.crawler_lvl+' Crawler · '+SS.verified+' quest'+(SS.verified===1?"":"s")+' done</div></div>'
     + '<div class="pts"><div class="n">'+SS.pts+'</div><div class="l">points</div></div></div>'
+    + (SS.lex && SS.lex.lo != null ? '<div class="tiny" style="text-align:center;margin:-2px 0 2px">📏 Your Lexile range: <strong>'+SS.lex.lo+'L–'+SS.lex.hi+'L</strong> — books in here are your sweet spot; above it pays stretch bonuses!</div>' : '')
     + (SS.available>0 ? '<button class="lootbanner" data-a="openbox" style="width:100%"><span class="chest">🎁</span>'
         + '<span style="flex:1;text-align:left">You earned '+SS.available+' loot box'+(SS.available===1?"":"es")+'!</span>'
         + '<span class="pill" style="background:rgba(0,0,0,.14)">OPEN →</span></button>' : "")
@@ -1469,8 +1501,8 @@ function vLog(){
         + '</div>'
         + (logState.genre
             ? '<div class="questq">'+esc(QPOOLS[logState.genre][(logState.qi||0) % QPOOLS[logState.genre].length])+'</div>'
-              + '<textarea id="q_answer" rows="3" maxlength="500" placeholder="1–3 sentences…">'+esc(logState.ans||"")+'</textarea>'
-              + '<div class="tiny">Your teacher reads this to award your points!</div>'
+              + '<textarea id="q_answer" rows="3" maxlength="500" placeholder="1–3 sentences about the book…">'+esc(logState.ans||"")+'</textarea>'
+              + '<div class="tiny">Your teacher reads this to award your points! Tell about the <em>book</em> — no real names, yours or anyone’s.</div>'
             : '<div class="tiny" style="font-style:italic">Pick one and your quest question appears!</div>')
         + '</div>') : "")
     + '<div style="margin-top:16px"><button class="btn primary big" data-a="submitread">Log it! ⚔️</button></div>'
@@ -1866,6 +1898,23 @@ function tQueue(nlq, pq){
     + (reads || '<div class="tiny">Queue clear.</div>') + '</div></div>';
 }
 
+/* the moment the key sheet exists is the only moment it can be printed —
+   nudge for TWO copies so the second can be cross-checked against the
+   teacher's real class roster before anything is dismissed */
+function showKeyPop(n){
+  if(document.getElementById("keypop")) return;
+  const ov = document.createElement("div");
+  ov.className = "overlay"; ov.id = "keypop";
+  ov.innerHTML = '<div class="card" style="max-width:440px">'
+    + '<h2>🖶 Print it twice — right now</h2>'
+    + '<div class="tiny" style="line-height:1.55;margin:8px 0">'
+    + 'Your ' + n + ' crawler' + (n === 1 ? "" : "s") + ' just got dungeon names and PINs — and this key sheet is the <strong>only copy that will ever exist</strong> (real names are never saved here).'
+    + '<br><br><strong>Copy 1:</strong> keep it wherever you keep private things.'
+    + '<br><strong>Copy 2:</strong> lay it beside your actual class roster and check every kid off — right name, right level, nobody missing — before you dismiss the sheet.</div>'
+    + '<div class="row"><button class="btn primary" data-a="keypopprint">🖶 Print now (choose 2 copies)</button>'
+    + '<button class="btn ghost" data-a="keypopok">I’ll print in a sec</button></div></div>';
+  document.body.appendChild(ov);
+}
 function keysheetHTML(){
   const rs = window.__keysheet;
   if(!rs || !rs.length) return "";
@@ -1875,7 +1924,8 @@ function keysheetHTML(){
     + rs.map(r=>'<tr><td>'+esc(r.real)+'</td><td><strong>'+esc(r.alias)+'</strong></td><td>'+esc(r.pin)+'</td></tr>').join("")
     + '</tbody></table></div>'
     + '<div class="row" style="margin-top:8px"><button class="btn small primary" data-a="printkey">\ud83d\uddb6 Print key sheet</button>'
-    + '<button class="btn small ghost" data-a="dismisskey" data-arm="1">I printed it \u2014 dismiss</button></div></div>';
+    + '<button class="btn small ghost" data-a="dismisskey" data-arm="1">I printed it \u2014 dismiss</button>'
+    + '<span class="tiny">Print <strong>two copies</strong> \u2014 one to keep handy, one to lay beside your class roster and cross-check every kid.</span></div></div>';
 }
 
 function tClass(){
@@ -1972,6 +2022,223 @@ function tStudent(id){
     + '<div class="card"><h2>Their log</h2>'+reads+'</div></div>';
 }
 
+/* ============ 📷 SCAN-A-BOOK — teacher/parent phones only ============
+   Camera lives on phones (no Chromebook/desktop scanner — teachers use
+   their phone); keyboards get a type-the-ISBN box with the same lookup.
+   Decode is 100% on-device (native BarcodeDetector when present, else the
+   bundled ZXing EAN reader). Only the 13 digits ever leave the phone:
+   once to public book catalogs (title+pages), once to level_hint(). */
+const SCAN_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+  || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.userAgent)); /* iPadOS masquerades as Mac */
+function isbnClean(raw){
+  let s = String(raw || "").replace(/[^0-9Xx]/g, "").toUpperCase();
+  if(s.length === 10){ /* older books print ISBN-10 — convert */
+    let sum = 0;
+    for(let i = 0; i < 10; i++) sum += (s[i] === "X" ? 10 : +s[i]) * (10 - i);
+    if(sum % 11 !== 0) return null;
+    s = "978" + s.slice(0, 9);
+    let c = 0;
+    for(let i = 0; i < 12; i++) c += +s[i] * (i % 2 ? 3 : 1);
+    return s + ((10 - c % 10) % 10);
+  }
+  if(/X/.test(s)) return null;
+  if(s.length === 12) s = "0" + s; /* raw UPC-A → EAN-13 shape */
+  if(s.length !== 13) return null;
+  let c = 0;
+  for(let i = 0; i < 13; i++) c += +s[i] * (i % 2 ? 3 : 1);
+  return c % 10 === 0 ? s : null;
+}
+const isbnBookland = (s) => /^97[89]/.test(s);
+async function isbnLookup(isbn){
+  const g = withTimeout(
+    fetch("https://www.googleapis.com/books/v1/volumes?q=isbn:" + isbn).then(r => r.json()), 8000
+  ).then(j => {
+    const v = j && j.items && j.items[0] && j.items[0].volumeInfo;
+    return v ? {title: v.title || "", pages: v.pageCount || null} : null;
+  }).catch(() => null);
+  const o = withTimeout(
+    fetch("https://openlibrary.org/isbn/" + isbn + ".json").then(r => r.ok ? r.json() : null), 8000
+  ).then(j => j ? {title: j.title || "", pages: j.number_of_pages || null} : null).catch(() => null);
+  const [gr, or] = await Promise.all([g, o]);
+  if(!gr && !or) return null;
+  return {title: (gr && gr.title) || (or && or.title) || "",
+          pages: (gr && gr.pages) || (or && or.pages) || null};
+}
+function scanBeep(){
+  try{
+    const a = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = a.createOscillator(), gn = a.createGain();
+    osc.frequency.value = 880; gn.gain.value = 0.12;
+    osc.connect(gn); gn.connect(a.destination);
+    osc.start(); osc.stop(a.currentTime + 0.12);
+    setTimeout(() => a.close(), 400);
+  }catch(e){}
+}
+/* one result-panel renderer for both the camera overlay and the typed path */
+function scanResHTML(r){
+  if(!r) return "";
+  if(r.busy) return '<div class="card"><div class="tiny">📚 Looking it up…</div></div>';
+  if(r.err) return '<div class="card"><div class="tiny">' + esc(r.err) + '</div></div>';
+  const hintChip = r.hint
+    ? '<span class="chip epic" style="margin-left:6px">✨ ' + r.hint.level + 'L — ' + r.hint.n + ' Book Crawl class' + (r.hint.n === 1 ? "" : "es") + ' use this</span>'
+    : '<a class="tiny" target="_blank" rel="noopener" href="https://www.google.com/search?q=' + encodeURIComponent('"' + (r.title || r.isbn) + '" lexile level') + '" style="margin-left:6px">🔎 look up the level</a>';
+  return '<div class="card" style="margin-top:10px">'
+    + '<img class="scancover" src="https://covers.openlibrary.org/b/isbn/' + esc(r.isbn) + '-M.jpg" alt="" onerror="this.hidden=true">'
+    + (r.dupTitle ? '<div class="tiny" style="margin-bottom:6px">⚠️ Looks a lot like <strong>' + esc(r.dupTitle) + '</strong>, already in your library — add only if this is really a different book.</div>' : '')
+    + (r.notFound ? '<div class="tiny" style="margin-bottom:6px">Couldn’t find this ISBN in the catalogs — type the title and it still saves (the barcode is remembered either way).</div>' : '')
+    + '<div class="fieldlbl" style="margin-top:0">Title</div>'
+    + '<input id="sr_title" value="' + esc(r.title || "") + '" placeholder="Title">'
+    + '<div class="row" style="margin-top:8px">'
+    + '<span><div class="fieldlbl" style="margin-top:0">Pages</div><input id="sr_pages" type="number" value="' + (r.pages || "") + '" style="width:90px"></span>'
+    + '<span><div class="fieldlbl" style="margin-top:0">Level</div><input id="sr_level" type="number" value="' + (r.hint ? r.hint.level : "") + '" placeholder="—" style="width:90px"></span>'
+    + '</div><div class="tiny" style="margin:4px 0 8px">ISBN ' + esc(r.isbn) + hintChip + '</div>'
+    + '<div class="row"><button class="btn small primary" data-a="scanadd" data-isbn="' + esc(r.isbn) + '">➕ Add to library</button>'
+    + '<button class="btn small ghost" data-a="scanclear">skip</button></div>'
+    + '</div>';
+}
+async function scanResolve(isbn){ /* digits → full result object */
+  const dup = (TD && TD.books || []).find(b => b.isbn === isbn);
+  if(dup) return {isbn, already: dup.title};
+  const [found, hint] = await Promise.all([isbnLookup(isbn), api.levelHint(isbn)]);
+  const r = {isbn, title: found ? found.title : "", pages: found ? found.pages : null,
+             hint: hint || null, notFound: !found};
+  if(r.title){
+    const norm = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const d = (TD && TD.books || []).find(b => norm(b.title) === norm(r.title));
+    if(d) r.dupTitle = d.title;
+  }
+  return r;
+}
+/* ---- camera overlay (phones) ---- */
+let scanS = null;
+function scanMsg(m){ const el = document.getElementById("scanmsg"); if(el) el.textContent = m; }
+async function openScanner(){
+  if(document.getElementById("scanov")) return;
+  scanInline = null;
+  const ov = document.createElement("div");
+  ov.className = "overlay"; ov.id = "scanov";
+  ov.innerHTML = '<div class="scanbox">'
+    + '<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">'
+    + '<strong style="color:#EFEDF8">📷 Scan a book</strong>'
+    + '<button class="btn small ghost" data-a="closescan">✕ done</button></div>'
+    + '<video id="scanvid" autoplay playsinline muted></video>'
+    + '<div class="tiny" id="scanmsg" style="color:#CBC6E8;margin-top:8px">Point at the barcode on the back cover…</div>'
+    + '<div id="scanres"></div>'
+    + '<div class="tiny" style="margin-top:10px;color:#CBC6E8">Shaky light? <label class="linkbtn" style="cursor:pointer">snap a photo of it<input id="scansnap" type="file" accept="image/*" capture="environment" hidden></label></div>'
+    + '</div>';
+  document.body.appendChild(ov);
+  scanS = {busy: false, native: null};
+  try{ if("BarcodeDetector" in window) scanS.native = new window.BarcodeDetector({formats: ["ean_13", "upc_a"]}); }catch(e){}
+  try{
+    scanS.stream = await navigator.mediaDevices.getUserMedia(
+      {video: {facingMode: {ideal: "environment"}, width: {ideal: 1280}, height: {ideal: 720}}});
+    document.getElementById("scanvid").srcObject = scanS.stream;
+    scanS.timer = setInterval(scanTick, 380);
+  }catch(e){
+    const v = document.getElementById("scanvid"); if(v) v.hidden = true;
+    scanMsg("Camera unavailable — snap a photo below instead.");
+  }
+}
+function closeScanner(){
+  if(scanS){
+    try{ if(scanS.timer) clearInterval(scanS.timer); }catch(e){}
+    try{ if(scanS.stream) scanS.stream.getTracks().forEach(t => t.stop()); }catch(e){}
+    scanS = null;
+  }
+  document.getElementById("scanov")?.remove();
+}
+async function scanFrame(source, w, h){ /* → digits | null, on-device */
+  const cv = document.createElement("canvas");
+  const scale = Math.min(1, 900 / w);
+  cv.width = Math.round(w * scale); cv.height = Math.round(h * scale);
+  cv.getContext("2d").drawImage(source, 0, 0, cv.width, cv.height);
+  if(scanS && scanS.native){
+    try{
+      const hits = await scanS.native.detect(cv);
+      if(hits && hits[0] && hits[0].rawValue) return hits[0].rawValue;
+    }catch(e){}
+  }
+  if(window.__decodeBarcode){
+    try{ return window.__decodeBarcode(cv.getContext("2d").getImageData(0, 0, cv.width, cv.height)); }catch(e){}
+  }
+  return null;
+}
+async function scanTick(){
+  if(!scanS || scanS.busy) return;
+  const v = document.getElementById("scanvid");
+  if(!v || !v.videoWidth) return;
+  scanS.busy = true;
+  try{
+    const digits = await scanFrame(v, v.videoWidth, v.videoHeight);
+    if(digits) await scanFound(digits);
+  }finally{ if(scanS) scanS.busy = false; }
+}
+async function scanFound(digits){
+  const isbn = isbnClean(digits);
+  if(!isbn) return;
+  if(scanS && scanS.timer){ clearInterval(scanS.timer); scanS.timer = null; }
+  scanBeep();
+  if(!isbnBookland(isbn)){
+    scanMsg("That’s a store barcode, not the book code — find the one starting 978 (often inside the front cover).");
+    scanResume(2600); return;
+  }
+  scanMsg("Got it — looking up " + isbn + "…");
+  const box = document.getElementById("scanres");
+  if(box) box.innerHTML = scanResHTML({busy: true});
+  const r = await scanResolve(isbn);
+  if(r.already){
+    scanMsg("✔ Already in your library: " + r.already + " — keep scanning.");
+    if(box) box.innerHTML = "";
+    scanResume(2200); return;
+  }
+  scanMsg("Check it, tweak it, add it — then scan the next one.");
+  if(box) box.innerHTML = scanResHTML(r);
+}
+function scanResume(delay){
+  setTimeout(() => {
+    if(scanS && !scanS.timer && document.getElementById("scanov")){
+      scanMsg("Point at the barcode on the back cover…");
+      scanS.timer = setInterval(scanTick, 380);
+    }
+  }, delay || 0);
+}
+async function scanSnapFile(file){
+  if(!file) return;
+  scanMsg("Reading the photo…");
+  try{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+    const digits = await scanFrame(img, img.naturalWidth, img.naturalHeight);
+    URL.revokeObjectURL(url);
+    if(digits) await scanFound(digits);
+    else scanMsg("Couldn’t read that photo — get closer, flatter, brighter and try again.");
+  }catch(e){ scanMsg("Couldn’t read that photo — try again."); }
+}
+/* ---- typed path (any device) ---- */
+let scanInline = null;
+async function isbnTyped(raw){
+  const isbn = isbnClean(raw);
+  if(!isbn){ toast("That doesn’t look like a full ISBN"); return; }
+  if(!isbnBookland(isbn)){ toast("Book ISBNs start 978 — check under the barcode"); return; }
+  scanInline = {busy: true}; render();
+  const r = await scanResolve(isbn);
+  scanInline = r.already ? {err: "✔ Already in your library: " + r.already} : r;
+  render();
+}
+async function scanCommit(host, isbn){
+  const g = (id) => host.querySelector(id);
+  const title = (g("#sr_title") && g("#sr_title").value || "").trim();
+  if(!title){ toast("Title first"); return null; }
+  const pages = parseInt(g("#sr_pages") && g("#sr_pages").value, 10) || null;
+  const level = parseInt(g("#sr_level") && g("#sr_level").value, 10) || null;
+  try{
+    await api.addBook(titleCase(title), level, pages, isbn || null);
+    toast("⚔️ " + title + " added");
+    return true;
+  }catch(e){ toast(e.message); return null; }
+}
+
 function tBooks(){
   const rows = TD.books.slice().sort((a,b)=>a.title.localeCompare(b.title)).map(b=>{
     const n = TD.reads.filter(r=>r.bookId===b.id).length;
@@ -1982,6 +2249,14 @@ function tBooks(){
       + '<td>'+(n===0?'<button class="btn small ghost danger" data-a="delbook" data-id="'+b.id+'" data-arm="1">✕</button>':"")+'</td></tr>';
   }).join("");
   return '<div class="stack">'
+    + '<div class="card"><h2>📷 Scan books in</h2>'
+    + (SCAN_MOBILE
+        ? '<div class="tiny" style="margin-bottom:8px">Point your phone at the barcode on the back cover — title and pages fill themselves, and if another Book Crawl class already leveled that exact book, the level offers itself too. Great for walking your whole shelf.</div>'
+          + '<div class="row"><button class="btn primary" data-a="openscan">📷 Open the scanner</button></div>'
+        : '<div class="tiny" style="margin-bottom:8px">Scanning is built for your phone — open Book Crawl there, sign in, and tap 📷 on this tab. From a keyboard, type the ISBN printed under the barcode instead; the lookup is the same (title, pages, and a level hint when another class has this book).</div>')
+    + '<div class="row" style="margin-top:8px"><input id="isbn_in" inputmode="numeric" placeholder="ISBN — e.g. 9780545010221" style="flex:1;min-width:170px">'
+    + '<button class="btn small" data-a="isbnlookup">Look up</button></div>'
+    + '<div id="isbnres">' + scanResHTML(scanInline) + '</div></div>'
     + '<div class="card"><h2>Add books</h2>'
     + '<div class="row"><input id="ab_title" placeholder="Title" style="flex:2;min-width:180px">'
     + '<input id="ab_level" type="number" placeholder="level" style="width:100px">'
@@ -2108,6 +2383,8 @@ function tSettings(){
     + ((CLS || DEMO)
       ? '<div class="settingrow"><label>Class tracker — kids see the whole party’s floors</label>'
         + '<input type="checkbox" '+(S.showTracker!==false?"checked":"")+' data-a="tracktoggle" style="width:24px;height:24px"></div>'
+        + '<div class="settingrow"><label>📏 Kids see their own Lexile range<span class="tiny" style="display:block">Each crawler sees only their own range (100L below to 50L above their level) on their home screen — never anyone else’s.</span></label>'
+        + '<input type="checkbox" '+(S.showLexile===true?"checked":"")+' data-a="lextoggle" style="width:24px;height:24px"></div>'
         + num("Points per dungeon floor","floorPts",S.floorPts||40)
       : "")
     + '<div class="settingrow"><label>'+(fam()?'Crew code (your kids type this once)':'Class code (kids type this once)')+'</label><input type="text" data-set="classCode" value="'+esc(S.classCode||"")+'" maxlength="12" style="width:130px;text-transform:uppercase"></div>'
@@ -2651,11 +2928,14 @@ document.addEventListener("click", async (ev)=>{
       window.__keysheet = results;
       await loadTeacher(); render();
       toast("Created "+results.length+" crawlers");
+      showKeyPop(results.length);
       break;
     }
     case "copytitle": try{ navigator.clipboard.writeText(el.dataset.t); toast("Title copied \u2014 paste it into the search box"); }catch(e){} return;
     case "togglebg": try{ localStorage.setItem("bc_bg", el.checked ? "1" : "0"); }catch(e){} paintDungeon(); return;
     case "dismisskey": window.__keysheet = null; render(); break;
+    case "keypopok": document.getElementById("keypop")?.remove(); break;
+    case "keypopprint": document.getElementById("keypop")?.remove(); /* falls through to printkey */
     case "printkey": {
       const rs = window.__keysheet || [];
       const url = location.origin === "null" || location.protocol === "file:" ? "(your site address)" : location.origin + location.pathname;
@@ -2705,6 +2985,30 @@ document.addEventListener("click", async (ev)=>{
       try{ await api.addBooks(rows); toast("Added "+rows.length+" books"); }catch(e){ toast(e.message); }
       await refreshTeacher(); break;
     }
+    case "openscan": openScanner(); break;
+    case "closescan": closeScanner(); break;
+    case "isbnlookup": await isbnTyped($("#isbn_in")?.value); break;
+    case "scanclear": {
+      if(el.closest("#scanov")){ const b = document.getElementById("scanres"); if(b) b.innerHTML = ""; scanResume(0); }
+      else { scanInline = null; render(); }
+      break;
+    }
+    case "scanadd": {
+      const inOverlay = !!el.closest("#scanov");
+      const host = el.closest(".card") || document;
+      busy(el, true);
+      const done = await scanCommit(host, el.dataset.isbn);
+      if(!done){ busy(el, false); break; }
+      if(inOverlay){
+        const b = document.getElementById("scanres"); if(b) b.innerHTML = "";
+        loadTeacher(true).then(() => {}); /* quiet refresh so dupe-check knows it */
+        scanResume(400);
+      } else {
+        scanInline = null;
+        await refreshTeacher();
+      }
+      break;
+    }
     case "delbook": try{ await api.deleteBook(id); }catch(e){ toast(e.message); } await refreshTeacher(); break;
     case "exportlog": await dl("bookcrawl-log.csv", csvLog()); break;
     case "exportroster": await dl("bookcrawl-summary.csv", csvRoster()); break;
@@ -2716,6 +3020,7 @@ document.addEventListener("click", async (ev)=>{
 document.addEventListener("change", async (ev)=>{
   const el = ev.target;
   if(el.id === "log_date" && logState){ logState.date = el.value; return; }
+  if(el.id === "scansnap"){ await scanSnapFile(el.files && el.files[0]); el.value = ""; return; }
   if(el.dataset.bset){
     const v = parseInt(el.value, 10);
     try{ await api.setBook(el.dataset.id, {[el.dataset.bset]: isNaN(v) ? null : v}); toast("Saved"); }
@@ -2785,6 +3090,17 @@ document.addEventListener("change", async (ev)=>{
       if(TD && TD.settings) TD.settings.showTracker = el.checked;
       toast(el.checked ? "Tracker on — kids see the party board" : "Tracker hidden — kids see only their own path");
     }catch(e){ toast(e.message); el.checked = !el.checked; }
+    return;
+  }
+  if(el.dataset.a === "lextoggle"){
+    try{
+      await api.updateSettings({show_lexile: el.checked});
+      if(TD && TD.settings) TD.settings.showLexile = el.checked;
+      toast(el.checked ? "On — each kid sees their own range at next sign-in" : "Off — Lexile stays teacher-only");
+    }catch(e){
+      toast(/show_lexile|column/i.test(e.message || "") ? "Run the latest migration first — then this switch works" : e.message);
+      el.checked = !el.checked;
+    }
     return;
   }
   if(el.dataset.a === "questtoggle"){
@@ -3127,9 +3443,11 @@ function vHelp(){
     + H("🗝️", "For Dungeon Masters (teachers & parents)",
         t("<strong>Setup:</strong> create your class or family crew — you get a 5-letter code kids type once per device. Add crawlers on the " + (fam() ? "Crew" : "Class") + " tab; each gets a dungeon name and PIN, and a one-time key sheet maps them to real names (print it — it is never stored).")
       + t("<strong>Books need a level once:</strong> the queue links a Lexile lookup; save the level and every future reader of that book scores automatically.")
+      + t("<strong>Scan books in with your phone:</strong> the Books tab has a 📷 scanner — point it at the barcode and the title and pages fill themselves; when another Book Crawl class already leveled that exact book, the level is offered on the spot. Walk your shelf once and the library builds itself.")
       + t("<strong>Verifying:</strong> pick your mode in Settings — Classic (book talk per book), Quest Report (read their written answer, ~15 seconds), or Report + Spot Checks (the dungeon secretly flags ~1 in 4 for a real talk).")
       + t("<strong>AI second opinion:</strong> answers get a quiet ✅ / 🤔 / 🚩 pre-screen for you alone — it never rejects anything, kids never see it. On a doubtful card, the 🎤 box lets you type what the kid told you in person and re-check it instantly.")
-      + t("<strong>Dials:</strong> bounty toggles live on Loot; the class tracker (kids seeing the party board) and points-per-floor live in Settings; CSV exports too.")
+      + t("<strong>Dials:</strong> bounty toggles live on Loot; the class tracker (kids seeing the party board), the kids-see-their-own-Lexile-range switch, and points-per-floor live in Settings; CSV exports too.")
+      + t("<strong>Keeping it PII-free:</strong> the privacy story rests on dungeon names — remind crawlers to write about the <em>book</em> in quest reports, never about themselves or classmates by name (the answer box nudges them too), and keep the key sheet on paper.")
       + t("<strong>Lost access?</strong> “Forgot password?” on the sign-in screen emails a reset link.")
       + '<div class="row" style="margin-top:8px"><button class="btn small ghost" data-a="tourreset">↺ Show the first-steps checklist again</button></div>')
     + H("🚀", "Your first five minutes",
@@ -3162,7 +3480,7 @@ function vTerms(){
   const C = (h, b) => '<div class="card"><h2>' + h + '</h2><div class="tiny" style="line-height:1.55">' + b + '</div></div>';
   return legalShell("📜 Terms of Service",
       C("The deal", "Book Crawl is a reading game for classrooms and families: kids log books, a grown-up verifies them, points become loot. These terms are the agreement between you (the adult who makes an account) and the operator of Book Crawl. Using the service means you accept them.")
-    + C("Accounts", "Accounts are for adults — teachers, parents, and other grown-ups running a class or crew. Kids never have accounts here; they use a code, a dungeon name, and a PIN that you create and control. Keep your password safe and your key sheet (the paper linking dungeon names to real kids) in your own hands — it is yours, and it never touches our servers.")
+    + C("Accounts", "Accounts are for adults — teachers, parents, and other grown-ups running a class or crew. Kids never have accounts here; they use a code, a dungeon name, and a PIN that you create and control. Keep your password safe and your key sheet (the paper linking dungeon names to real kids) in your own hands — it is yours, and it never touches our servers. By creating a classroom, you confirm you are the teacher or school staff member responsible for those students, using Book Crawl as part of your school’s educational program; by creating a family crew, you confirm you are the parent or legal guardian of the kids you add.")
     + C("The season pass", "Every new class or crew starts with a free trial, no card required. After the trial, keeping a dungeon open costs the yearly price shown on your Billing screen, paid by card through Stripe. If a pass runs out, the dungeon <strong>freezes</strong>: everything is kept — points, boxes, gear, history — kids can still look, and logging simply pauses until the pass is renewed. Nothing is deleted for non-payment, ever. If a purchase was a mistake, write within 30 days for a full refund.")
     + C("Fair use", "Use Book Crawl for real classes and families. Don’t probe or attack the service, harvest data, resell access, or use it to harm or harass anyone. We can suspend accounts doing those things.")
     + C("Your data is yours", "The reading records in your dungeon belong to your class or family. You can export them as CSV at any time, delete students or whole classes yourself, and ask us to delete your account entirely. You give us permission to store and process this data only as needed to run the game.")
@@ -3175,9 +3493,11 @@ function vPrivacy(){
       C("The short version", "Book Crawl stores <strong>no personal information about children</strong>. No ads, no trackers, no analytics, no selling or sharing of data — for anyone. This page lists everything we store, which doesn’t take long.")
     + C("What we store about you (the adult)", "Your email address and a securely hashed password, used only to sign you in (handled by Supabase, our database provider). Your class or crew’s name, settings, and season-pass status. That’s the whole list.")
     + C("What we store about kids", "A made-up dungeon name (like <em>Ember Fox</em>), a 4-digit PIN, and their reading log: book titles, dates, points, gear, and quest-report answers. None of it names, identifies, or contacts a real child. The paper key sheet that links dungeon names to real kids is printed once on your device and never uploaded — we could not identify a child in our own database if we tried.")
-    + C("Children’s privacy (COPPA)", "Book Crawl is designed so that children never provide personal information: no child accounts, no names, no emails, no photos, no location. Accounts, and every decision about a class’s data, belong to the supervising adult — a teacher for a class, a parent for a family crew.")
+    + C("Children’s privacy (COPPA)", "Book Crawl is designed so that children never provide personal information: no child accounts, no names, no emails, no photos, no location. Consent works the way COPPA expects in each setting: in a <strong>classroom</strong>, the teacher and school consent, and Book Crawl is used only for the class’s educational program; in a <strong>family crew</strong>, the parent is the account holder and consents directly. The little the game keeps about a child is used <strong>solely to run the game</strong> — never for advertising, marketing, profiling, or sale, and never shared except with the service providers listed below. Parents can review everything in their child’s log through the account holder, have it deleted at any time (deleting a student takes one tap), or decline entirely — a child who doesn’t participate is simply never added, so no data about them ever exists.")
+    + C("Schools & FERPA", "For classrooms, Book Crawl works as the school’s service provider: the reading records in a class dungeon remain under the school’s control. The teacher can export them as CSV or delete them at any moment, we use them only to provide the game — no secondary use of any kind — and we never re-disclose them. Parents exercise their FERPA rights to review records the usual way: through the school.")
     + C("Payments", "Cards are processed by Stripe on Stripe’s own pages. We never see or store card numbers — we only record that a dungeon’s season pass is paid, and until when.")
-    + C("The AI reading check", "When a class uses Quest Reports, the child’s answer, the question, and the book’s title are sent to our AI provider (Anthropic) for one purpose: generating the private advisory hint the teacher sees (✅/🤔/🚩). The hint is stored with the reading log; the AI never grades, blocks, or messages a child.")
+    + C("The AI reading check", "When a class uses Quest Reports, the child’s answer, the question, and the book’s title are sent to our AI provider (Anthropic) for one purpose: generating the private advisory hint the teacher sees (✅/🤔/🚩). <strong>No student identifiers travel with it</strong> — not even the dungeon name; Anthropic receives only book title, question, and answer text, and under its commercial API terms does not use that text to train AI models. The hint is stored with the reading log; the AI never grades, blocks, or messages a child.")
+    + C("Our service providers", "A short list of companies helps run Book Crawl, each seeing only what its job requires: <strong>Supabase</strong> hosts the database and adult sign-ins; <strong>Anthropic</strong> receives quest-report text for the advisory hint (details above); <strong>Stripe</strong> handles payments and only ever deals with adults; <strong>GitHub Pages</strong> serves the game’s code and stores no game data at all; account emails (like password resets) go through our email delivery service to adult addresses only. When an adult scans or types a book’s barcode, the decoding happens on their own device and the lookup sends only that ISBN to public book catalogs (Google Books, Open Library) — never anything about students. None of these companies may use this data for anything besides providing their service to us, and none of it is ever used for advertising.")
     + C("Cookies & tracking", "Book Crawl sets no advertising or analytics trackers. Your browser keeps only what the game needs to work: your sign-in session, your class code, and small conveniences like which device already saw a welcome screen.")
     + C("Who can see what", "Each class or crew is walled off from every other by database-level security. You see only your own dungeon. Kids see their classmates’ dungeon names, avatars, and floor numbers (if the tracker is on) — never anyone’s points or reading details.")
     + C("Retention & deletion", "You can delete a student, a book, or a whole class yourself at any moment, and it’s gone. A frozen dungeon is kept, not deleted. To delete your account and everything in it, just ask" + (BC_CONTACT ? " at the address below" : " through the site") + ".")

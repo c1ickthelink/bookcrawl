@@ -1858,7 +1858,7 @@ function tQueue(nlq, pq){
     const waiting = TD.reads.filter(r=>r.bookId===b.id).map(r=>{const s=tstu(r.studentId); return s&&s.name;}).filter(Boolean);
     return '<div class="qcard"><div class="info"><strong>'+esc(b.title)+'</strong>'
       + '<div class="tiny">'+(b.pages||"?")+' pages · waiting: '+esc(waiting.join(", ")||"—")+'</div></div>'
-      + '<a class="btn small ghost" target="_blank" rel="noopener" data-a="copytitle" data-t="'+esc(b.title)+'" href="https://www.google.com/search?q='+encodeURIComponent('\u0022'+b.title+'\u0022 lexile level')+'">\ud83d\udd0e Look it up</a>'
+      + '<a class="btn small ghost" target="_blank" rel="noopener" data-a="copytitle" data-t="'+esc(b.title)+'" href="https://www.google.com/search?q='+encodeURIComponent(b.title+' book lexile level')+'">\ud83d\udd0e Look it up</a>'
       + '<a class="btn small ghost" target="_blank" rel="noopener" data-a="copytitle" data-t="'+esc(b.title)+'" href="https://hub.lexile.com/find-a-book/">Lexile site</a>'
       + '<input class="inline-lvl" type="number" inputmode="numeric" placeholder="level" id="lvl_'+b.id+'">'
       + '<button class="btn small primary" data-a="savelevel" data-id="'+b.id+'">Save</button></div>';
@@ -2081,7 +2081,7 @@ function scanResHTML(r){
   if(r.err) return '<div class="card"><div class="tiny">' + esc(r.err) + '</div></div>';
   const hintChip = r.hint
     ? '<span class="chip epic" style="margin-left:6px">✨ ' + r.hint.level + 'L — ' + r.hint.n + ' Book Crawl class' + (r.hint.n === 1 ? "" : "es") + ' use this</span>'
-    : '<a class="tiny" target="_blank" rel="noopener" href="https://www.google.com/search?q=' + encodeURIComponent('"' + (r.title || r.isbn) + '" lexile level') + '" style="margin-left:6px">🔎 look up the level</a>';
+    : '<a class="tiny" target="_blank" rel="noopener" href="https://www.google.com/search?q=' + encodeURIComponent((r.title || r.isbn) + ' book lexile level') + '" style="margin-left:6px">🔎 look up the level</a>';
   return '<div class="card" style="margin-top:10px">'
     + '<img class="scancover" src="https://covers.openlibrary.org/b/isbn/' + esc(r.isbn) + '-M.jpg" alt="" onerror="this.hidden=true">'
     + (r.dupTitle ? '<div class="tiny" style="margin-bottom:6px">⚠️ Looks a lot like <strong>' + esc(r.dupTitle) + '</strong>, already in your library — add only if this is really a different book.</div>' : '')

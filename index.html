@@ -152,6 +152,7 @@ h2{font-size:17px; margin-bottom:8px}
 #scanvid{width:100%;max-height:44vh;border-radius:12px;background:#000;object-fit:cover}
 .scancover{height:86px;border-radius:6px;float:right;margin:0 0 8px 10px;box-shadow:0 4px 12px rgba(0,0,0,.35)}
 .scanbox .card{background:var(--card,#fff)}
+.lexcard{width:min(94vw,580px);max-height:88vh;overflow-y:auto}
 .lootstage{text-align:center; color:#fff; max-width:420px; width:100%}
 .chestbig{font-size:110px; display:inline-block}
 .chestbig.rumble{animation:rumble 1.1s ease-in-out}
@@ -1915,6 +1916,43 @@ function showKeyPop(n){
     + '<button class="btn ghost" data-a="keypopok">I’ll print in a sec</button></div></div>';
   document.body.appendChild(ov);
 }
+/* ---- level finder + conversion chart (popups: the half-typed add form
+   underneath is never disturbed) ---- */
+const LEXCHART = [
+  ["K",  "A–B", "1–2",   "0.1–1.0", "BR–100L"],
+  ["1",  "C–I", "3–16",  "1.0–1.9", "100–300L"],
+  ["2",  "J–M", "18–28", "2.0–2.9", "300–500L"],
+  ["3",  "N–P", "30–38", "3.0–3.9", "500–700L"],
+  ["4",  "Q–S", "38–40", "4.0–4.9", "650–850L"],
+  ["5",  "T–V", "40–50", "5.0–5.9", "750–950L"],
+  ["6+", "W–Z", "50–60", "6.0+",    "900–1050L"],
+];
+function lexChartHTML(){
+  return '<div class="tablewrap"><table><thead><tr><th>Grade</th><th>Guided Reading (F&amp;P)</th><th class="num">DRA</th><th class="num">AR / ATOS</th><th class="num">Lexile → enter this</th></tr></thead><tbody>'
+    + LEXCHART.map(r => '<tr><td><strong>' + r[0] + '</strong></td><td>' + r[1] + '</td><td class="num">' + r[2] + '</td><td class="num">' + r[3] + '</td><td class="num"><strong>' + r[4] + '</strong></td></tr>').join("")
+    + '</tbody></table></div>'
+    + '<div class="tiny" style="margin-top:8px">Bands are approximate — the programs measure differently, so treat this as a starting point, not a decimal-precise conversion. When a school report shows an exact Lexile, use that instead. Program names belong to their respective owners.</div>';
+}
+function lexOverlay(kind){
+  if(document.getElementById("lexov")) return;
+  const kid = fam() ? "your child" : "the student";
+  const inner = kind === "convert"
+    ? '<h2>🔁 Reading levels → Lexile</h2>'
+      + '<div class="tiny" style="margin:6px 0 10px">Know a Guided Reading letter, DRA number, or AR level from school? Find the row, enter the middle of the Lexile band, and you’re set.</div>'
+      + lexChartHTML()
+    : '<h2>❓ Finding a starting level</h2>'
+      + '<div class="tiny" style="line-height:1.6;margin-top:6px">'
+      + '<strong>1 · Check the last reading report from school.</strong> iReady, MAP, STAR, and Amira reports usually print a Lexile right on them — and if they show a Guided Reading letter, DRA, or AR level instead, the 🔁 conversion chart turns it into one.'
+      + '<br><br><strong>2 · No report handy? Start from grade level.</strong> Typical bands: K ends near 100L, 1st ~100–300L, 2nd ~300–500L, 3rd ~500–700L, 4th ~650–850L, 5th ~750–950L, 6th ~900L+. If ' + kid + ' finds reading hard, start near the low end of the band; if books are easy, the high end. When in doubt, guess low — early wins beat early frustration.'
+      + '<br><br><strong>3 · A close guess is all you need.</strong> Book Crawl scores every book against ' + kid + '’s own level, so being off by a little just shifts a few points — nothing breaks. You can update the level anytime from their page, and every book logged after that uses the new number automatically.'
+      + '</div>';
+  const ov = document.createElement("div");
+  ov.className = "overlay"; ov.id = "lexov";
+  ov.innerHTML = '<div class="card lexcard">'
+    + '<div class="row" style="justify-content:flex-end;margin-bottom:-6px"><button class="btn small ghost" data-a="closelexov">✕ close</button></div>'
+    + inner + '</div>';
+  document.body.appendChild(ov);
+}
 function keysheetHTML(){
   const rs = window.__keysheet;
   if(!rs || !rs.length) return "";
@@ -1958,7 +1996,11 @@ function tClass(){
     + '<div id="addstu" class="hidden row" style="margin:8px 0">'
     + '<input id="ns_name" placeholder="Real name (never saved — for your key only)" style="flex:1;min-width:220px">'
     + '<input id="ns_lvl" type="number" placeholder="level" style="width:100px">'
-    + '<button class="btn small primary" data-a="addstu">Add</button></div>'
+    + '<button class="btn small primary" data-a="addstu">Add</button>'
+    + '<span class="tiny" style="flex-basis:100%">'
+    + '<button class="linkbtn" data-a="lexfind">❓ don’t know the level?</button>'
+    + '<span style="margin:0 6px">·</span>'
+    + '<button class="linkbtn" data-a="lexconvert">🔁 convert F&amp;P / DRA / AR to Lexile</button></span></div>'
     + '<div id="addstu_out" class="hidden banner" style="margin:8px 0"></div>'
     + '<div id="rosterbox" class="hidden" style="margin:8px 0">'
     + '<div class="fieldlbl">One per line: Real name, reading level</div>'
@@ -2935,6 +2977,9 @@ document.addEventListener("click", async (ev)=>{
     case "togglebg": try{ localStorage.setItem("bc_bg", el.checked ? "1" : "0"); }catch(e){} paintDungeon(); return;
     case "dismisskey": window.__keysheet = null; render(); break;
     case "keypopok": document.getElementById("keypop")?.remove(); break;
+    case "lexfind": lexOverlay("find"); break;
+    case "lexconvert": lexOverlay("convert"); break;
+    case "closelexov": document.getElementById("lexov")?.remove(); break;
     case "keypopprint": document.getElementById("keypop")?.remove(); /* falls through to printkey */
     case "printkey": {
       const rs = window.__keysheet || [];

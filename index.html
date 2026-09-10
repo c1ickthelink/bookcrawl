@@ -1317,6 +1317,7 @@ function render(){
   else if(scr === "help") app.innerHTML = vHelp();
   else if(scr === "terms") app.innerHTML = vTerms();
   else if(scr === "privacy") app.innerHTML = vPrivacy();
+  else if(scr === "about") app.innerHTML = vAbout();
   else if(scr === "teacher") app.innerHTML = vTeacher();
   else app.innerHTML = vCode();
   if(DEMO && !$(".demo-pill")){ const d = document.createElement("div"); d.className="demo-pill"; d.textContent="DEMO MODE"; document.body.appendChild(d); }
@@ -1345,6 +1346,7 @@ function vCode(){
     + '<span class="tdsep">·</span>'
     + '<button class="btn ghost small" data-a="tteacher" data-m="up">Create your free class</button></div>'
     + '<div style="margin-top:10px"><button class="btn ghost small" data-a="tohelp">❓ How it works</button></div>'
+    + '<div class="tiny" style="margin-top:14px;opacity:.78"><button class="linkbtn" data-a="toabout">About</button><span class="tdsep">·</span><button class="linkbtn" data-a="toterms">Terms</button><span class="tdsep">·</span><button class="linkbtn" data-a="toprivacy">Privacy</button></div>'
     + '</div>';
 }
 
@@ -2764,6 +2766,7 @@ document.addEventListener("click", async (ev)=>{
     case "tohelp": helpBack = route.screen; go({screen:"help"}); break;
     case "toterms": helpBack = route.screen; go({screen:"terms"}); break;
     case "toprivacy": helpBack = route.screen; go({screen:"privacy"}); break;
+    case "toabout": helpBack = route.screen; go({screen:"about"}); break;
     case "tourdismiss": try{ localStorage.setItem(tourKey(), "1"); }catch(e){} render(); break;
     case "tourreset": {
       try{
@@ -3521,10 +3524,17 @@ function legalShell(title, inner){
     + (BC_CONTACT ? '<div class="card"><h2>✉️ Contact</h2><div class="tiny">Questions about any of this: <strong>' + esc(BC_CONTACT) + '</strong></div></div>' : '')
     + '</div>';
 }
+function vAbout(){
+  const C = (h, b) => '<div class="card"><h2>' + h + '</h2><div class="tiny" style="line-height:1.6">' + b + '</div></div>';
+  return legalShell("🏰 Why Book Crawl exists",
+      C("The itch", "Book Crawl was built by a Georgia elementary classroom teacher for his own students, after too many years of watching paper reading logs turn the best thing in the world — finishing a book — into a chore with a signature line. Kids will grind for a game. Almost nothing else earns that energy. So the reading log became the game.")
+    + C("How it plays fair", "Every reader competes only with themselves: points scale to each child’s <em>own</em> reading level, so the kid working through early chapter books and the kid devouring thick fantasy novels both earn their loot honestly. A grown-up verifies every book before points land, harder-than-usual books pay stretch bonuses, and the rewards on screen are cosmetic — avatars, gear, dungeon floors. Anything real-world is the teacher’s choice, not the game’s.")
+    + C("The rules we won’t break", "No personal information about children, ever — kids exist here only as made-up crawler names. No advertising, no trackers, no selling data. No public rankings of children. Reading is the whole point: the fastest way to dig deeper into the dungeon is, and will always be, another book. Book Crawl is an independent product and is not affiliated with, endorsed by, or operated by any school or school district."));
+}
 function vTerms(){
   const C = (h, b) => '<div class="card"><h2>' + h + '</h2><div class="tiny" style="line-height:1.55">' + b + '</div></div>';
   return legalShell("📜 Terms of Service",
-      C("The deal", "Book Crawl is a reading game for classrooms and families: kids log books, a grown-up verifies them, points become loot. These terms are the agreement between you (the adult who makes an account) and the operator of Book Crawl. Using the service means you accept them.")
+      C("The deal", "Book Crawl is a reading game for classrooms and families: kids log books, a grown-up verifies them, points become loot. These terms are the agreement between you (the adult who makes an account) and the operator of Book Crawl. Using the service means you accept them. Book Crawl is an independent product and is not affiliated with, endorsed by, or operated by any school or school district.")
     + C("Accounts", "Accounts are for adults — teachers, parents, and other grown-ups running a class or crew. Kids never have accounts here; they use a code, a dungeon name, and a PIN that you create and control. Keep your password safe and your key sheet (the paper linking dungeon names to real kids) in your own hands — it is yours, and it never touches our servers. By creating a classroom, you confirm you are the teacher or school staff member responsible for those students, using Book Crawl as part of your school’s educational program; by creating a family crew, you confirm you are the parent or legal guardian of the kids you add. Account holders must be 18 or older. There is no minimum age for the kids who play, because they never make accounts and are never asked their age — they use Book Crawl only through a supervising adult’s class or crew.")
     + C("The season pass", "Every new class or crew starts with a free trial, no card required. After the trial, keeping a dungeon open costs the yearly price shown on your Billing screen, paid by card through Stripe. If a pass runs out, the dungeon <strong>freezes</strong>: everything is kept — points, boxes, gear, history — kids can still look, and logging simply pauses until the pass is renewed. Nothing is deleted for non-payment, ever. If a purchase was a mistake, write within 30 days for a full refund.")
     + C("Fair use", "Use Book Crawl for real classes and families. Don’t probe or attack the service, harvest data, resell access, or use it to harm or harass anyone. We can suspend accounts doing those things.")
@@ -3535,7 +3545,7 @@ function vTerms(){
 function vPrivacy(){
   const C = (h, b) => '<div class="card"><h2>' + h + '</h2><div class="tiny" style="line-height:1.55">' + b + '</div></div>';
   return legalShell("🛡️ Privacy Policy",
-      C("The short version", "Book Crawl stores <strong>no personal information about children</strong>. No ads, no trackers, no analytics, no selling or sharing of data — for anyone. This page lists everything we store, which doesn’t take long.")
+      C("The short version", "Book Crawl stores <strong>no personal information about children</strong>. No ads, no trackers, no analytics, no selling or sharing of data — for anyone. This page lists everything we store, which doesn’t take long. Book Crawl is an independent product, not affiliated with or operated by any school district.")
     + C("What we store about you (the adult)", "Your email address and a securely hashed password, used only to sign you in (handled by Supabase, our database provider). Your class or crew’s name, settings, and season-pass status. That’s the whole list.")
     + C("What we store about kids", "A made-up dungeon name (like <em>Ember Fox</em>), a 4-digit PIN, and their reading log: book titles, dates, points, gear, and quest-report answers. None of it names, identifies, or contacts a real child. The paper key sheet that links dungeon names to real kids is printed once on your device and never uploaded — we could not identify a child in our own database if we tried.")
     + C("Children’s privacy (COPPA)", "Book Crawl is designed so that children never provide personal information: no child accounts, no names, no emails, no photos, no location. Consent works the way COPPA expects in each setting: in a <strong>classroom</strong>, the teacher and school consent, and Book Crawl is used only for the class’s educational program; in a <strong>family crew</strong>, the parent is the account holder and consents directly. The little the game keeps about a child is used <strong>solely to run the game</strong> — never for advertising, marketing, profiling, or sale, and never shared except with the service providers listed below — consistent with COPPA and with Georgia’s student-data law (O.C.G.A. § 20-2-666). Parents can review everything in their child’s log through the account holder, have it deleted at any time (deleting a student takes one tap), or decline entirely — a child who doesn’t participate is simply never added, so no data about them ever exists.")
@@ -3545,7 +3555,7 @@ function vPrivacy(){
     + C("Our service providers", "A short list of companies helps run Book Crawl, each seeing only what its job requires: <strong>Supabase</strong> hosts the database and adult sign-ins; <strong>Anthropic</strong> receives quest-report text for the advisory hint (details above); <strong>Stripe</strong> handles payments and only ever deals with adults; <strong>GitHub Pages</strong> serves the game’s code and stores no game data at all; account emails (like password resets) go through our email delivery service to adult addresses only. When an adult scans or types a book’s barcode, the decoding happens on their own device and the lookup sends only that ISBN to public book catalogs (Google Books, Open Library) — never anything about students. None of these companies may use this data for anything besides providing their service to us, and none of it is ever used for advertising.")
     + C("Cookies & tracking", "Book Crawl sets no advertising or analytics trackers. Your browser keeps only what the game needs to work: your sign-in session, your class code, and small conveniences like which device already saw a welcome screen.")
     + C("Who can see what", "Each class or crew is walled off from every other by database-level security. You see only your own dungeon. Kids see their classmates’ dungeon names, avatars, and floor numbers (if the tracker is on) — never anyone’s points or reading details. If a security incident ever affected your class or crew’s data, you would be notified promptly at your account email, with what happened and what it touched.")
-    + C("Retention & deletion", "You can delete a student, a book, or a whole class yourself at any moment, and it’s gone. A frozen dungeon is kept, not deleted. To delete your account and everything in it, just ask" + (BC_CONTACT ? " at the address below" : " through the site") + ".")
+    + C("Retention & deletion", "You can delete a student, a book, or a whole class yourself at any moment, and it’s gone. Classroom data is <strong>season-scoped</strong>: when a teacher wraps up a school year, the class’s crawler data — names, logs, points, gear — is cleared for a fresh start, and prior-year classroom records are not retained. The class library of books and levels carries over, so next year’s readers inherit a leveled shelf. Family crews are the exception: a family’s data stays until the parent deletes it. Accounts inactive for 24 months are deleted entirely, after email reminders. A frozen dungeon is kept, not deleted. To delete your account and everything in it, just ask" + (BC_CONTACT ? " at the address below" : " through the site") + ".")
     + C("Changes", "If this policy changes in a way that matters, the site will say so. It will never change into one that collects information about children."));
 }
 function tMap(){

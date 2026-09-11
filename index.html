@@ -153,6 +153,8 @@ h2{font-size:17px; margin-bottom:8px}
 .scancover{height:86px;border-radius:6px;float:right;margin:0 0 8px 10px;box-shadow:0 4px 12px rgba(0,0,0,.35)}
 .scanbox .card{background:var(--card,#fff)}
 .lexcard{width:min(94vw,580px);max-height:88vh;overflow-y:auto}
+.writein{display:inline-block;min-width:150px;border-bottom:1.5px solid #8A84B0;height:1em}
+.lexsel{min-width:150px}
 .lootstage{text-align:center; color:#fff; max-width:420px; width:100%}
 .chestbig{font-size:110px; display:inline-block}
 .chestbig.rumble{animation:rumble 1.1s ease-in-out}
@@ -418,7 +420,7 @@ const Engine = {
     let base;
     if(stretch < -s.belowCutoff) base = s.fluencyPts;
     else base = s.basePts + (stretch > 0 ? Math.round(Math.min(stretch, s.stretchCap)/10) * s.per10L : 0);
-    const len = this.lengthBonus(book.pages, s);
+    const len = this.lengthBonus(read.gn ? Math.round((book.pages||0)/3) : book.pages, s);
     const total = base + len;
     const rank = stretch >= 200 ? "EPIC stretch" : stretch >= 100 ? "Rare stretch" :
                  stretch >= 1 ? "Uncommon stretch" : stretch >= -s.belowCutoff ? "On-level" : "Fluency";
@@ -819,8 +821,8 @@ function makeLiveAPI(){
       return {
         settings: settingsFromRow(row),
         students: Object.values(stuMap),
-        books: books.map(b=>({id:b.id, title:b.title, pages:b.pages, level:b.level, isbn:b.isbn || null})),
-        reads: reads.map(r=>({id:r.id, studentId:r.student_id, bookId:r.book_id, date:r.on_date, status:r.status, q:r.q, a:r.a, flagged:!!r.flagged, ai:r.ai})),
+        books: books.map(b=>({id:b.id, title:b.title, pages:b.pages, level:b.level, isbn:b.isbn || null, fmt:b.fmt || null})),
+        reads: reads.map(r=>({id:r.id, studentId:r.student_id, bookId:r.book_id, date:r.on_date, status:r.status, q:r.q, a:r.a, flagged:!!r.flagged, ai:r.ai, gn:!!r.gn})),
         boxes: boxes.map(b=>({id:b.id, studentId:b.student_id, tier:b.tier, n:b.roll, date:b.on_date, delivered:b.delivered})),
         questState: questState, customQuests: customQuests,
         questAwards: questAwards.map(a=>({id:a.id, studentId:a.student_id, q:a.quest_id, month:a.month, readId:a.read_id}))
@@ -883,16 +885,19 @@ function makeLiveAPI(){
     },
     async deleteRead(id){ const {error} = await sb.from("reads").delete().eq("id", id); if(error) throw new Error(error.message); },
     async setBook(id, patch){
-      const p = {}; if("level" in patch) p.level = patch.level; if("pages" in patch) p.pages = patch.pages;
-      const {error} = await sb.from("books").update(p).eq("id", id); if(error) throw new Error(error.message);
+      const p = {}; if("level" in patch) p.level = patch.level; if("pages" in patch) p.pages = patch.pages; if("fmt" in patch) p.fmt = patch.fmt;
+      let {error} = await sb.from("books").update(p).eq("id", id);
+      if(error && "fmt" in p && /fmt/i.test(error.message || "")){ delete p.fmt; ({error} = await sb.from("books").update(p).eq("id", id)); }
+      if(error) throw new Error(error.message);
     },
-    async addBook(title, level, pages, isbn){
+    async addBook(title, level, pages, isbn, fmt){
       const row = {title, level, pages}; if(CLS) row.class_id = CLS;
       if(isbn && CLS) row.isbn = isbn;
+      if(fmt && CLS) row.fmt = fmt;
       let {error} = await sb.from("books").insert(row);
-      if(error && row.isbn && /isbn/i.test(error.message || "")){
-        /* pre-migration-15 database — save the book, drop the barcode */
-        delete row.isbn;
+      if(error && (row.isbn || row.fmt) && /isbn|fmt/i.test(error.message || "")){
+        /* pre-migration-15/17 database — save the book, drop the extras */
+        delete row.isbn; delete row.fmt;
         ({error} = await sb.from("books").insert(row));
       }
       if(error) throw new Error(error.message);
@@ -1069,7 +1074,8 @@ function makeDemoAPI(){
         if(ex) bid = ex.id;
         else { bid = uid(); D.books.push({id:bid, title:title.trim(), pages:pages||null, level:null}); }
       }
-      D.reads.push({id:uid(), studentId:sid, bookId:bid, date, status:"pending", q:qq, a:aa, flagged:fl});
+      D.reads.push({id:uid(), studentId:sid, bookId:bid, date, status:"pending", q:qq, a:aa, flagged:fl,
+                    gn: ((D.books.find(b=>b.id===bid)||{}).fmt === "gn")});
       save(D); return {ok:true};
     },
     async openBox(code, sid, pin){
@@ -1155,7 +1161,7 @@ function makeDemoAPI(){
       return rc;
     },
     async setBook(id, patch){ const b = D.books.find(x=>x.id===id); if(b) Object.assign(b, patch); save(D); },
-    async addBook(title, level, pages, isbn){ D.books.push({id:uid(), title, level, pages, isbn: isbn || null}); save(D); },
+    async addBook(title, level, pages, isbn, fmt){ D.books.push({id:uid(), title, level, pages, isbn: isbn || null, fmt: fmt || null}); save(D); },
     async levelHint(){ return null; },
     async addBooks(rows){ for(const r of rows) D.books.push({id:uid(), title:r.title, level:r.level, pages:r.pages}); save(D); },
     async deleteBook(id){ D.books = D.books.filter(b=>b.id!==id); save(D); },
@@ -1864,6 +1870,7 @@ function tQueue(nlq, pq){
       + '<a class="btn small ghost" target="_blank" rel="noopener" data-a="copytitle" data-t="'+esc(b.title)+'" href="https://www.google.com/search?q='+encodeURIComponent(b.title+' book lexile level')+'">\ud83d\udd0e Look it up</a>'
       + '<a class="btn small ghost" target="_blank" rel="noopener" data-a="copytitle" data-t="'+esc(b.title)+'" href="https://hub.lexile.com/find-a-book/">Lexile site</a>'
       + '<input class="inline-lvl" type="number" inputmode="numeric" placeholder="level" id="lvl_'+b.id+'">'
+      + '<label class="tiny" style="display:inline-flex;align-items:center;gap:4px;margin:0 6px">🎨<input type="checkbox" id="gn_'+b.id+'" style="width:18px;height:18px" title="graphic novel / picture-heavy"></label>'
       + '<button class="btn small primary" data-a="savelevel" data-id="'+b.id+'">Save</button></div>';
   }).join("");
   const vmode = TD.settings.verifyMode;
@@ -1935,6 +1942,27 @@ function lexChartHTML(){
     + '</tbody></table></div>'
     + '<div class="tiny" style="margin-top:8px">Bands are approximate — the programs measure differently, so treat this as a starting point, not a decimal-precise conversion. When a school report shows an exact Lexile, use that instead. Program names belong to their respective owners.</div>';
 }
+/* 200L reading bands — entry is by band (de-identified), stored as the
+   band's midpoint so every scoring path works unchanged */
+const LEXBANDS = [
+  {label:"BR–200L (early reader)", mid:100},
+  {label:"200–400L", mid:300},
+  {label:"400–600L", mid:500},
+  {label:"600–800L", mid:700},
+  {label:"800–1000L", mid:900},
+  {label:"1000–1200L", mid:1100},
+  {label:"1200–1400L", mid:1300},
+  {label:"1400L+", mid:1500},
+];
+function lexSel(id, cur){
+  const opts = LEXBANDS.map(b => {
+    const sel = (cur != null && cur >= b.mid - 100 && cur < b.mid + 100) ? " selected" : "";
+    return '<option value="' + b.mid + '"' + sel + '>' + b.label + '</option>';
+  }).join("");
+  return '<select id="' + id + '" class="lexsel">'
+    + (cur == null ? '<option value="" selected>reading range…</option>' : '')
+    + opts + '</select>';
+}
 function lexOverlay(kind){
   if(document.getElementById("lexov")) return;
   const kid = fam() ? "your child" : "the student";
@@ -1960,8 +1988,8 @@ function keysheetHTML(){
   if(!rs || !rs.length) return "";
   return '<div class="card" id="rosterout" style="margin:10px 0;border:2px solid var(--warn)">'
     + '<div class="banner" style="margin-bottom:8px">\u26a0 One-time key sheet \u2014 real names are NOT saved anywhere. Print it before you dismiss it.</div>'
-    + '<div class="tablewrap"><table><thead><tr><th>Real name</th><th>Crawler name</th><th>PIN</th></tr></thead><tbody>'
-    + rs.map(r=>'<tr><td>'+esc(r.real)+'</td><td><strong>'+esc(r.alias)+'</strong></td><td>'+esc(r.pin)+'</td></tr>').join("")
+    + '<div class="tablewrap"><table><thead><tr><th>Real name (write by hand on the printout)</th><th>Crawler name</th><th>PIN</th></tr></thead><tbody>'
+    + rs.map(r=>'<tr><td>'+(r.real ? esc(r.real) : '<span class="writein"></span>')+'</td><td><strong>'+esc(r.alias)+'</strong></td><td>'+esc(r.pin)+'</td></tr>').join("")
     + '</tbody></table></div>'
     + '<div class="row" style="margin-top:8px"><button class="btn small primary" data-a="printkey">\ud83d\uddb6 Print key sheet</button>'
     + '<button class="btn small ghost" data-a="dismisskey" data-arm="1">I printed it \u2014 dismiss</button>'
@@ -1993,22 +2021,22 @@ function tClass(){
     + '<div class="stat"><div class="n">'+owed+'</div><div class="l">prizes owed</div></div></div>'
     + '<div class="card"><div class="row" style="justify-content:space-between"><h2>Crawlers</h2><div class="row">'
     + '<button class="btn small" data-a="printcards">🖨 PIN cards</button>'
-    + '<button class="btn small" data-a="rosterform">Import roster</button>'
-    + '<button class="btn small" data-a="addstuform">+ Add student</button></div></div>'
+    + '<button class="btn small" data-a="rosterform">⚙️ Generate crawlers</button>'
+    + '<button class="btn small" data-a="addstuform">+ Add one</button></div></div>'
     + '<div id="addstu" class="hidden row" style="margin:8px 0">'
-    + '<input id="ns_name" placeholder="Real name (never saved — for your key only)" style="flex:1;min-width:220px">'
-    + '<input id="ns_lvl" type="number" placeholder="level" style="width:100px">'
-    + '<button class="btn small primary" data-a="addstu">Add</button>'
+    + lexSel("ns_band", null)
+    + '<button class="btn small primary" data-a="addstu">＋ Add a crawler</button>'
     + '<span class="tiny" style="flex-basis:100%">'
     + '<button class="linkbtn" data-a="lexfind">❓ don’t know the level?</button>'
     + '<span style="margin:0 6px">·</span>'
     + '<button class="linkbtn" data-a="lexconvert">🔁 convert F&amp;P / DRA / AR to Lexile</button></span></div>'
     + '<div id="addstu_out" class="hidden banner" style="margin:8px 0"></div>'
     + '<div id="rosterbox" class="hidden" style="margin:8px 0">'
-    + '<div class="fieldlbl">One per line: Real name, reading level</div>'
-    + '<textarea class="paste" id="rosterta" placeholder="Maya, 390&#10;Jordan, 700"></textarea>'
-    + '<div class="row" style="margin-top:8px"><button class="btn small primary" data-a="rostergo">Create crawlers</button>'
-    + '<span class="tiny">Real names never leave this screen — each kid becomes a random crawler name + PIN, and you print a one-time key sheet.</span></div>'
+    + '<div class="row"><span><div class="fieldlbl" style="margin-top:0">How many students?</div>'
+    + '<input id="gen_n" type="number" min="1" max="40" value="24" style="width:90px"></span>'
+    + '<span><div class="fieldlbl" style="margin-top:0">Most of the class reads around</div>' + lexSel("gen_band", 700) + '</span>'
+    + '<button class="btn small primary" data-a="rostergo" style="align-self:flex-end">⚙️ Generate</button></div>'
+    + '<div class="tiny" style="margin-top:6px">The dungeon invents every crawler name and PIN — <strong>no real names are ever typed here</strong>. Print the key sheet and write each student’s real name on paper as you hand out PINs; adjust any crawler’s reading range from their page.</div>'
     + '</div>'
     + keysheetHTML()
     + '<div class="tablewrap"><table><thead><tr><th>Student</th><th class="num">Level</th><th class="num">Books</th><th class="num">Pending</th><th class="num">Points</th><th class="num">Best stretch</th><th class="num">Boxes</th><th>Next box</th><th>Year-end</th></tr></thead>'
@@ -2040,7 +2068,7 @@ function tStudent(id){
     + '<div class="tiny" style="margin-top:6px">Only the crawler name lives in the system — your printed key sheet connects it to the real kid.</div></div>'
     + '<div class="card"><h2>Reading level history</h2>'+hist
     + '<div class="row" style="margin-top:10px">'
-    + '<input id="nl_lvl" type="number" placeholder="new level" style="width:120px">'
+    + lexSel("nl_lvl", null)
     + '<input id="nl_date" type="date" value="'+todayISO()+'">'
     + '<button class="btn small primary" data-a="addlevel" data-id="'+id+'">Add</button></div>'
     + '<div class="tiny" style="margin-top:6px">Add an entry each time you re-test (each quarter). Old reads keep the level that was current when they happened.</div></div>'
@@ -2135,7 +2163,9 @@ function scanResHTML(r){
     + '<div class="row" style="margin-top:8px">'
     + '<span><div class="fieldlbl" style="margin-top:0">Pages</div><input id="sr_pages" type="number" value="' + (r.pages || "") + '" style="width:90px"></span>'
     + '<span><div class="fieldlbl" style="margin-top:0">Level</div><input id="sr_level" type="number" value="' + (r.hint ? r.hint.level : "") + '" placeholder="—" style="width:90px"></span>'
-    + '</div><div class="tiny" style="margin:4px 0 8px">ISBN ' + esc(r.isbn) + hintChip + '</div>'
+    + '</div><label class="tiny" style="display:inline-flex;align-items:center;gap:5px;margin-top:6px">'
+    + '<input type="checkbox" id="sr_gn" style="width:18px;height:18px">🎨 graphic novel / picture-heavy</label>'
+    + '<div class="tiny" style="margin:4px 0 8px">ISBN ' + esc(r.isbn) + hintChip + '</div>'
     + '<div class="row"><button class="btn small primary" data-a="scanadd" data-isbn="' + esc(r.isbn) + '">➕ Add to library</button>'
     + '<button class="btn small ghost" data-a="scanclear">skip</button></div>'
     + '</div>';
@@ -2276,8 +2306,9 @@ async function scanCommit(host, isbn){
   if(!title){ toast("Title first"); return null; }
   const pages = parseInt(g("#sr_pages") && g("#sr_pages").value, 10) || null;
   const level = parseInt(g("#sr_level") && g("#sr_level").value, 10) || null;
+  const fmt = (g("#sr_gn") && g("#sr_gn").checked) ? "gn" : null;
   try{
-    await api.addBook(titleCase(title), level, pages, isbn || null);
+    await api.addBook(titleCase(title), level, pages, isbn || null, fmt);
     toast("⚔️ " + title + " added");
     return true;
   }catch(e){ toast(e.message); return null; }
@@ -2289,6 +2320,7 @@ function tBooks(){
     return '<tr><td><strong>'+esc(b.title)+'</strong></td>'
       + '<td class="num"><input type="number" value="'+(b.pages||"")+'" data-bset="pages" data-id="'+b.id+'" style="width:80px;text-align:center"></td>'
       + '<td class="num"><input type="number" value="'+(b.level==null?"":b.level)+'" placeholder="—" data-bset="level" data-id="'+b.id+'" style="width:90px;text-align:center"></td>'
+      + '<td class="num"><input type="checkbox" data-a="fmtbook" data-id="'+b.id+'" '+(b.fmt==="gn"?"checked":"")+' style="width:20px;height:20px" title="graphic novel / picture-heavy — length credit counts at about a third"></td>'
       + '<td class="num">'+n+'</td>'
       + '<td>'+(n===0?'<button class="btn small ghost danger" data-a="delbook" data-id="'+b.id+'" data-arm="1">✕</button>':"")+'</td></tr>';
   }).join("");
@@ -2318,7 +2350,7 @@ function tBooks(){
       + TD.books.slice().sort((a,b)=>a.title.localeCompare(b.title)).map(b=>'<option value="'+b.id+'">'+esc(b.title)+'</option>').join("")
       + '</select><button class="btn small primary" data-a="mergebook" data-arm="1">Merge</button></div></div>' : "")
     + '<div class="card"><h2>Class library ('+TD.books.length+')</h2>'
-    + '<div class="tablewrap"><table><thead><tr><th>Title</th><th class="num">Pages</th><th class="num">Level</th><th class="num">Reads</th><th></th></tr></thead><tbody>'
+    + '<div class="tablewrap"><table><thead><tr><th>Title</th><th class="num">Pages</th><th class="num">Level</th><th class="num" title="graphic novel / picture-heavy">🎨</th><th class="num">Reads</th><th></th></tr></thead><tbody>'
     + rows + '</tbody></table></div></div></div>';
 }
 
@@ -2908,7 +2940,11 @@ document.addEventListener("click", async (ev)=>{
       const v = parseInt($("#lvl_"+id)?.value, 10);
       if(!v){ toast("Enter a level first"); return; }
       busy(el, true);
-      try{ await api.setBook(id, {level:v}); toast("Leveled — waiting reads now score"); }
+      try{
+        const patch = {level: v};
+        if($("#gn_"+id)?.checked) patch.fmt = "gn";
+        await api.setBook(id, patch); toast("Leveled — waiting reads now score");
+      }
       catch(e){ toast(e.message); }
       await refreshTeacher(); break;
     }
@@ -2939,40 +2975,39 @@ document.addEventListener("click", async (ev)=>{
     case "addstuform": $("#addstu")?.classList.toggle("hidden"); $("#rosterbox")?.classList.add("hidden"); break;
     case "rosterform": $("#rosterbox")?.classList.toggle("hidden"); $("#addstu")?.classList.add("hidden"); break;
     case "addstu": {
-      const real = ($("#ns_name")?.value||"").trim();
-      const lvl = parseInt($("#ns_lvl")?.value, 10);
-      if(!lvl){ toast("Enter a reading level"); return; }
+      const lvl = parseInt($("#ns_band")?.value, 10);
+      if(!lvl){ toast("Pick a reading range first"); return; }
       const alias = newAlias(takenAliases(TD.students));
       const pin = newPin();
       busy(el, true);
       try{
         await api.addStudent(alias, pin, lvl, todayISO());
+        window.__keysheet = [{real:"", alias, pin}];
         await loadTeacher(); render();
         const out = $("#addstu_out");
         if(out){ out.classList.remove("hidden");
-          out.innerHTML = (real?esc(real)+" is now ":"New crawler: ")+"<strong>"+esc(alias)+"</strong> · PIN <strong>"+esc(pin)
-            +"</strong> — write it down; this note isn’t saved."; }
+          out.innerHTML = "New crawler: <strong>"+esc(alias)+"</strong> · PIN <strong>"+esc(pin)
+            +"</strong> — write the real name on the printed key sheet only."; }
         $("#addstu")?.classList.remove("hidden");
       }catch(e){ toast(e.message); await refreshTeacher(); }
       break;
     }
     case "rostergo": {
-      const lines = ($("#rosterta")?.value||"").split("\n").map(l=>l.trim()).filter(Boolean);
+      const n = Math.min(40, Math.max(1, parseInt($("#gen_n")?.value, 10) || 0));
+      const lvl = parseInt($("#gen_band")?.value, 10);
+      if(!lvl){ toast("Pick the class\u2019s typical range"); return; }
       const taken = takenAliases(TD.students);
       const results = [];
       busy(el, true);
-      for(const line of lines){
-        const parts = line.split(",").map(p=>p.trim());
-        const lvl = parseInt(parts[1], 10);
-        if(!parts[0] || !lvl) continue;
+      for(let i = 0; i < n; i++){
         const alias = newAlias(taken); const pin = newPin();
-        try{ await api.addStudent(alias, pin, lvl, todayISO()); taken.add(alias.toLowerCase()); results.push({real:parts[0], alias, pin}); }catch(e){}
+        try{ await api.addStudent(alias, pin, lvl, todayISO()); taken.add(alias.toLowerCase()); results.push({real:"", alias, pin}); }catch(e){}
       }
       busy(el, false);
-      if(!results.length){ toast("Nothing to add \u2014 format is: Real name, level"); return; }
+      if(!results.length){ toast("Couldn\u2019t generate \u2014 try again"); return; }
       window.__keysheet = results;
       await loadTeacher(); render();
-      toast("Created "+results.length+" crawlers");
+      toast("Generated "+results.length+" crawlers");
       showKeyPop(results.length);
       break;
     }
@@ -2990,7 +3025,7 @@ document.addEventListener("click", async (ev)=>{
       $("#printcards").innerHTML = '<div class="pcard" style="grid-column:1/-1"><div class="nm">Book Crawl — teacher key sheet (keep private)</div>'
         + '<div class="row2">Site: '+esc(url)+' · Class code: '+esc(TD.settings.classCode)+'</div></div>'
         + rs.map(r=>'<div class="pcard">'+avImg(r.alias)+'<div class="nm">'+esc(r.alias)+'</div>'
-          + '<div class="row2">Real name: <strong>'+esc(r.real)+'</strong></div>'
+          + '<div class="row2">Real name: '+(r.real ? '<strong>'+esc(r.real)+'</strong>' : '<span class="writein"></span>')+'</div>'
           + '<div class="row2">PIN: <strong>'+esc(r.pin)+'</strong></div></div>').join("");
       window.print();
       break;
@@ -3137,6 +3172,14 @@ document.addEventListener("change", async (ev)=>{
       await api.updateSettings({show_tracker: el.checked});
       if(TD && TD.settings) TD.settings.showTracker = el.checked;
       toast(el.checked ? "Tracker on — kids see the party board" : "Tracker hidden — kids see only their own path");
+    }catch(e){ toast(e.message); el.checked = !el.checked; }
+    return;
+  }
+  if(el.dataset.a === "fmtbook"){
+    try{
+      await api.setBook(el.dataset.id, {fmt: el.checked ? "gn" : null});
+      const b = TD && TD.books.find(x=>x.id===el.dataset.id); if(b) b.fmt = el.checked ? "gn" : null;
+      toast(el.checked ? "🎨 Marked graphic/picture-heavy — future reads earn length credit at about a third" : "Back to standard length credit");
     }catch(e){ toast(e.message); el.checked = !el.checked; }
     return;
   }
@@ -3490,7 +3533,7 @@ function vHelp(){
       + t("<strong>Bounties:</strong> when the board is up, finishing a bounty pays a bonus loot box. The dungeon pays automatically."))
     + H("🗝️", "For Dungeon Masters (teachers & parents)",
         t("<strong>Setup:</strong> create your class or family crew — you get a 5-letter code kids type once per device. Add crawlers on the " + (fam() ? "Crew" : "Class") + " tab; each gets a dungeon name and PIN, and a one-time key sheet maps them to real names (print it — it is never stored).")
-      + t("<strong>Books need a level once:</strong> the queue links a Lexile lookup; save the level and every future reader of that book scores automatically.")
+      + t("<strong>Books need a level once:</strong> the queue links a Lexile lookup; save the level and every future reader of that book scores automatically. Mark graphic novels and picture-heavy books 🎨 (queue, Books tab, or scanner) — their pages earn length credit at about a third, so a 240-page comic doesn’t outscore a 240-page novel. The book still fully counts.")
       + t("<strong>Scan books in with your phone:</strong> the Books tab has a 📷 scanner — point it at the barcode and the title and pages fill themselves; when another Book Crawl class already leveled that exact book, the level is offered on the spot. Walk your shelf once and the library builds itself.")
       + t("<strong>Verifying:</strong> pick your mode in Settings — Classic (book talk per book), Quest Report (read their written answer, ~15 seconds), or Report + Spot Checks (the dungeon secretly flags ~1 in 4 for a real talk).")
       + t("<strong>AI second opinion:</strong> answers get a quiet ✅ / 🤔 / 🚩 pre-screen for you alone — it never rejects anything, kids never see it. On a doubtful card, the 🎤 box lets you type what the kid told you in person and re-check it instantly.")

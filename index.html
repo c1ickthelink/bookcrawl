@@ -1211,6 +1211,7 @@ let TD = null;       // teacher data (full)
 let pinBuf = "", pinTarget = null, logState = null, authMode = "in";
 let ncKind = "classroom", ncName = ""; // onboarding fork state
 let helpBack = null; // where the help/legal pages return to
+let lootShowAll = false; // box ledger: include already-delivered boxes
 const BC_CONTACT = "contact@thebookcrawl.com"; // published contact email for the legal pages (empty = line omitted)
 let mailSent = ""; // email awaiting confirmation after signup
 
@@ -2368,12 +2369,24 @@ function tLoot(){
   const prizes = tierList.map(tier=>
     '<div style="margin-top:10px"><div class="fieldlbl"><span class="chip '+tierClass(tier)+'">'+esc(tier)+'</span></div>'
     + '<textarea class="paste" style="min-height:56px" data-prize="'+esc(tier)+'" placeholder="Prize ideas for this tier — cheap and delightful beats pricey (stickers, passes, privileges)">'+esc(P[tier]||"")+'</textarea></div>').join("");
-  const ledger = TD.boxes.slice().sort((a,b)=> a.date<b.date?1:-1).map(b=>{
-    const st = tstu(b.studentId);
-    return '<div class="readrow"><div class="bk"><div class="t">'+esc(st?st.name:"?")+' · <span class="chip '+tierClass(b.tier)+'">'+esc(b.tier)+'</span></div>'
-      + '<div class="d">rolled '+b.n+' · '+fmtDate(b.date)+'</div></div>'
-      + '<label class="tiny" style="display:flex;align-items:center;gap:6px">prize given '
-      + '<input type="checkbox" '+(b.delivered?"checked":"")+' data-a="delivered" data-id="'+b.id+'" style="width:22px;height:22px"></label></div>';
+  /* ledger grouped by crawler — most owed first; delivered boxes tuck away */
+  const byKid = {};
+  for(const b of TD.boxes){ (byKid[b.studentId] = byKid[b.studentId] || []).push(b); }
+  const lkids = TD.students.slice()
+    .map(st => { const bs = (byKid[st.id]||[]).sort((a,b)=> a.date<b.date?1:-1);
+                 return {st, bs, owed: bs.filter(x=>!x.delivered).length}; })
+    .filter(k => k.bs.length)
+    .sort((a,b) => (b.owed - a.owed) || a.st.name.localeCompare(b.st.name));
+  const ledger = lkids.map(k => {
+    const chips = k.bs.filter(b => lootShowAll || !b.delivered).map(b =>
+      '<label class="chip '+tierClass(b.tier)+'" style="display:inline-flex;align-items:center;gap:5px;cursor:pointer'+(b.delivered?';opacity:.45':'')+'" title="rolled '+b.n+' · '+fmtDate(b.date)+'">'
+      + esc(b.tier)
+      + '<input type="checkbox" '+(b.delivered?"checked":"")+' data-a="delivered" data-id="'+b.id+'" style="width:17px;height:17px;margin:0"></label>').join(" ");
+    return '<div class="readrow" style="align-items:center"><div class="bk" style="min-width:150px"><div class="t">'+esc(k.st.name)+'</div>'
+      + '<div class="d">'+(k.owed ? '<strong>'+k.owed+' to hand out</strong>' : 'all prizes given ✓')+'</div></div>'
+      + '<div style="flex:1;display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end">'
+      + (chips || '<span class="tiny" style="opacity:.6">'+k.bs.length+' given</span>')
+      + '</div></div>';
   }).join("") || '<div class="tiny">No boxes opened yet.</div>';
   const bounties = TD.questState ? (function(){
     const st = {}, pm = {}; TD.questState.forEach(r=>{st[r.id]=r.active; pm[r.id]=r.param;});
@@ -2417,7 +2430,10 @@ function tLoot(){
     + '<div class="card" style="grid-column:1/-1"><h2>Year-end ceremony</h2>'
     + '<div class="tiny" style="margin-bottom:8px">June mode: full-screen, projector-friendly. Reveals every crawler\u2019s guaranteed year-end box one at a time, lowest tier first, building to the finale. Advance with the button, spacebar, or \u2192. Kids below the first tier get a warm crawler card, never an empty one.</div>'
     + '<button class="btn gold" data-a="startcere">\ud83c\udfc6 Begin the Year-End Ceremony</button></div>'
-    + '<div class="card" style="grid-column:1/-1"><h2>Box ledger</h2>'+ledger+'</div></div>';
+    + '<div class="card" style="grid-column:1/-1"><div class="row" style="justify-content:space-between;align-items:center"><h2>Box ledger</h2>'
+    + '<label class="tiny" style="display:flex;align-items:center;gap:6px">show given <input type="checkbox" '+(lootShowAll?"checked":"")+' data-a="lootall" style="width:20px;height:20px"></label></div>'
+    + '<div class="tiny" style="margin-bottom:8px">Check a box as you hand the prize over — crawlers with prizes waiting float to the top.</div>'
+    + ledger+'</div></div>';
 }
 
 function tSettings(){
@@ -3175,6 +3191,7 @@ document.addEventListener("change", async (ev)=>{
     }catch(e){ toast(e.message); el.checked = !el.checked; }
     return;
   }
+  if(el.dataset.a === "lootall"){ lootShowAll = el.checked; render(); return; }
   if(el.dataset.a === "fmtbook"){
     try{
       await api.setBook(el.dataset.id, {fmt: el.checked ? "gn" : null});

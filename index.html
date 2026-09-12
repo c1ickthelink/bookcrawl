@@ -868,6 +868,9 @@ function makeLiveAPI(){
       if(e2) throw new Error(e2.message);
     },
     async quartermaster(code, sid, pin){ return rpc("quartermaster", {p_code: code, p_student: sid, p_pin: pin}); },
+    /* year-end rollover: clears the class's crawler data, keeps the library
+       and every setting. Owner-only + classroom-only, enforced server-side. */
+    async seasonReset(){ return rpc("season_reset", {p_class: CLS}); },
     async sendFeedback(kind, body){
       const {error} = await sb.from("feedback").insert({kind, body, class_id: CLS});
       if(error) throw new Error(error.message);
@@ -1137,6 +1140,13 @@ function makeDemoAPI(){
         .sort((a,b)=> (b.stretch - a.stretch) || (b.fans - a.fans))
         .slice(0, 3);
       return {ok:true, recs};
+    },
+    async seasonReset(){
+      const out = {ok:true, students:D.students.length, reads:D.reads.length,
+                   boxes:D.boxes.length, books_kept:D.books.length};
+      D.students = []; D.reads = []; D.boxes = []; D.questAwards = [];
+      save(D);
+      return out;
     },
     async sendFeedback(){ return; },
     async teacherSession(){ try{ return sessionStorage.getItem("bc_demo_teacher") ? {} : null; }catch(e){ return null; } },
@@ -1926,6 +1936,27 @@ function showKeyPop(n){
     + '<button class="btn ghost" data-a="keypopok">I’ll print in a sec</button></div></div>';
   document.body.appendChild(ov);
 }
+/* ---- season reset confirm: the one truly destructive action in the app,
+   so it earns a type-the-class-code gate, not just a tap-again arm ---- */
+function seasonPop(){
+  if(document.getElementById("seasonpop")) return;
+  const S = (TD && TD.settings) || {};
+  const code = String(S.classCode || "").trim().toUpperCase();
+  const kids = ((TD && TD.students) || []).length;
+  const ov = document.createElement("div");
+  ov.className = "overlay"; ov.id = "seasonpop";
+  ov.innerHTML = '<div class="card" style="max-width:470px">'
+    + '<h2>\ud83c\udf42 Begin the next season?</h2>'
+    + '<div class="tiny" style="line-height:1.6;margin:8px 0">'
+    + '<strong>Cleared forever:</strong> ' + (kids ? 'all ' + kids : 'any') + ' crawler' + (kids === 1 ? "" : "s") + ' and their PINs, logged reads and quest reports, points, floors, boxes, and gear.'
+    + '<br><strong>Stays:</strong> your class library (books, levels, \ud83c\udfa8 flags), prize lists, bounty settings, the class code, and your account.'
+    + '<br><br><strong>There is no undo.</strong> Do this after the Year-End Ceremony, once every earned box has been handed out.</div>'
+    + '<div class="fieldlbl">Type the class code (' + esc(code) + ') to confirm</div>'
+    + '<input id="season_code" type="text" maxlength="12" style="width:150px;text-transform:uppercase" autocomplete="off">'
+    + '<div class="row" style="margin-top:12px"><button class="btn danger" data-a="seasongo">\ud83c\udf42 Clear season data</button>'
+    + '<button class="btn ghost" data-a="seasonclose">Cancel</button></div></div>';
+  document.body.appendChild(ov);
+}
 /* ---- level finder + conversion chart (popups: the half-typed add form
    underneath is never disturbed) ---- */
 const LEXCHART = [
@@ -2499,6 +2530,11 @@ function tSettings(){
     + '<div class="row" style="margin-top:8px"><button class="btn small primary" data-a="sendfb">Send it</button></div></div>'
     + '<div class="card"><h2>Help</h2><div class="tiny" style="margin-bottom:8px">How the game works, for kids and grown-ups — plus the privacy story.</div>'
     + '<button class="btn" data-a="tohelp">❓ Open the help page</button></div>'
+    + ((CLS || DEMO) && !fam()
+      ? '<div class="card"><h2>\ud83c\udf42 Season</h2>'
+        + '<div class="tiny" style="line-height:1.55">Crawler data is <strong>season-scoped</strong>: when this class moves on, begin the next season. Every crawler \u2014 their reads, points, boxes, and gear \u2014 is cleared for good. Your class library, prize lists, bounty settings, and class code all stay, ready for next year\u2019s readers.</div>'
+        + '<div style="margin-top:10px"><button class="btn ghost danger" data-a="seasonopen">\ud83c\udf42 Begin next season\u2026</button></div></div>'
+      : "")
     + (DEMO ? '<div class="card"><h2>Demo</h2><button class="btn ghost danger" data-a="demoreset" data-arm="1">Reset demo data</button></div>' : "")
     + '</div>';
 }
@@ -3112,6 +3148,25 @@ document.addEventListener("click", async (ev)=>{
     case "exportlog": await dl("bookcrawl-log.csv", csvLog()); break;
     case "exportroster": await dl("bookcrawl-summary.csv", csvRoster()); break;
     case "printcards": printCards(); break;
+    case "seasonopen": seasonPop(); break;
+    case "seasonclose": { const p = document.getElementById("seasonpop"); if(p) p.remove(); break; }
+    case "seasongo": {
+      const want = String((TD && TD.settings && TD.settings.classCode) || "").trim().toUpperCase();
+      const inp = document.getElementById("season_code");
+      const got = String((inp && inp.value) || "").trim().toUpperCase();
+      if(!want || got !== want){ toast("Type the class code exactly to confirm"); break; }
+      el.disabled = true;
+      try{
+        const r = await api.seasonReset();
+        if(!r || r.ok !== true) throw new Error(r && r.err === "family"
+          ? "Family crews keep everything \u2014 no reset needed"
+          : "Couldn\u2019t clear the season \u2014 try again");
+        const p = document.getElementById("seasonpop"); if(p) p.remove();
+        toast("\ud83c\udf42 Season cleared \u2014 a fresh dungeon awaits. Generate the new roster when you\u2019re ready.");
+        await refreshTeacher();
+      }catch(e){ el.disabled = false; toast(e.message); }
+      break;
+    }
     case "demoreset": try{ localStorage.removeItem("bookcrawl_demo_v2"); }catch(e){} location.reload(); break;
   }
 });
@@ -3555,6 +3610,7 @@ function vHelp(){
       + t("<strong>Verifying:</strong> pick your mode in Settings — Classic (book talk per book), Quest Report (read their written answer, ~15 seconds), or Report + Spot Checks (the dungeon secretly flags ~1 in 4 for a real talk).")
       + t("<strong>AI second opinion:</strong> answers get a quiet ✅ / 🤔 / 🚩 pre-screen for you alone — it never rejects anything, kids never see it. On a doubtful card, the 🎤 box lets you type what the kid told you in person and re-check it instantly.")
       + t("<strong>Dials:</strong> bounty toggles live on Loot; the class tracker (kids seeing the party board), the kids-see-their-own-Lexile-range switch, and points-per-floor live in Settings; CSV exports too.")
+      + t("<strong>Season\u2019s end:</strong> when the class moves on, Settings \u2192 \ud83c\udf42 Season clears crawler data for the new year \u2014 your library, prizes, and bounty settings stay put.")
       + t("<strong>Keeping it PII-free:</strong> the privacy story rests on dungeon names — remind crawlers to write about the <em>book</em> in quest reports, never about themselves or classmates by name (the answer box nudges them too), and keep the key sheet on paper.")
       + t("<strong>Lost access?</strong> “Forgot password?” on the sign-in screen emails a reset link.")
       + '<div class="row" style="margin-top:8px"><button class="btn small ghost" data-a="tourreset">↺ Show the first-steps checklist again</button></div>')
@@ -3615,7 +3671,7 @@ function vPrivacy(){
     + C("Our service providers", "A short list of companies helps run Book Crawl, each seeing only what its job requires: <strong>Supabase</strong> hosts the database and adult sign-ins; <strong>Anthropic</strong> receives quest-report text for the advisory hint (details above); <strong>Stripe</strong> handles payments and only ever deals with adults; <strong>GitHub Pages</strong> serves the game’s code and stores no game data at all; account emails (like password resets) go through our email delivery service to adult addresses only. When an adult scans or types a book’s barcode, the decoding happens on their own device and the lookup sends only that ISBN to public book catalogs (Google Books, Open Library) — never anything about students. None of these companies may use this data for anything besides providing their service to us, and none of it is ever used for advertising.")
     + C("Cookies & tracking", "Book Crawl sets no advertising or analytics trackers. Your browser keeps only what the game needs to work: your sign-in session, your class code, and small conveniences like which device already saw a welcome screen.")
     + C("Who can see what", "Each class or crew is walled off from every other by database-level security. You see only your own dungeon. Kids see their classmates’ dungeon names, avatars, and floor numbers (if the tracker is on) — never anyone’s points or reading details. If a security incident ever affected your class or crew’s data, you would be notified promptly at your account email, with what happened and what it touched.")
-    + C("Retention & deletion", "You can delete a student, a book, or a whole class yourself at any moment, and it’s gone. Classroom data is <strong>season-scoped</strong>: when a teacher wraps up a school year, the class’s crawler data — names, logs, points, gear — is cleared for a fresh start, and prior-year classroom records are not retained. The class library of books and levels carries over, so next year’s readers inherit a leveled shelf. Family crews are the exception: a family’s data stays until the parent deletes it. Accounts inactive for 24 months are deleted entirely, after email reminders. A frozen dungeon is kept, not deleted. To delete your account and everything in it, just ask" + (BC_CONTACT ? " at the address below" : " through the site") + ".")
+    + C("Retention & deletion", "You can delete a student, a book, or a whole class yourself at any moment, and it’s gone. Classroom data is <strong>season-scoped</strong>: when a teacher wraps up a school year, the class’s crawler data — names, logs, points, gear — is cleared for a fresh start (one button: Settings \u2192 \ud83c\udf42 Season), and prior-year classroom records are not retained. The class library of books and levels carries over, so next year’s readers inherit a leveled shelf. Family crews are the exception: a family’s data stays until the parent deletes it. Accounts inactive for 24 months are deleted entirely, after email reminders. A frozen dungeon is kept, not deleted. To delete your account and everything in it, just ask" + (BC_CONTACT ? " at the address below" : " through the site") + ".")
     + C("Changes", "If this policy changes in a way that matters, the site will say so. It will never change into one that collects information about children."));
 }
 function tMap(){

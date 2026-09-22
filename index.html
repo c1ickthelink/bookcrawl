@@ -1493,10 +1493,10 @@ function vPin(){
    L.4.5c synonyms · RI.4.3 multi-step directions · W.4.6 keyboarding. */
 var UC = { S:null, tier:1, why:null, T:[], conf:0, idle:null, idleFired:false, svT:null, confN:0 };
 
-function ucFresh(){ return { v:1, room:"vest", bag:[], socks:0, cmds:0, hints:0,
+function ucFresh(){ var o = { v:2, room:"vest", bag:[], socks:0, cmds:0, hints:0,
   haveLantern:false, haveGlimmer:false, loaded:false, shaken:false, lit:false,
   doorOpen:false, readJournal:false, readBook:false, metScribble:0,
-  crossed:false, wetSock:false, done:false }; }
+  crossed:false, wetSock:false, done:false }; Object.assign(o, UC_CH1_FLAGS); return o; }
 
 var UC_ROOMS = {
   vest:{ name:"THE VESTIBULE", exits:{north:"hall", east:"lamp", west:"sock"},
@@ -1521,20 +1521,20 @@ var UC_ROOMS = {
       : "Stone steps run down into dark, still water. Two paths of stepping tiles cross it: <em>MOSSY</em> green tiles, shining wetly, and <em>CRACKED</em> pale tiles, dry as bone. A warning is chiseled on the wall: “THE WATER LOVES MOSS.” Something under the water burps. The way back is <em>SOUTH</em>."); } },
   gate:{ name:"THE LANTERN GATE", exits:{south:"stair"},
     desc:function(){ var S=UC.S;
-      if(S.done) return "The Lantern Gate stands open. Beyond it, a long hallway lined with ten thousand sleeping books breathes slowly in the dark. A sign reads: <em>CHAPTER ONE — THE LIBRARY OF TEETH.</em> It is still being written. You’ll be first through.";
+      if(S.done) return "The Lantern Gate stands open. Beyond it, a long hallway lined with ten thousand sleeping books breathes slowly in the dark. A sign reads: <em>CHAPTER ONE — THE LIBRARY OF TEETH.</em> The way <em>NORTH</em> stands open.";
       if(!S.lit) return "This room is deep and cold, and the dark here is thick as soup. You can just barely make out a huge door-shape. It is FAR too dark to read anything." + (S.haveLantern ? " Something in your <em>BAG</em> could help — if only it were glowing." : " You will need a light from somewhere.");
       return "Your lantern pushes back the dark. Before you stands the <em>LANTERN GATE</em>, tall as three teachers. Carved across it: “THE BOOKBINDER LOVED LIGHT, AND TEA, AND ONE THING MORE. <em>SAY</em> IT, AND ENTER.” The way back is <em>SOUTH</em>."; } }
 };
 var UC_BRAVE = ["courageous","daring","fearless","bold","valiant","heroic","gutsy","unafraid","lionhearted"];
-var UC_DIRS = {n:"north",north:"north",s:"south",south:"south",e:"east",east:"east",w:"west",west:"west",up:"north",down:"south"};
+var UC_DIRS = {n:"north",north:"north",s:"south",south:"south",e:"east",east:"east",w:"west",west:"west",up:"up",down:"down",u:"up",d:"down"};
 var UC_VERB = {
   look:["look","l","examine","inspect","check","see","x"],
   go:["go","walk","move","run","head","climb","enter"],
   take:["take","get","grab","pick","collect"],
   bag:["bag","inventory","i","items","stuff","pockets"],
-  use:["use","put","place","load","insert","combine"],
+  use:["use","put","place","load","insert","combine","return","give","deposit"],
   shake:["shake","wiggle","rattle","jiggle"],
-  say:["say","speak","shout","whisper","answer","yell","tell"],
+  say:["say","speak","shout","whisper","answer","yell","tell","feed"],
   talk:["talk","chat","ask","greet"],
   read:["read"],
   cross:["cross","step","hop","jump"],
@@ -1573,6 +1573,7 @@ function ucMove(dest){
   UC.S.room = dest; UC.conf = 0; UC.idleFired = false;
   ucRoomLine();
   if(dest === "gate" && !UC.S.lit && !UC.S.done) ucSys("(Dark rooms are grumpy rooms. HINT knows what to do.)");
+  if(typeof ucCh1Enter === "function"){ try{ ucCh1Enter(dest); }catch(e){} }
   ucSaveNow();
 }
 
@@ -1608,7 +1609,7 @@ function ucHint(auto){
   else if(!S.readBook) msg = "The gate will ask a question. The answer hides in Scribble’s green book. READ BOOK.";
   else if(!S.crossed) msg = "“THE WATER LOVES MOSS.” So you should love the other tiles. CROSS CRACKED TILES.";
   else if(!S.done) msg = "At the gate: what did the Bookbinder love, besides light and tea? SAY that one word.";
-  else msg = "You did it all! There is nothing left but glory (and socks).";
+  else msg = ucCh1Hint() || "You did it all! There is nothing left but glory (and socks).";
   ucSys(lead + msg);
 }
 function ucHelp(){
@@ -1654,6 +1655,7 @@ function ucLookAt(n){
 
 function ucRead(n){
   var S = UC.S;
+  if(ucCh1Read(n)) return;
   if(S.room === "cellar" && (!n || /journal|sign|page|book/.test(n))){
     S.readJournal = true; ucSaveSoon();
     return ucSay("The journal says: “Rotcaps smell like a gym bag full of old cheese. Puffcaps burst into sneezy spores if you so much as look at them funny. But glimmercaps are <em>LUMINOUS</em> — one cap glows bright enough to read a whole book by.”");
@@ -1669,6 +1671,7 @@ function ucRead(n){
 
 function ucTake(n){
   var S = UC.S;
+  if(n && ucCh1Take(n)) return;
   if(!n) return ucSys("Take what? Name the thing, like TAKE LANTERN.");
   if(/lantern|lamp$/.test(n)){
     if(S.haveLantern) return ucSay("The lantern is already in your bag, rattling companionably.");
@@ -1708,6 +1711,7 @@ function ucTake(n){
 
 function ucUse(rest){
   var S = UC.S, str = rest.join(" ");
+  if(ucCh1Use(str)) return;
   var pair = /glimmer/.test(str) && /lantern/.test(str);
   if(!pair && /lantern/.test(str) && rest.length <= 1) pair = ucHas("glimmercap");
   if(pair){
@@ -1736,7 +1740,7 @@ function ucWin(){
   S.done = true;
   ucSay("The gate rumbles. Gold light spills from the seams. “THE MIDDLE,” the door agrees. “WHERE THE GOOD STUFF HIDES.”");
   ucSay("The Lantern Gate swings open. Beyond it: a hallway lined with ten thousand sleeping books, and a sign — <em>CHAPTER ONE: THE LIBRARY OF TEETH.</em>");
-  ucSys("✨ You opened the Lantern Gate — " + S.cmds + " command" + (S.cmds === 1 ? "" : "s") + " typed, " + S.hints + " hint" + (S.hints === 1 ? "" : "s") + ", " + S.socks + " sock" + (S.socks === 1 ? "" : "s") + ". Chapter One is still being written — you’ll be first through. (You can keep exploring, or head <em>back to camp</em> up top.)");
+  ucSys("✨ You opened the Lantern Gate — " + S.cmds + " command" + (S.cmds === 1 ? "" : "s") + " typed, " + S.hints + " hint" + (S.hints === 1 ? "" : "s") + ", " + S.socks + " sock" + (S.socks === 1 ? "" : "s") + ". The way <em>NORTH</em> stands open \u2014 <em>CHAPTER ONE: THE LIBRARY OF TEETH</em>. (Or keep exploring \u2014 the library keeps.)");
   ucSaveNow();
 }
 
@@ -1750,6 +1754,7 @@ function ucSayWord(words){
     if(S.loaded) return ucSay("You say “glow.” The lantern jiggles expectantly. It wants step two first. (Order matters!)");
     return ucSay("You say “glow” to no lantern in particular. The dark declines to cooperate.");
   }
+  if(ucCh1Say(w)) return;
   if(S.room === "hall" && !S.doorOpen){
     if(w === "brave") return ucSay("“That’s MY word,” says the door. “Give me a DIFFERENT word that means the same thing.”");
     if(UC_BRAVE.indexOf(w) >= 0){
@@ -1767,6 +1772,7 @@ function ucSayWord(words){
 
 function ucTalk(){
   var S = UC.S;
+  if(ucCh1Talk()) return;
   if(S.room !== "nook") return ucSay("It’s just you and the stonework here. Scribble’s nook is off the echo hall.");
   S.metScribble++; ucSaveSoon();
   if(S.metScribble === 1) return ucGhost("Oh! A READER! Down HERE! Listen close, reader — to light a lantern the old way takes three steps, <em>in order</em>: ONE, put a glimmercap IN the lantern. TWO, shake the lantern. THREE, say GLOW. Order matters — it’s a recipe, not a pile.");
@@ -1795,6 +1801,7 @@ function ucCross(rest){
 function ucGo(word){
   var S = UC.S, dir = UC_DIRS[word];
   if(!dir) return ucSys("Go where? Try GO NORTH, SOUTH, EAST, or WEST.");
+  if(ucCh1Go(dir)) return;
   var r = UC_ROOMS[S.room], dest = r.exits[dir];
   if(!dest){
     var ways = Object.keys(r.exits).map(function(d){ return d.toUpperCase(); }).join(", ");
@@ -1918,6 +1925,13 @@ function ucMount(){
 
 function vUnder(){
   if(!SS){ loadState().then(function(s){ if(s) render(); }); return topbar() + '<div class="card"><span class="spin"></span> loading…</div>'; }
+  if(SS.uc === undefined && route.who && SPIN[route.who]){
+    SS.uc = null; /* restored straight onto the game screen: fetch the gate state */
+    api.ucState(CODE, route.who, SPIN[route.who]).then(function(r){
+      if(r && r.ok && SS){ SS.uc = r; } render();
+    }).catch(function(){ if(SS) SS.uc = undefined; render(); });
+  }
+  if(SS.uc === null) return topbar() + '<div class="card"><span class="spin"></span> loading…</div>';
   if(!SS.uc || !SS.uc.open){
     return topbar('<button class="btn ghost small" data-a="ucback">← back to camp</button>')
       + '<div class="card"><h2>🚪 A sealed door</h2><div class="tiny">Something waits beneath the Final Shelf. Keep crawling — or maybe, someday, the Dungeon will open it for you.</div></div>';
@@ -1934,6 +1948,418 @@ function vUnder(){
     + '</div>';
 }
 /* =============== end THE UNDERCRAWL =============== */
+
+/* =============== THE UNDERCRAWL · CHAPTER ONE: THE LIBRARY OF TEETH ===============
+   Opens through the Lantern Gate once Chapter 0 is done (S.done). Twelve rooms:
+   a hub atrium, three wings (two puzzles each), three joke rooms, the Returns
+   Chute finale. Puzzles carry TIER VARIANTS (1 easy / 2 standard / 3 lean),
+   frozen into the save at first sight (S.v_*) so a mid-year retest never flips
+   a puzzle mid-solve. Skills tags:
+     synonyms L.4.5c (growling book) · idioms/figurative L.4.5b (whisper guard)
+     guide words & alphabetizing L.4.4c (dictionary plains)
+     Greek/Latin roots L.4.4b (word forge) · multi-step directions RI.4.3 (atlas floor)
+     main idea RL.4.2 (paper lion) · integrate two texts RI.4.9 (nonfiction den)
+     evidence recall RL.4.1 (returns gauntlet) · keyboarding W.4.6 (all of it) */
+
+var UC_CH1_FLAGS = { ch1: false, note: false,
+  growl_done:false, idiom_done:false, guide_done:false, atlas_done:false, atlas_i:0,
+  forge_step:0, forge_done:false, lion_done:false, facts_done:false,
+  tooth_f:false, tooth_r:false, tooth_b:false, deskOpen:false, haveBook:false,
+  g1:false, g2:false, ch1_done:false, dewey:0, jerky:false, signTaken:false,
+  v_growl:0, v_idiom:0, v_guide:0, v_atlas:0, v_forge:0, v_lion:0, v_facts:0 };
+
+/* ---------- tier variant tables ---------- */
+var UCV = {
+  growl: {
+    1:{w:"HAPPY", ok:["glad","joyful","cheerful","merry","joyous"]},
+    2:{w:"ENORMOUS", ok:["huge","giant","gigantic","massive","vast","immense"]},
+    3:{w:"RELUCTANT", ok:["unwilling","hesitant","resistant"]}
+  },
+  idiom: {
+    1:{say:"IT IS RAINING CATS AND DOGS OUT THERE", panic:"CATS?! DOGS?! FALLING?! Cover the paperbacks!", key:"rain", okNote:"raining hard"},
+    2:{say:"SOMEBODY LET THE CAT OUT OF THE BAG", panic:"A cat?! Loose?! In a LIBRARY?!", key:"secret", okNote:"told the secret"},
+    3:{say:"TIME TO HIT THE BOOKS", panic:"HIT the… sir, PLEASE do not hit the books, they hit back here.", key:"stud", okNote:"study"}
+  },
+  guide: {
+    1:{a:"LANTERN", b:"LIBRARY", words:["LADDER","LEOPARD","LIZARD"], ans:"leopard"},
+    2:{a:"MOSS", b:"MOUNTAIN", words:["MASK","MOTH","MOUSE"], ans:"moth"},
+    3:{a:"CRACK", b:"CRUMB", words:["CRAB","CROWN","CRUSH"], ans:"crown"}
+  },
+  atlas: {
+    1:{path:["north","east"], txt:"NORTH, then EAST"},
+    2:{path:["north","east","north"], txt:"NORTH, then EAST, then NORTH"},
+    3:{path:["north","east","north","west"], txt:"NORTH, then EAST, then NORTH, then WEST"}
+  },
+  lion: {
+    1:{page:"“The honey badger is small, but it fears almost nothing. It raids beehives for dinner. It argues with lions. It naps in the middle of arguments. Scientists call the honey badger one of the bravest animals on Earth.”",
+       ok:["badger","badgers","honey badger","honey badgers"]},
+    2:{page:"“An octopus can change color in less than one second. It matches rocks, sand, even seaweed. It squeezes its whole body through a crack the size of a coin. Scientists are still discovering what the octopus can do.”",
+       ok:["octopus","octopuses","octopi","the octopus"]},
+    3:{page:"“Each fall, monarch butterflies fly up to three thousand miles to the same forests in Mexico — forests they have never seen before. No single butterfly makes the round trip. The map, somehow, is written inside them.”",
+       ok:["monarch","monarchs","butterfly","butterflies","monarch butterflies","monarch butterfly"]}
+  },
+  facts: {
+    1:{c1:"BATS: fly at night. Sleep upside down. Eat moths by the thousand.",
+       c2:"OWLS: fly at night. Turn their heads nearly all the way around. Swallow dinner whole.",
+       q:"the one thing TRUE OF BOTH", ok:["night","nocturnal","fly","flying","fly at night","hunt at night","they fly at night"]},
+    2:{c1:"DOLPHINS: find fish by clicking and listening for the echo.",
+       c2:"BATS: find moths by squeaking and listening for the echo.",
+       q:"the one thing BOTH use to find food", ok:["sound","echo","echoes","echolocation","hearing","listening"]},
+    3:{c1:"SPIDERS: spin webs stronger than steel of the same thickness.",
+       c2:"SILKWORMS: spin cocoons that people unwind into thread.",
+       q:"the one thing BOTH creatures make", ok:["silk","thread","silk thread"]}
+  }
+};
+function ucVar(key){ /* freeze this puzzle's tier variant into the save on first sight */
+  var f = "v_" + key;
+  if(!UC.S[f]){ UC.S[f] = UC.tier || 1; ucSaveSoon(); }
+  return UCV[key][UC.S[f]];
+}
+function ucTeeth(){ return (UC.S.tooth_f?1:0) + (UC.S.tooth_r?1:0) + (UC.S.tooth_b?1:0); }
+function ucTooth(which, flavor){
+  UC.S[which] = true;
+  ucSay(flavor);
+  ucSay("Something clinks onto the floor: a <em>BRASS TOOTH</em>, big as your fist. (" + ucTeeth() + " of 3.) It hops into your bag by itself. Teeth do that here.");
+  ucSaveNow();
+}
+
+/* ---------- rooms ---------- */
+Object.assign(UC_ROOMS, {
+  atrium:{ name:"THE TOOTHY ATRIUM", exits:{south:"gate", west:"fic1", north:"ref1", east:"best1"},
+    desc:function(){ var S=UC.S;
+      var base = "A hall so tall the ceiling is only a rumor. Ten thousand books sleep on the shelves — and every spine has <em>teeth</em>. A sign reads: “QUIET PLEASE. THE BOOKS BITE.” A squeaky book cart named <em>DEWEY</em> circles you nervously. Wings lead <em>WEST</em>, <em>NORTH</em>, and <em>EAST</em>; the Lantern Gate is <em>SOUTH</em>.";
+      if(S.ch1_done) return base + " Behind the Grand Desk, the Overdue Book sleeps in its place at last, stamped and home. The whole library breathes easier.";
+      if(S.deskOpen && !S.haveBook) return base + " The <em>GRAND DESK</em> stands open — and behind it, chained no more, waits <em>THE OVERDUE BOOK</em>, thick as a mattress and twice as grumpy. The <em>RETURNS CHUTE</em> yawns open, leading <em>DOWN</em>.";
+      if(S.deskOpen) return base + " The <em>RETURNS CHUTE</em> yawns open behind the Grand Desk, leading <em>DOWN</em>. The Overdue Book shifts in your bag like it knows.";
+      return base + " In the middle squats the <em>GRAND DESK</em>, locked tight. Its keyhole is shaped like three missing <em>teeth</em>. (" + ucTeeth() + " of 3 found.)"; } },
+  fic1:{ name:"THE SNAPPING STACKS", exits:{east:"atrium", west:"fic2", south:"snack"},
+    desc:function(){ var S=UC.S, v=ucVar("growl");
+      return S.growl_done
+        ? "Novels doze on every shelf, purring like well-fed cats. The one you fed watches you go with one warm eye. <em>WEST</em> to the Whisper Gallery, <em>SOUTH</em> to a smell of old snacks, <em>EAST</em> back to the atrium."
+        : "The novels here are AWAKE. One big red book blocks the way west, growling low. Its cover creaks open: “FEED ME A WORD THAT MEANS <em>" + v.w + "</em>. A DIFFERENT word. SAY it.” Exits: <em>EAST</em>, <em>SOUTH</em> — and <em>WEST</em>, if you feed the book."; } },
+  fic2:{ name:"THE WHISPER GALLERY", exits:{east:"fic1", north:"poetry"},
+    desc:function(){ var S=UC.S, v=ucVar("idiom");
+      return S.idiom_done
+        ? "A long gallery where every whisper comes back wearing a hat. The guard-book snores in figurative peace. <em>NORTH</em> is a nook that rhymes; <em>EAST</em> leads back."
+        : "A guard-book in a tiny helmet paces the gallery. It whispers: “" + v.say + ".” DEWEY, who takes everything literally, is panicking: “" + v.panic + "” Calm the cart: <em>SAY</em> what the phrase REALLY means. (One word will do.)"; } },
+  poetry:{ name:"THE POETRY CORNER", exits:{south:"fic2"},
+    desc:function(){ return "A round little nook where a thin purple book rocks in a rocking chair. Whatever you <em>SAY</em>, it says back — but rhyming. It seems to know secrets. The way out is <em>SOUTH</em>."; } },
+  snack:{ name:"THE SNACK CART GRAVEYARD", exits:{north:"fic1"},
+    desc:function(){ return "An ancient snack cart, retired with honors. On it: <em>PAPERBACK JERKY</em>, licorice bookmarks, and a jar labeled “THESAURUS DUST — do not sneeze.” The way back is <em>NORTH</em>."; } },
+  ref1:{ name:"THE DICTIONARY PLAINS", exits:{south:"atrium", north:"ref2"},
+    desc:function(){ var S=UC.S, v=ucVar("guide");
+      return S.guide_done
+        ? "You stand on a dictionary the size of a soccer field. The page you solved glows faintly underfoot. <em>NORTH</em> to the Atlas Floor, <em>SOUTH</em> to the atrium."
+        : "You are STANDING on a dictionary the size of a soccer field. The guide words at the top of this giant page read <em>" + v.a + "</em> — <em>" + v.b + "</em>. Carved in the margin: “ONLY ONE OF THESE LIVES ON MY PAGE: " + v.words.join(", ") + ". SAY IT AND PASS.”"; } },
+  ref2:{ name:"THE ATLAS FLOOR", exits:{south:"ref1", north:"ref3"},
+    desc:function(){ var S=UC.S, v=ucVar("atlas");
+      return S.atlas_done
+        ? "A floor painted like a map, its glowing trail now solid stone under your feet. <em>NORTH</em> to the Word Forge, <em>SOUTH</em> back."
+        : "The floor is one giant painted map, and most of it is painted <em>LAVA</em> (the librarians thought that was funny). A brass plaque reads: “THE ONLY PATH: " + v.txt + ". Step wrong and start over.” (" + S.atlas_i + " of " + v.path.length + " steps taken. Just GO each direction, in order.)"; } },
+  ref3:{ name:"THE WORD FORGE", exits:{south:"ref2"},
+    desc:function(){ var S=UC.S;
+      return S.forge_done
+        ? "An anvil made of dictionaries, cooling now. Sparks of leftover letters pop softly. The way back is <em>SOUTH</em>."
+        : "An anvil made of dictionaries glows hot. Floating over it, old word-parts spark like embers. The forge rumbles: “IN THE OLD TONGUE, <em>BIBLIO</em> MEANS <em>BOOK</em>. ANSWER MY QUESTIONS AND CLAIM A TOOTH.” " + ucForgeQ(); } },
+  best1:{ name:"THE PAPER LION’S DEN", exits:{west:"atrium", east:"best2", north:"shhh"},
+    desc:function(){ var S=UC.S, v=ucVar("lion");
+      return S.lion_done
+        ? "The paper lion lounges on a hill of atlases, satisfied. Its mane rustles when it purrs. <em>EAST</em> to the Nonfiction Den, <em>NORTH</em> to a very quiet door, <em>WEST</em> back."
+        : "A LION made entirely of pages blocks the wing — magnificent, rustling, ten feet tall. It clears its throat and recites its favorite page: " + v.page + " Then it fixes you with an inky eye: “<em>SAY</em> THE ONE WORD THIS PAGE IS MOSTLY ABOUT.”"; } },
+  best2:{ name:"THE NONFICTION DEN", exits:{west:"best1"},
+    desc:function(){ var S=UC.S, v=ucVar("facts");
+      return S.facts_done
+        ? "Two reading stands, two placards, one very pleased den. The way back is <em>WEST</em>."
+        : "Two placards stand side by side.<br>ONE: “" + v.c1 + "”<br>TWO: “" + v.c2 + "”<br>The den rumbles: “<em>SAY</em> " + v.q + ".”"; } },
+  shhh:{ name:"THE SHHH ROOM", exits:{south:"best1"},
+    desc:function(){ return "The quietest room in the world. Even your thoughts tiptoe. A single sign stands in the middle: “<em>DO NOT TAKE THIS SIGN.</em>” The way out is <em>SOUTH</em>."; } },
+  chute:{ name:"THE RETURNS CHUTE", exits:{up:"atrium"},
+    desc:function(){ var S=UC.S;
+      if(S.ch1_done) return "The chute rests, stamp still warm. Far below, something enormous turns a page and sighs happily. <em>UP</em> leads back to the atrium.";
+      if(!S.haveBook) return "A brass slide spirals down into warm darkness. A slot reads: “RETURNS.” You feel like you are forgetting something enormous. (<em>UP</em> leads back.)";
+      return "A brass slide spirals down into warm darkness. Above the slot, a stern plate lights up: “BEFORE A BOOK THIS OVERDUE GOES HOME, PROVE YOU ARE A REAL READER.” " + ucGauntQ(); } }
+});
+
+/* ---------- wing logic ---------- */
+function ucForgeQ(){
+  var S = UC.S, t = S.v_forge || UC.tier || 1;
+  if(S.forge_step === 0) return "First: “<em>TELE</em> MEANS FAR. <em>SCOPE</em> MEANS SEE. SAY THE TOOL THAT LETS YOU SEE FAR.”";
+  if(S.forge_step === 1 && t >= 2) return "Next: “A <em>BIBLIOPHILE</em> IS A PERSON WHO ____ BOOKS. SAY THE MISSING WORD.”";
+  if(S.forge_step === 2 && t >= 3) return "Last: “<em>AUTO</em> MEANS SELF. <em>BIO</em> MEANS LIFE. <em>GRAPH</em> MEANS WRITE. SAY THE WORD FOR A BOOK YOU WRITE ABOUT YOUR OWN LIFE.”";
+  return "";
+}
+function ucForgeNeeds(){ var t = UC.S.v_forge || UC.tier || 1; return t >= 3 ? 3 : (t === 2 ? 2 : 1); }
+function ucGauntQ(){
+  var S = UC.S;
+  if(!S.g1) return "Question one: “IN THE OLD TONGUE, WHAT DOES <em>BIBLIO</em> MEAN? SAY IT.”";
+  if(!S.g2){
+    var t = S.v_facts || UC.tier || 1;
+    if(t === 1) return "Question two: “WHICH ANIMALS IN THE DEN BOTH HUNTED AT NIGHT? SAY ONE OF THEM.”";
+    if(t === 2) return "Question two: “WHAT DID THE DOLPHINS AND BATS BOTH USE TO FIND FOOD? SAY IT.”";
+    return "Question two: “WHAT DO SPIDERS AND SILKWORMS BOTH MAKE? SAY IT.”";
+  }
+  return "The slot glows green. The book in your bag has gone very still, the way you do before something big. (<em>RETURN BOOK</em> when you are ready.)";
+}
+function ucCh1Win(){
+  var S = UC.S;
+  S.ch1_done = true; S.haveBook = false;
+  var i = S.bag.indexOf("the Overdue Book"); if(i >= 0) S.bag.splice(i, 1);
+  ucSay("You slide the Overdue Book into the slot. For one second — nothing. Then the whole library <em>THUMPS</em>, like a heart.");
+  ucSay("A brass stamp swings down: <em>KA-CHUNK.</em> The label glows: “Property of THE BOOKBINDER. Four hundred years overdue. Fine: one good reader. <em>PAID IN FULL.</em>”");
+  ucSay("Somewhere far above, Scribble is absolutely NOT crying. “Four hundred years,” he sniffles, “and it comes home on YOUR library card.”");
+  ucSys("✨ THE LIBRARY OF TEETH — CLEARED. " + S.cmds + " commands · " + S.hints + " hints · " + S.socks + " socks. CHAPTER TWO: <em>THE INK SEA</em> — still being written. You’ll be first aboard. (\u{1F3D5}️ back to camp up top, or keep wandering — the books like you now.)");
+  ucSaveNow();
+}
+
+/* ---------- hooks (called from the core engine) ---------- */
+function ucCh1Enter(dest){ /* first arrival bookkeeping */
+  var S = UC.S;
+  if(dest === "atrium" && !S.ch1){
+    S.ch1 = true;
+    ucSys("(A note flutters out of your pocket — Scribble’s handwriting. Try READ NOTE.)");
+    S.note = true; ucSaveNow();
+  }
+  if(dest === "atrium" && ucTeeth() === 3 && !S.deskOpen){
+    S.deskOpen = true;
+    ucSay("Your bag rattles — the three brass teeth leap out and land in the Grand Desk’s keyhole: <em>click. click. CLICK.</em> The desk unlocks with the satisfaction of a job four centuries late.");
+    ucSaveNow();
+  }
+}
+function ucCh1Go(dir){ /* returns true if handled */
+  var S = UC.S;
+  if(S.room === "gate" && dir === "north"){
+    if(!S.done) return false; /* gate riddle still owns this */
+    ucMove("atrium"); return true;
+  }
+  if(S.room === "fic1" && dir === "west" && !S.growl_done){
+    ucSay("The red book snaps the air an inch from your shoelaces. “FEED ME FIRST.” (" + "A word that means <em>" + ucVar("growl").w + "</em>.)"); return true;
+  }
+  if(S.room === "ref1" && dir === "north" && !S.guide_done){
+    ucSay("The page edge lifts like a wall. “SAY THE WORD THAT LIVES ON MY PAGE FIRST.”"); return true;
+  }
+  if(S.room === "ref2" && !S.atlas_done){
+    var v = ucVar("atlas");
+    if(dir === "south" && S.atlas_i === 0) return false; /* free retreat before starting */
+    if(dir === "south" && dir !== v.path[S.atlas_i]){ S.atlas_i = 0; ucSay("You step back off the map. The painted trail resets behind you, smug."); ucMove("ref1"); return true; }
+    if(dir === v.path[S.atlas_i]){
+      S.atlas_i++;
+      if(S.atlas_i >= v.path.length){
+        S.atlas_done = true;
+        ucSay("You land the last step and the painted trail turns to solid gold stone. The lava grumbles (it wanted socks). The way <em>NORTH</em> is open.");
+      } else {
+        ucSay("Step " + S.atlas_i + " of " + v.path.length + " — the tile holds. The plaque hums approvingly.");
+      }
+      ucSaveSoon(); return true;
+    }
+    S.atlas_i = 0;
+    ucSay("SPLORCH — painted lava. It is not hot, but it IS embarrassing. An invisible force lifts you back to the start. (Re-read the plaque: the path is " + v.txt + ", <em>in order</em>.)");
+    ucSaveSoon(); return true;
+  }
+  if(S.room === "best1" && dir === "east" && !S.lion_done){
+    ucSay("The paper lion politely fills the entire doorway. “THE WORD FIRST, SMALL READER.”"); return true;
+  }
+  if(S.room === "atrium" && dir === "down"){
+    if(!S.deskOpen){ ucSay("The Returns Chute is sealed behind the locked Grand Desk. (" + ucTeeth() + " of 3 teeth found.)"); return true; }
+    ucMove("chute"); return true;
+  }
+  return false;
+}
+function ucCh1Say(w){ /* returns true if handled */
+  var S = UC.S, v;
+  if(S.room === "fic1" && !S.growl_done){
+    v = ucVar("growl");
+    if(w === v.w.toLowerCase()) { ucSay("“That’s MY word,” growls the book. “A DIFFERENT word that means the same.”"); return true; }
+    if(v.ok.indexOf(w) >= 0 || w.split(" ").some(function(t){ return v.ok.indexOf(t) >= 0; })){
+      S.growl_done = true;
+      ucSay("“<em>" + esc(w.toUpperCase()) + "</em>…” The book tastes it, chews twice, and <em>PURRS</em> — a sound like shuffling cards. It curls aside. The way <em>WEST</em> is open.");
+      ucSaveNow(); return true;
+    }
+    ucSay("The book sniffs the word and pushes it back with one page. “Not quite. A word that means <em>" + v.w + "</em>.”"); return true;
+  }
+  if(S.room === "fic2" && !S.idiom_done){
+    v = ucVar("idiom");
+    if(w.indexOf(v.key) >= 0){
+      S.idiom_done = true;
+      ucSay("DEWEY’s wheels stop squeaking. “Ohhhh. It just means <em>" + v.okNote + "</em>. Phrases that don’t mean what they say… sneaky. I love them. I FEAR them.” The guard-book salutes you.");
+      if(S.growl_done && !S.tooth_f) ucTooth("tooth_f", "The guard-book’s helmet pops open like a gumball machine.");
+      ucSaveNow(); return true;
+    }
+    ucSay("DEWEY squints. “That’s not it. Think about what the phrase <em>really</em> means — not the words, the meaning.”"); return true;
+  }
+  if(S.room === "ref1" && !S.guide_done){
+    v = ucVar("guide");
+    var pick = w.toUpperCase().replace(/[^A-Z]/g, "");
+    if(pick === v.ans.toUpperCase()){
+      S.guide_done = true;
+      ucSay("“<em>" + v.ans.toUpperCase() + "</em>,” you say, and the giant page ripples with delight — it lands right between <em>" + v.a + "</em> and <em>" + v.b + "</em>, alphabetically snug. The way <em>NORTH</em> unrolls.");
+      ucSaveNow(); return true;
+    }
+    if(v.words.indexOf(pick) >= 0){ ucSay("The page shivers. “Check the alphabet: does " + pick + " land BETWEEN " + v.a + " and " + v.b + "? Letter by letter…”"); return true; }
+    ucSay("“ONE OF MINE, PLEASE:” the page rustles. “" + v.words.join(", ") + ".”"); return true;
+  }
+  if(S.room === "ref3" && !S.forge_done){
+    var need = ucForgeNeeds(), step = S.forge_step;
+    var hit = false;
+    if(step === 0 && /telescope/.test(w)) hit = true;
+    else if(step === 1 && /love|loves|loving|adore|adores/.test(w)) hit = true;
+    else if(step === 2 && /autobiography/.test(w)) hit = true;
+    if(hit){
+      S.forge_step++;
+      if(S.forge_step >= need){
+        S.forge_done = true;
+        ucSay("The forge BONGS like a struck bell. “A WORD-SMITH,” it declares, showering harmless letter-sparks.");
+        if(!S.tooth_r) ucTooth("tooth_r", "A hatch opens in the anvil.");
+      } else {
+        ucSay("CLANG — the word lands true on the anvil. " + ucForgeQ());
+      }
+      ucSaveNow(); return true;
+    }
+    ucSay("The forge hisses steam, not unkindly. “BUILD IT FROM THE PARTS.” " + ucForgeQ()); return true;
+  }
+  if(S.room === "best1" && !S.lion_done){
+    v = ucVar("lion");
+    if(v.ok.indexOf(w) >= 0 || w.split(" ").some(function(t){ return v.ok.indexOf(t) >= 0; })){
+      S.lion_done = true;
+      ucSay("The lion’s mane rustles into what is unmistakably a smile. “MOSTLY ABOUT. Exactly so.” It pads aside, pages whispering. The way <em>EAST</em> is open.");
+      ucSaveNow(); return true;
+    }
+    ucSay("The lion re-reads its page slowly, tail flicking. “Details are lovely. But what is the WHOLE page mostly about? One word.”"); return true;
+  }
+  if(S.room === "best2" && !S.facts_done){
+    v = ucVar("facts");
+    var match = v.ok.some(function(k){ return w.indexOf(k) >= 0; });
+    if(match){
+      S.facts_done = true;
+      ucSay("Both placards flip over at once: <em>CORRECT.</em> Finding what two books agree on — the den considers this the highest art.");
+      if(S.lion_done && !S.tooth_b) ucTooth("tooth_b", "The den’s floorboards part like a curtain.");
+      ucSaveNow(); return true;
+    }
+    ucSay("“True of ONE, maybe,” the den rumbles. “I asked for the thing true of <em>BOTH</em>. Read them again.”"); return true;
+  }
+  if(S.room === "chute" && S.haveBook && !S.ch1_done){
+    if(!S.g1){
+      if(/book/.test(w)){ S.g1 = true; ucSay("“CORRECT.” " + ucGauntQ()); ucSaveSoon(); }
+      else ucSay("The plate blinks patiently. “The forge told you this one. BIBLIO means…?”");
+      return true;
+    }
+    if(!S.g2){
+      var t = S.v_facts || UC.tier || 1, ok2 = false;
+      if(t === 1) ok2 = /bat|owl|both/.test(w);
+      else if(t === 2) ok2 = /sound|echo|echolocation|hearing|listening/.test(w);
+      else ok2 = /silk|thread/.test(w);
+      if(ok2){ S.g2 = true; ucSay("“CORRECT. A real reader after all.” " + ucGauntQ()); ucSaveNow(); }
+      else ucSay("“Hmm. You READ that placard yourself,” says the plate. “Think back to the den.”");
+      return true;
+    }
+    return false;
+  }
+  if(S.room === "poetry"){
+    if(/teeth/.test(w)){ ucGhostPoem("TEETH, you say? …beneath, beneath — the Binder sleeps beneath the teeth."); return true; }
+    ucGhostPoem(ucRhyme(w)); return true;
+  }
+  if(S.room === "shhh"){ ucSys("shhh."); return true; }
+  return false;
+}
+function ucGhostPoem(t){ ucLine("THE PURPLE BOOK: “" + t + "”", "ucghost"); }
+function ucRhyme(w){
+  var last = w.split(" ").pop();
+  var tail = last.slice(-2);
+  var mates = {at:"cat, hat, acrobat", og:"dog, frog, dialog", ig:"pig, twig, thingamajig", un:"sun, run, cinnamon bun",
+               ok:"book, look, reading nook", ed:"bed, bread, a story read", ar:"star, jar, wherever you are"};
+  return "“" + esc(last) + "”… " + (mates[tail] || "hmm — tricky. Almost nothing rhymes with that. Respect.");
+}
+function ucCh1Read(n){ /* returns true if handled */
+  var S = UC.S;
+  if(S.note && n && /note/.test(n)){
+    ucSay("Scribble’s note, in careful librarian loops: “If you find HER book down there — the big overdue one — be kind to it. It has been alone a very long time. — S.”");
+    return true;
+  }
+  if(S.room === "atrium" && n && /sign/.test(n)){ ucSay("“QUIET PLEASE. THE BOOKS BITE.” Below, smaller: “No, really.”"); return true; }
+  if(S.room === "best2" && n && /placard|card|one|two/.test(n) && !S.facts_done){ ucRoomLine(); return true; }
+  if(S.room === "atrium" && n && /book|overdue/.test(n) && S.deskOpen && !S.haveBook){
+    ucSay("The Overdue Book’s cover reads: “THE BINDER’S OWN.” It looks heavy enough to have its own weather. Maybe TAKE it."); return true;
+  }
+  return false;
+}
+function ucCh1Take(n){ /* returns true if handled */
+  var S = UC.S;
+  if(/book|overdue/.test(n) && S.room === "atrium" && S.deskOpen && !S.haveBook && !S.ch1_done){
+    S.haveBook = true; S.bag.push("the Overdue Book");
+    ucSay("You lift <em>THE OVERDUE BOOK</em> with both arms and one knee. It is warm, like the sock drawer. It settles against you with a papery sigh — as if it has been waiting for exactly one reader.");
+    ucSay("The <em>RETURNS CHUTE</em> hums, <em>DOWN</em>, behind the desk.");
+    ucSaveNow(); return true;
+  }
+  if(/jerky|snack|licorice|bookmark/.test(n) && S.room === "snack"){
+    S.jerky = true;
+    ucSay("You try the paperback jerky. It tastes like 1987 and margins. You put the rest back, respectfully."); return true;
+  }
+  if(/sign/.test(n) && S.room === "shhh"){
+    if(S.signTaken) return ucSay("You already took the sign. The silence has not forgiven you."), true;
+    S.signTaken = true; S.bag.push("a sign that says DO NOT TAKE");
+    ucSay("You take the sign. Instantly, a hundred ghost librarians rise from the floorboards and <em>SHUSH YOU IN PERFECT HARMONY</em>. It is the most beautiful sound you have ever been in trouble with.");
+    ucSaveSoon(); return true;
+  }
+  if(/tooth|teeth/.test(n)){ ucSay("The brass teeth ride in your bag and leap out only for the Grand Desk. (" + ucTeeth() + " of 3.)"); return true; }
+  return false;
+}
+function ucCh1Talk(){ /* DEWEY, atrium only; returns true if handled */
+  var S = UC.S;
+  if(S.room !== "atrium") return false;
+  S.dewey++;
+  if(S.ch1_done){ ucLine("DEWEY: “She’s HOME. The book is HOME. I have re-shelved her THREE TIMES out of joy!”", "ucghost"); return true; }
+  if(S.dewey === 1){ ucLine("DEWEY: “Oh! A crawler! Okay okay okay: three wings, three brass teeth. The snapping stacks <em>WEST</em>, the reference mountains <em>NORTH</em>, the bestiary <em>EAST</em>. Teeth open the Grand Desk. The Desk opens the Chute. The Chute… goes <em>home</em>.”", "ucghost"); return true; }
+  if(S.dewey === 2){
+    var have = ucTeeth();
+    var nxt = !S.tooth_f ? "WEST wing" : (!S.tooth_r ? "NORTH wing" : (!S.tooth_b ? "EAST wing" : "the GRAND DESK"));
+    ucLine("DEWEY: “" + have + " of three teeth! You want the " + nxt + " next. Not that I’m counting. I’m absolutely counting.”", "ucghost"); return true;
+  }
+  S.dewey = 0;
+  ucLine("DEWEY: “Dewey Decimal was my great-great-grandcart. Big wheels to fill. BIG wheels.”", "ucghost");
+  return true;
+}
+function ucCh1Use(str){ /* returns true if handled: returning the book */
+  var S = UC.S;
+  if(/book/.test(str) && (S.room === "chute") && S.haveBook && !S.ch1_done){
+    if(S.g1 && S.g2){ ucCh1Win(); return true; }
+    ucSay("The slot stays shut. “PROOF FIRST, READER.” " + ucGauntQ()); return true;
+  }
+  return false;
+}
+function ucCh1Hint(){ /* returns hint text for ch1 progress, or null if ch0 chain applies */
+  var S = UC.S;
+  if(!S.done) return null;
+  if(!S.ch1) return "The Lantern Gate stands open. GO NORTH, into the Library of Teeth.";
+  if(S.ch1_done) return "Chapter One is cleared, you legend. Wander, rhyme, take socks. Chapter Two is being written.";
+  if(!S.growl_done && !S.tooth_f) return S.room === "fic1"
+    ? "Feed the red book a word that means " + ucVar("growl").w + " — SAY " + ucVar("growl").ok[0].toUpperCase() + "."
+    : "Start WEST of the atrium — a hungry book wants a word.";
+  if(!S.idiom_done) return S.room === "fic2"
+    ? "What does the guard’s phrase REALLY mean? SAY " + ucVar("idiom").key.toUpperCase() + (ucVar("idiom").key==="stud"?"Y":"") + "."
+    : "The Whisper Gallery is WEST of the Snapping Stacks — a phrase needs untangling.";
+  if(!S.guide_done) return S.room === "ref1"
+    ? "Alphabet order, letter by letter: SAY " + ucVar("guide").ans.toUpperCase() + "."
+    : "Head NORTH from the atrium — a giant page is asking about guide words.";
+  if(!S.atlas_done) return S.room === "ref2"
+    ? "Follow the plaque exactly: the path is " + ucVar("atlas").txt + ". GO each direction in order."
+    : "The Atlas Floor is NORTH of the Dictionary Plains.";
+  if(!S.forge_done) return S.room === "ref3"
+    ? "Build the word from its parts. " + ucForgeQ().replace(/<[^>]*>/g, "")
+    : "The Word Forge waits NORTH of the Atlas Floor.";
+  if(!S.lion_done) return S.room === "best1"
+    ? "Not a detail — the ONE word the whole page is about. SAY " + ucVar("lion").ok[0].toUpperCase() + "."
+    : "The bestiary is EAST of the atrium — a paper lion wants the main idea.";
+  if(!S.facts_done) return S.room === "best2"
+    ? "What is true of BOTH placards? SAY " + ucVar("facts").ok[0].toUpperCase() + "."
+    : "The Nonfiction Den is EAST of the lion.";
+  if(!S.deskOpen) return "Three teeth found — carry them back to the GRAND DESK in the atrium.";
+  if(!S.haveBook) return "Behind the open Grand Desk: TAKE BOOK.";
+  if(!(S.g1 && S.g2)) return S.room === "chute"
+    ? "Answer the slot’s question — it only asks things you’ve already read down here."
+    : "Carry the Overdue Book DOWN the Returns Chute from the atrium.";
+  return S.room === "chute" ? "RETURN BOOK. Take it home." : "Back DOWN the chute — the book is ready to go home.";
+}
+/* =============== end CHAPTER ONE =============== */
+
 
 function vHome(){
   if(!SS){ loadState().then(s=>{ if(s) render(); }); return topbar() + '<div class="card"><span class="spin"></span> loading your quest log…</div>'; }

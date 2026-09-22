@@ -3,6 +3,22 @@
 Human-readable history of what changed for teachers, parents, and readers.
 (Internal record: GitHub commit history + Supabase SQL editor history.)
 
+## September 21, 2026
+- THE UNDERCRAWL, CHAPTER ONE: THE LIBRARY OF TEETH. The gate your deep
+  crawlers opened now leads somewhere: twelve new rooms of biting books,
+  a nervous cart named DEWEY, three brass teeth to earn, and one very
+  Overdue Book to carry home. New reading muscles hiding in the fun:
+  idioms, dictionary guide words, Greek and Latin roots, main idea,
+  compare-and-contrast, and multi-step directions - each puzzle quietly
+  matched to the reader (easier, standard, or leaner wording) and locked
+  in, so a mid-year level retest never changes a puzzle out from under
+  a kid. Saved progress carries over; crawlers who finished Chapter 0
+  just GO NORTH.
+- Fixed a small restore bug: reloading the page while inside the game
+  could briefly show the sealed-door card before the door state loaded.
+- No database change - deploying this is uploading the new index.html,
+  nothing else.
+
 ## September 17, 2026 (evening)
 - THE UNDERCRAWL — a hidden text adventure now waits beneath Floor 15.
   Crawlers who reach the Final Shelf find a brass terminal and a game

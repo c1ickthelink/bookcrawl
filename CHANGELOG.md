@@ -3,6 +3,17 @@
 Human-readable history of what changed for teachers, parents, and readers.
 (Internal record: GitHub commit history + Supabase SQL editor history.)
 
+## September 28, 2026
+- One-click sign-in for grown-ups: "Continue with Google" and "Continue with
+  Microsoft" now sit on the teacher/parent sign-in and create-account screens,
+  beside email and password. Already have a password account with the same
+  email? It joins up automatically - same classes. Each button appears on its
+  own once that sign-in is switched on; until then, nothing changes.
+- The Privacy Policy and Help page now explain what these sign-ins share: the
+  provider confirms your email and passes along your name and profile-picture
+  link, which stay with your sign-in record and are never used by the game.
+- No database change.
+
 ## September 21, 2026
 - THE UNDERCRAWL, CHAPTER ONE: THE LIBRARY OF TEETH. The gate your deep
   crawlers opened now leads somewhere: twelve new rooms of biting books,

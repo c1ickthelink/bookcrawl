@@ -339,6 +339,11 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
   .pcard .nm{font-size:20px;font-weight:700}
   .pcard .row2{font-size:14px;margin-top:6px}
 }
+/* ---- one-click sign-in (Google / Microsoft) ---- */
+.oauthbtn{width:100%; background:var(--surface); border:1.5px solid var(--line); color:var(--ink)}
+.oauthbtn:hover{border-color:var(--violet)}
+.ordiv{display:flex; align-items:center; gap:10px; color:var(--ink2); font-size:13px}
+.ordiv::before,.ordiv::after{content:""; flex:1; height:1.5px; background:var(--line)}
 /* ---- THE UNDERCRAWL (end-game text adventure) — committed phosphor-terminal look, both themes ---- */
 .ucbanner{width:100%;background:#141020;color:#97E468;border:1.5px solid #3A5530;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);text-align:left}
 .ucbanner .chest{font-size:28px}
@@ -800,6 +805,22 @@ function makeLiveAPI(){
     },
     async teacherSignOut(){ await sb.auth.signOut(); },
     async purgeSession(){ await _shedSession(); },
+    /* which one-click sign-ins are switched on in the Supabase dashboard (public settings endpoint) */
+    async oauthProviders(){
+      const r = await withTimeout(fetch(CONFIG.url + "/auth/v1/settings", {headers: {apikey: CONFIG.anon}}), 8000);
+      if(!r.ok) return {};
+      const j = await r.json();
+      const ext = (j && j.external) || {};
+      return {google: ext.google === true, azure: ext.azure === true};
+    },
+    /* hands the browser to Google/Microsoft; Supabase brings it back here signed in */
+    async teacherOAuth(provider){
+      const options = {redirectTo: location.origin + location.pathname, queryParams: {prompt: "select_account"}};
+      if(provider === "azure") options.scopes = "email"; /* Supabase needs Microsoft to return an email */
+      const {error} = await sb.auth.signInWithOAuth({provider, options});
+      if(error) throw new Error(error.message);
+      return {};
+    },
     async teacherResetPassword(email){
       const {error} = await sb.auth.resetPasswordForEmail(email, {redirectTo: location.origin + location.pathname});
       if(error) throw new Error(error.message);
@@ -1208,6 +1229,8 @@ function makeDemoAPI(){
     async sendFeedback(){ return; },
     async teacherSession(){ try{ return sessionStorage.getItem("bc_demo_teacher") ? {} : null; }catch(e){ return null; } },
     async teacherSignIn(){ try{ sessionStorage.setItem("bc_demo_teacher","1"); }catch(e){} },
+    async oauthProviders(){ return {google: true, azure: true}; },
+    async teacherOAuth(){ try{ sessionStorage.setItem("bc_demo_teacher","1"); }catch(e){} return {demo: true}; },
     async teacherSignUp(){ try{ sessionStorage.setItem("bc_demo_teacher","1"); }catch(e){} return {}; },
     async teacherSignOut(){ try{ sessionStorage.removeItem("bc_demo_teacher"); }catch(e){} },
     async teacherResetPassword(){ },
@@ -1299,6 +1322,7 @@ let helpBack = null; // where the help/legal pages return to
 let lootShowAll = false; // box ledger: include already-delivered boxes
 const BC_CONTACT = "contact@thebookcrawl.com"; // published contact email for the legal pages (empty = line omitted)
 let mailSent = ""; // email awaiting confirmation after signup
+let OAUTHP = null;  // which one-click sign-ins are live: {google, azure}; null = not asked yet
 
 function go(patch){
   route = Object.assign({}, route, patch);
@@ -2670,8 +2694,24 @@ async function openLoot(){
 function vTeacherAuth(){
   const back = '<button class="btn ghost small" data-a="authmode" data-m="in">\u2190 back to sign in</button>';
   let inner = "";
+  const oauth = (function(){
+    if(OAUTHP === null){
+      OAUTHP = {};
+      api.oauthProviders().then(function(p){ OAUTHP = p || {}; if(route.screen === "tauth" && (OAUTHP.google || OAUTHP.azure)) render(); }).catch(function(){});
+      return "";
+    }
+    const b = [];
+    if(OAUTHP.google) b.push('<button class="btn oauthbtn" data-a="toauth" data-p="google">Continue with Google</button>');
+    if(OAUTHP.azure) b.push('<button class="btn oauthbtn" data-a="toauth" data-p="azure">Continue with Microsoft</button>');
+    if(!b.length) return "";
+    return b.join("")
+      + '<div class="tiny" style="text-align:center">For teachers and parents (18+).'
+      + (authMode === "up" ? '' : ' New here? This creates your account and means you agree to the <button class="linkbtn" data-a="toterms">Terms</button> and <button class="linkbtn" data-a="toprivacy">Privacy Policy</button>.')
+      + '</div>'
+      + '<div class="ordiv"><span>or use email</span></div>';
+  })();
   if(authMode === "up"){
-    inner = '<div><div class="fieldlbl">Email</div><input id="t_email" type="email" autocomplete="username"></div>'
+    inner = oauth + '<div><div class="fieldlbl">Email</div><input id="t_email" type="email" autocomplete="username"></div>'
       + '<div><div class="fieldlbl">Password (12+ \u2014 a passphrase works great)</div><input id="t_pass" type="password" autocomplete="new-password"></div>'
       + '<div><div class="fieldlbl">Type it again</div><input id="t_pass2" type="password" autocomplete="new-password"></div>'
       + '<button class="btn primary big" data-a="tsignup">Create your account</button>'
@@ -2688,6 +2728,7 @@ function vTeacherAuth(){
       + '<button class="btn primary big" data-a="tsetpass">Save new password</button>';
   } else {
     inner = (mailSent ? '<div class="banner">📬 Almost in — we emailed a confirmation link to <strong>' + esc(mailSent) + '</strong>. Tap it, then sign in here.</div>' : '')
+      + oauth
       + '<div><div class="fieldlbl">Email</div><input id="t_email" type="email" autocomplete="username"></div>'
       + '<div><div class="fieldlbl">Password</div><input id="t_pass" type="password" autocomplete="current-password"></div>'
       + '<button class="btn primary big" data-a="tsignin">Sign in</button>'
@@ -3802,6 +3843,27 @@ document.addEventListener("click", async (ev)=>{
       else { authMode = (el && el.dataset.m) || "in"; go({screen:"tauth"}); }
       break;
     }
+    case "toauth": {
+      const prov = el.dataset.p === "azure" ? "azure" : "google";
+      busy(el, true);
+      /* come back to the dashboard; boot drops to the sign-in form if the round trip fails */
+      try{ sessionStorage.setItem("bc_route", JSON.stringify({screen:"teacher", who:null, tab:"queue", sub:null})); sessionStorage.setItem("bc_oauth", prov); }catch(e){}
+      try{
+        const r = await withTimeout(api.teacherOAuth(prov), 15000);
+        if(r && r.demo){
+          busy(el, false);
+          try{ sessionStorage.removeItem("bc_oauth"); }catch(e){}
+          authOk(); authMode = "in"; mailSent = "";
+          TD = null; TDERR = null; go({screen:"teacher", tab:"queue", sub:null});
+        }
+        /* live: the browser is on its way to Google or Microsoft */
+      }catch(e){
+        busy(el, false);
+        try{ sessionStorage.setItem("bc_route", JSON.stringify(route)); sessionStorage.removeItem("bc_oauth"); }catch(e2){}
+        toast(e.message === "timeout" ? "Couldn\u2019t reach the sign-in service \u2014 try again" : (e.message || "Sign-in failed"));
+      }
+      break;
+    }
     case "tsignin": case "tsignup": {
       const email = ($("#t_email")?.value||"").trim();
       const pass = $("#t_pass")?.value||"";
@@ -4341,11 +4403,29 @@ document.addEventListener("visibilitychange", async ()=>{
 /* ---- boot ---- */
 (async function init(){
   if(!DEMO && /type=recovery/.test(location.hash)){ authMode = "reset"; route.screen = "tauth"; }
+  let oauthErr = null, oauthPending = null;
+  try{
+    const hs = new URLSearchParams((location.hash || "").replace(/^#/, "")), qs = new URLSearchParams(location.search);
+    oauthErr = hs.get("error_description") || qs.get("error_description");
+    oauthPending = sessionStorage.getItem("bc_oauth"); sessionStorage.removeItem("bc_oauth");
+  }catch(e){}
+  if(oauthErr && route.screen !== "teacher") route.screen = "tauth";
   if(route.screen==="teacher" || route.screen==="tauth"){
     let sess = null;
     try{ sess = await api.teacherSession(); authOk(); }
     catch(e){ if(authRecover()) return; }
-    if(!sess) route.screen = "tauth";
+    if(!sess){
+      route.screen = "tauth";
+      if(oauthPending || oauthErr){
+        authMode = "in";
+        const why = oauthErr ? "Sign-in didn\u2019t finish: " + String(oauthErr).replace(/\+/g, " ").slice(0, 160) : "Sign-in didn\u2019t finish \u2014 try again, or use email and password";
+        setTimeout(function(){ toast(why); }, 400);
+      }
+    }
+    /* tidy the address bar after a Google/Microsoft round trip (never during a password reset) */
+    if(!/type=recovery/.test(location.hash) && /access_token|error/.test(location.hash + location.search)){
+      try{ history.replaceState(null, "", location.pathname); }catch(e){}
+    }
   } else if(route.screen==="home" || route.screen==="log" || route.screen==="char"){
     if(!route.who || !SPIN[route.who]) route.screen = CODE ? "gate" : "code";
     else await ensureBoot();
@@ -4642,6 +4722,7 @@ function vHelp(){
       + t("<strong>The Undercrawl:</strong> a hidden text adventure (think classic \u2018type GO NORTH\u2019 games, kid-sized) opens for any crawler who reaches Floor 15 \u2014 evidence-finding, context clues, synonyms, and multi-step directions in disguise, plus honest keyboarding practice. A Settings switch opens it for the whole class at season\u2019s end, and each crawler\u2019s detail page can open it early for one kid. In-game, an early door is always the Dungeon\u2019s own choice \u2014 no kid is ever told why.")
       + t("<strong>Keeping it PII-free:</strong> the privacy story rests on dungeon names — remind crawlers to write about the <em>book</em> in quest reports, never about themselves or classmates by name (the answer box nudges them too), and keep the key sheet on paper.")
       + t("<strong>Lost access?</strong> “Forgot password?” on the sign-in screen emails a reset link.")
+      + t("<strong>Skip the password:</strong> <em>Continue with Google</em> or <em>Continue with Microsoft</em> signs you in with an account you already have. Already made a password account with the same email? It joins up automatically — same classes, same everything.")
       + '<div class="row" style="margin-top:8px"><button class="btn small ghost" data-a="tourreset">↺ Show the first-steps checklist again</button></div>')
     + H("🚀", "Your first five minutes",
         t("<strong>1.</strong> Teacher or parent → Create your account → pick classroom or family → name it. Your 5-letter code appears immediately.")
@@ -4691,13 +4772,13 @@ function vPrivacy(){
   const C = (h, b) => '<div class="card"><h2>' + h + '</h2><div class="tiny" style="line-height:1.55">' + b + '</div></div>';
   return legalShell("🛡️ Privacy Policy",
       C("The short version", "Book Crawl stores <strong>no personal information about children</strong>. No ads, no trackers, no analytics, no selling or sharing of data — for anyone. This page lists everything we store, which doesn’t take long. Book Crawl is an independent product, not affiliated with or operated by any school district.")
-    + C("What we store about you (the adult)", "Your email address and a securely hashed password, used only to sign you in (handled by Supabase, our database provider). Your class or crew’s name, settings, and season-pass status. That’s the whole list.")
+    + C("What we store about you (the adult)", "Your email address and a securely hashed password, used only to sign you in (handled by Supabase, our database provider). If you choose <strong>Continue with Google</strong> or <strong>Continue with Microsoft</strong> instead, there’s no password here at all: that company confirms your email, and its standard sign-in also passes along your name and profile-picture link, which stay attached to your sign-in record and are never shown or used by the game. Your class or crew’s name, settings, and season-pass status. That’s the whole list.")
     + C("What we store about kids", "A made-up dungeon name (like <em>Ember Fox</em>), a 4-digit PIN, and their reading log: book titles, dates, points, gear, and quest-report answers. None of it names, identifies, or contacts a real child. The paper key sheet that links dungeon names to real kids is printed once on your device and never uploaded — we could not identify a child in our own database if we tried. For crawlers who reach the end-game, we also store their spot in the Undercrawl story \u2014 room and puzzle progress only: the words kids type into the game are read on the device and thrown away, never stored, never sent.")
     + C("Children’s privacy (COPPA)", "Book Crawl is designed so that children never provide personal information: no child accounts, no names, no emails, no photos, no location. Consent works the way COPPA expects in each setting: in a <strong>classroom</strong>, the teacher and school consent, and Book Crawl is used only for the class’s educational program; in a <strong>family crew</strong>, the parent is the account holder and consents directly. The little the game keeps about a child is used <strong>solely to run the game</strong> — never for advertising, marketing, profiling, or sale, and never shared except with the service providers listed below — consistent with COPPA and with Georgia’s student-data law (O.C.G.A. § 20-2-666). Parents can review everything in their child’s log through the account holder, have it deleted at any time (deleting a student takes one tap), or decline entirely — a child who doesn’t participate is simply never added, so no data about them ever exists.")
     + C("Schools & FERPA", "For classrooms, Book Crawl works as the school’s service provider: the reading records in a class dungeon remain under the school’s control. The teacher can export them as CSV or delete them at any moment, we use them only to provide the game — no secondary use of any kind — and we never re-disclose them. Parents exercise their FERPA rights to review records the usual way: through the school.")
     + C("Payments", "Cards are processed by Stripe on Stripe’s own pages. We never see or store card numbers — we only record that a dungeon’s season pass is paid, and until when.")
     + C("The AI reading check", "When a class uses Quest Reports, the child’s answer, the question, and the book’s title are sent to our AI provider (Anthropic) for one purpose: generating the private advisory hint the teacher sees (✅/🤔/🚩). <strong>No student identifiers travel with it</strong> — not even the dungeon name; Anthropic receives only book title, question, and answer text, and under its commercial API terms does not use that text to train AI models. The hint is stored with the reading log; the AI never grades, blocks, or messages a child.")
-    + C("Our service providers", "A short list of companies helps run Book Crawl, each seeing only what its job requires: <strong>Supabase</strong> hosts the database and adult sign-ins; <strong>Anthropic</strong> receives quest-report text for the advisory hint (details above); <strong>Stripe</strong> handles payments and only ever deals with adults; <strong>GitHub Pages</strong> serves the game’s code and stores no game data at all; account emails (like password resets) go through our email delivery service to adult addresses only. When an adult scans or types a book’s barcode, the decoding happens on their own device and the lookup sends only that ISBN to public book catalogs (Google Books, Open Library) — never anything about students. None of these companies may use this data for anything besides providing their service to us, and none of it is ever used for advertising.")
+    + C("Our service providers", "A short list of companies helps run Book Crawl, each seeing only what its job requires: <strong>Supabase</strong> hosts the database and adult sign-ins; <strong>Google</strong> and <strong>Microsoft</strong> confirm who you are only if you choose to sign in with them — they learn you signed in to Book Crawl, never anything about your class or students; <strong>Anthropic</strong> receives quest-report text for the advisory hint (details above); <strong>Stripe</strong> handles payments and only ever deals with adults; <strong>GitHub Pages</strong> serves the game’s code and stores no game data at all; account emails (like password resets) go through our email delivery service to adult addresses only. When an adult scans or types a book’s barcode, the decoding happens on their own device and the lookup sends only that ISBN to public book catalogs (Google Books, Open Library) — never anything about students. None of these companies may use this data for anything besides providing their service to us, and none of it is ever used for advertising.")
     + C("Cookies & tracking", "Book Crawl sets no advertising or analytics trackers. Your browser keeps only what the game needs to work: your sign-in session, your class code, and small conveniences like which device already saw a welcome screen.")
     + C("Who can see what", "Each class or crew is walled off from every other by database-level security. You see only your own dungeon. Kids see their classmates’ dungeon names, avatars, and floor numbers (if the tracker is on) — never anyone’s points or reading details. If a security incident ever affected your class or crew’s data, you would be notified promptly at your account email, with what happened and what it touched.")
     + C("Retention & deletion", "You can delete a student, a book, or a whole class yourself at any moment, and it’s gone. Classroom data is <strong>season-scoped</strong>: when a teacher wraps up a school year, the class’s crawler data — names, logs, points, gear — is cleared for a fresh start (one button: Settings \u2192 \ud83c\udf42 Season), and prior-year classroom records are not retained. The class library of books and levels carries over, so next year’s readers inherit a leveled shelf. Family crews are the exception: a family’s data stays until the parent deletes it. Accounts inactive for 24 months are deleted entirely, after email reminders. A frozen dungeon is kept, not deleted. To delete your account and everything in it, just ask" + (BC_CONTACT ? " at the address below" : " through the site") + ".")

@@ -3,6 +3,55 @@
 Human-readable history of what changed for teachers, parents, and readers.
 (Internal record: GitHub commit history + Supabase SQL editor history.)
 
+## September 29, 2026
+- All Book Crawl email now runs on Amazon SES in a US region: sign-up
+  confirmations and password resets for grown-ups, plus the operator's own
+  feedback alerts and Monday digest. Our previous email service (Brevo)
+  kept its servers in the EU and is retired. Nothing changes on screen;
+  the Privacy Policy now names Amazon Web Services as the email provider.
+  (Server-side: new feedback-alert and weekly-pulse functions, and new
+  Supabase SMTP settings. Steps are in SES-SETUP.md.)
+
+## September 28, 2026 (evening)
+- The AI reading pre-screen now runs US-only: every Quest Report check and
+  every 🎤 spoken re-check is processed on US-based servers (the server
+  function itself is pinned to a US region), and each advisory note
+  records where it ran. It also moves to a newer model (Claude Sonnet
+  5.5). Still advisory, still teacher-only, still no student names or
+  identifiers sent. (Server-side: redeploy the screen-read function.)
+- Tighter AI access: the server now confirms each teacher's sign-in with
+  the sign-in service and checks that they own the class before doing
+  anything, so no one can run or see another class's AI checks.
+- Classic verification now means no AI at all: a class in Classic mode
+  never sends anything to the AI pre-screen, even for older Quest Reports
+  logged before the switch, and the server refuses it too.
+- Accessibility pass toward WCAG 2.1 AA: an automated scan of 22 screens
+  (kid and teacher, light and dark mode) now comes back clean. Small text
+  is darker and easier to read, every form field has a proper label for
+  screen readers, pop-up messages are announced, input boxes and the
+  keyboard focus ring are easier to see, and locked Year-End Vault tiers
+  stay readable (dashed outline instead of fading out). Each crawler in
+  the teacher's class list now opens with the keyboard, and the kid home
+  banner reads clearly in dark mode.
+- Sign-up confirmation emails now bring new teachers back to the address
+  they signed up on, instead of the main domain (which some school web
+  filters still block).
+- The feedback box now asks grown-ups to leave out students' real names.
+- The game's fonts are now built into the page, so kid devices talk only
+  to the Book Crawl site and its database - no outside font service.
+- Terms of Service: if a school or district signs its own agreement with
+  Book Crawl, that signed agreement wins wherever the two differ. The
+  deletion wording is also corrected: teachers delete students and books
+  themselves, and whole classes are deleted on request.
+- Privacy Policy: states that AI checks run in the United States and that
+  Anthropic deletes them within 30 days, discloses that our email service
+  also carries our own operator alerts (never student data), lists
+  everything stored (including reading-level history and
+  teacher-only notes), notes that cleared data leaves backups within 7
+  days, and puts a clock on incident notices: no later than 72 hours
+  after an incident is confirmed.
+- No database change.
+
 ## September 28, 2026
 - One-click sign-in for grown-ups: "Continue with Google" and "Continue with
   Microsoft" now sit on the teacher/parent sign-in and create-account screens,

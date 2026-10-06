@@ -322,6 +322,25 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 @keyframes meglow{0%,100%{outline-color:var(--accent-strong)}50%{outline-color:#F5CF7E}}
 .tour .tstep{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line)}
 .tour .tstep.done{opacity:.68}
+/* guided tour: dim the page, light one tab, explain it */
+[hidden]{display:none !important}
+.tourlayer{position:fixed; inset:0; z-index:150}
+.tourlayer.centered{background:rgba(12,9,30,.66)}
+.tourspot{position:fixed; border-radius:999px; box-shadow:0 0 0 4px var(--accent-strong), 0 0 0 200vmax rgba(12,9,30,.66); pointer-events:none; transition:left .25s ease, top .25s ease, width .25s ease, height .25s ease}
+.tourlayer.tracking .tourspot{transition:none}
+.tourcard{position:fixed; background:var(--surface); color:var(--ink); border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,.35); padding:16px 18px; width:380px; max-width:calc(100vw - 24px); box-sizing:border-box}
+.tourcard h2{margin:6px 0; font-size:19px; color:var(--violet)}
+.tourtext{font-size:15px; line-height:1.55}
+.tourhead{display:flex; justify-content:space-between; align-items:center; gap:12px}
+.tourstep{font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:700}
+.tourskip{font-size:13px}
+.tourbtns{display:flex; gap:10px; margin-top:14px}
+.tourbtns [data-tour="next"]{margin-left:auto}
+.tourarrow{position:absolute; width:16px; height:16px; background:var(--surface); transform:rotate(45deg)}
+.tourarrow.up{top:-8px}
+.tourarrow.down{bottom:-8px}
+.flashme{outline:3px solid var(--accent-strong); outline-offset:3px; border-radius:12px; animation:flashme 1.8s ease-out 1}
+@keyframes flashme{0%{outline-color:transparent} 12%{outline-color:var(--accent-strong)} 70%{outline-color:var(--accent-strong)} 100%{outline-color:transparent}}
 .tickbox{width:28px;height:28px;border-radius:8px;background:var(--surface2);display:grid;place-items:center;font-weight:800;flex-shrink:0;font-size:14px}
 .tmid{flex:1;min-width:0}
 .linkbtn{background:none;border:none;padding:0;margin:0;color:var(--accent);text-decoration:underline;cursor:pointer;font:inherit;font-size:inherit}
@@ -630,6 +649,12 @@ function trackerOn(){
 function fam(){
   if(TD && TD.settings) return TD.settings.kind === "family";
   return !!(BOOT && BOOT.kind === "family");
+}
+/* nouns for the grown-up screens: a family crew never sees "students" or "class" */
+function W(){
+  return fam()
+    ? { kid:"crew member", kids:"crew members", Kid:"Crew member", grp:"crew", Grp:"Crew", adult:"grown-up", roster:"list of kids" }
+    : { kid:"student", kids:"students", Kid:"Student", grp:"class", Grp:"Class", adult:"teacher", roster:"class roster" };
 }
 /* season-pass state for the signed-in class; null = billing not present */
 function billingState(){
@@ -1475,6 +1500,8 @@ function render(){
   else if(scr === "teacher") app.innerHTML = vTeacher();
   else app.innerHTML = vCode();
   if(scr === "under"){ try{ ucMount(); }catch(e){} }
+  if(scr === "teacher"){ if(TOUR) tourPlaceSoon(); else maybeAutoTour(); }
+  else if(TOUR) closeTour(true);
   if(DEMO && !$(".demo-pill")){ const d = document.createElement("div"); d.className="demo-pill"; d.textContent="DEMO MODE"; document.body.appendChild(d); }
   const se = $("#booksearch");
   if(se && logState && logState.q){ se.focus(); const n = se.value.length; try{ se.setSelectionRange(n,n); }catch(e){} }
@@ -2784,11 +2811,11 @@ function vTeacherAuth(){
    ============================================================ */
 function vTeacher(){
   if(!TD){
-    if(TDERR) return topbar() + '<div class="card"><strong>Couldn’t load class data</strong>'
+    if(TDERR) return topbar() + '<div class="card"><strong>Couldn’t load ' + W().grp + ' data</strong>'
       + '<div class="tiny" style="margin:6px 0 10px">' + esc(TDERR) + '.</div>'
       + '<button class="btn primary" data-a="trefresh">Try again</button></div>';
     loadTeacher().then(()=>render());
-    return topbar() + '<div class="card"><span class="spin"></span> loading class data…</div>';
+    return topbar() + '<div class="card"><span class="spin"></span> loading ' + W().grp + ' data…</div>';
   }
   if(TD.noClass){
     const famNC = ncKind === "family";
@@ -2834,39 +2861,256 @@ function vTeacher(){
       + '</select> '
     : "";
   return topbar(switcher + '<button class="btn ghost small" data-a="trefresh">↻</button> <button class="btn ghost small" data-a="tsignout">Sign out</button> <button class="btn ghost small" data-a="tostudents">Exit</button>')
-    + bar + tourHTML() + body;
+    + bar + tourHTML() + '<div id="tbody">' + body + '</div>';
 }
 function tourKey(){ return "bc_tour_" + (CLS || "legacy"); }
 function tourHTML(){
   if(DEMO || !TD || TD.noClass) return "";
   try{ if(localStorage.getItem(tourKey())) return ""; }catch(e){}
+  const w = W();
   const s1 = TD.students.length > 0;
   const s2 = TD.reads.length > 0;
   const s3 = TD.reads.some(r => r.status === "verified");
-  const step = (done, n, title, desc, act, tab) =>
+  const step = (done, n, title, desc, act, tab, focus) =>
     '<div class="tstep' + (done ? " done" : "") + '"><span class="tickbox">' + (done ? "✅" : n) + '</span>'
     + '<div class="tmid"><strong>' + title + '</strong><div class="tiny">' + desc + '</div></div>'
-    + (done ? "" : '<button class="btn small primary" data-a="ttab" data-t="' + tab + '">' + act + '</button>')
+    + (done ? "" : '<button class="btn small primary" data-a="tgo" data-t="' + tab + '"' + (focus ? ' data-f="' + focus + '"' : '') + '>' + act + '</button>')
     + '</div>';
   const allDone = s1 && s2 && s3;
   return '<div class="card tour">'
     + '<div class="row" style="justify-content:space-between;align-items:flex-start"><h2>🗺️ First steps in your dungeon</h2>'
-    + '<button class="btn ghost small" data-a="tourdismiss">✕</button></div>'
+    + '<div class="row" style="gap:6px"><button class="btn ghost small" data-a="tourstart">▶ Take the tour</button>'
+    + '<button class="btn ghost small" data-a="tourdismiss" aria-label="Hide the first-steps checklist">✕</button></div></div>'
     + (allDone
       ? '<div class="tiny" style="margin:4px 0 8px">🎉 Your dungeon is running — crawlers in, a book logged, points awarded. Dismiss this card; the same guide lives in Help forever.</div>'
       : '<div class="tiny" style="margin:4px 0 8px">Three small steps and the game runs itself. This card checks itself off as you go — and the same guide lives in Help forever.</div>')
     + step(s1, "1", "Add your crawlers",
-        'On the ' + (fam() ? "Crew" : "Class") + ' tab, add each kid — they get a dungeon name and a 4-digit PIN. Print the one-time key sheet: it is the only place real names ever exist.',
-        "Add kids", "class")
-    + step(s2, "2", "Hand out the " + (fam() ? "crew" : "class") + " code",
+        'On the ' + w.Grp + ' tab, add each ' + (fam() ? "of your kids" : "student") + ' — they get a dungeon name and a 4-digit PIN. Print the one-time key sheet: it is the only place real names ever exist.',
+        "Add " + w.kids, "class", "gen")
+    + step(s2, "2", "Hand out the " + w.grp + " code",
         'Kids open this site and type <strong>' + esc(TD.settings.classCode || "") + '</strong> once, then just tap their crawler name. This step checks off when the first book gets logged.',
         "See queue", "queue")
     + step(s3, "3", "Verify a first read",
-        "The book lands in your Queue — give it a level if asked, read the quest report, hit ✓ Verify. Points, loot boxes, and the Descent take it from there.",
+        "The book lands in your Queue — give it a level if asked, "
+          + ((TD.settings.verifyMode || "classic") === "classic" ? "have a quick book talk with the reader" : "read the quest report")
+          + ", hit ✓ Verify. Points, loot boxes, and the Descent take it from there.",
         "Open queue", "queue")
-    + '<div class="tstep"><span class="tickbox">★</span><div class="tmid"><strong>Make it yours</strong><div class="tiny">Verification style, the bounty board, the class tracker, prize lists — all under Settings and Loot, changeable any time.</div></div>'
-    + '<button class="btn small ghost" data-a="ttab" data-t="settings">Settings</button></div>'
+    + '<div class="tstep"><span class="tickbox">★</span><div class="tmid"><strong>Make it yours</strong><div class="tiny">Verification style, the bounty board, the ' + w.grp + ' tracker, prize lists — all under Settings and Loot, changeable any time.</div></div>'
+    + '<button class="btn small ghost" data-a="tgo" data-t="settings">Settings</button></div>'
     + '</div>';
+}
+
+/* ---------------- guided tour (grown-up dashboard) ----------------
+   The page dims, one tab stays lit, and a card beside it says what lives
+   there. It points at the tab buttons, which exist even in an empty class,
+   so it works on day one. Runs once on its own for a brand-new dungeon;
+   "Take the tour" (first-steps card, Help) replays it. */
+let TOUR = null;
+function tourSeenKey(){ return "bc_tourseen_" + (CLS || (DEMO ? "demo" : "legacy")); }
+function tourSeen(){
+  if(window.__bcTourSeen) return true;
+  try{ return !!localStorage.getItem(tourSeenKey()); }catch(e){ return false; }
+}
+function markTourSeen(){ window.__bcTourSeen = true; try{ localStorage.setItem(tourSeenKey(), "1"); }catch(e){} }
+function tourSteps(){
+  const f = fam(), w = W();
+  const code = (TD && TD.settings && TD.settings.classCode) || "";
+  /* brand-new dungeons start in Classic mode (a short book talk per book) */
+  const classic = !TD || !TD.settings || (TD.settings.verifyMode || "classic") === "classic";
+  return [
+    { title: f ? "Welcome to your crew’s dungeon" : "Welcome to your class’s dungeon",
+      body: "Here’s a one-minute look at where everything lives, before you set anything up. You can replay this tour any time from Help." },
+    { tab: "class", title: w.Grp + " tab: your crawlers",
+      body: "Start here. Add " + (f ? "each of your kids" : "your students") + " and Book Crawl gives every one a dungeon name and a 4-digit PIN. Print the one-time key sheet and write real names on it by hand. Real names are never typed into Book Crawl." },
+    { tab: "queue", title: "Queue: books waiting for you",
+      body: "When " + (f ? "one of your kids" : "a student") + " logs a finished book, it lands here. Give the book a reading level if it asks for one, "
+        + (classic ? "have a quick book talk with the reader" : "read the short quest report")
+        + ", and tap ✓ Verify. Points and loot boxes follow on their own." },
+    { tab: "map", title: "Map: the Descent",
+      body: "Verified points carry each crawler down through 15 dungeon floors. Kids can see which floor everyone is on (the " + w.grp + " tracker switch in Settings turns that off), but never anyone’s points." },
+    { tab: "books", title: "Books: your " + w.grp + " library",
+      body: "Every book your crawlers log collects here with its reading level. On a phone, the 📷 scanner adds a book from its barcode." },
+    { tab: "loot", title: "Loot: boxes, prizes and bounties",
+      body: "Points earn loot boxes. You decide which real prizes are inside, and you can switch on bonus bounties whenever you like." },
+    { tab: "settings", title: "Settings: make it yours",
+      body: "How reads get checked (a quick book talk, or a one-question quest report kids answer when they log), your " + w.grp + " code, the year-end boxes, and your password all live here." },
+    { title: "You’re ready", final: true,
+      body: "First step: open the " + w.Grp + " tab and add " + (f ? "your kids" : "your students") + ". Then each kid types the " + w.grp + " code <strong>" + esc(code) + "</strong> once on their device and taps their crawler name." }
+  ];
+}
+function tourTarget(st){
+  if(!st || !st.tab) return null;
+  return document.querySelector('#app .tabs [data-a="ttab"][data-t="' + st.tab + '"]');
+}
+function tourReduced(){ try{ return matchMedia("(prefers-reduced-motion: reduce)").matches; }catch(e){ return false; } }
+function startTour(){
+  if(route.screen !== "teacher" || !TD || TD.noClass) return;
+  markTourSeen();
+  closeTour(true);
+  TOUR = { i: 0, steps: tourSteps(), back: document.activeElement };
+  const layer = document.createElement("div");
+  layer.id = "tourlayer"; layer.className = "tourlayer";
+  layer.innerHTML = '<div class="tourspot" hidden></div>'
+    + '<div class="tourcard" role="dialog" aria-modal="true" aria-labelledby="tourttl" aria-describedby="tourbody">'
+    + '<div class="tourarrow" hidden></div>'
+    + '<div class="tourhead"><span class="tourstep" id="tourstep"></span><button class="linkbtn tourskip" data-tour="skip">Skip tour</button></div>'
+    + '<h2 id="tourttl"></h2><div class="tourtext" id="tourbody"></div>'
+    + '<div class="tourbtns"><button class="btn ghost small" data-tour="back">← Back</button><button class="btn primary small" data-tour="next">Next →</button></div>'
+    + '</div>';
+  document.body.appendChild(layer);
+  layer.addEventListener("click", tourClick);
+  window.addEventListener("resize", tourPlaceSoon);
+  window.addEventListener("scroll", tourScrolled, true);
+  document.addEventListener("keydown", tourKeys, true);
+  tourShow();
+}
+function closeTour(silent){
+  const layer = document.getElementById("tourlayer");
+  if(layer) layer.remove();
+  window.removeEventListener("resize", tourPlaceSoon);
+  window.removeEventListener("scroll", tourScrolled, true);
+  document.removeEventListener("keydown", tourKeys, true);
+  const back = TOUR && TOUR.back;
+  TOUR = null;
+  if(!silent && back && back.focus && document.contains(back)){ try{ back.focus({preventScroll:true}); }catch(e){} }
+}
+function tourShow(){
+  if(!TOUR) return;
+  const st = TOUR.steps[TOUR.i], n = TOUR.steps.length;
+  const layer = document.getElementById("tourlayer"); if(!layer) return;
+  layer.querySelector("#tourstep").textContent = "Step " + (TOUR.i + 1) + " of " + n;
+  layer.querySelector("#tourttl").textContent = st.title;
+  layer.querySelector("#tourbody").innerHTML = st.body;
+  const backBtn = layer.querySelector('[data-tour="back"]'), nextBtn = layer.querySelector('[data-tour="next"]');
+  backBtn.hidden = TOUR.i === 0;
+  nextBtn.textContent = TOUR.i === 0 ? "Start the tour →" : (st.final ? "Add " + W().kids + " now" : "Next →");
+  layer.querySelector(".tourskip").textContent = st.final ? "Close" : "Skip tour";
+  const t = tourTarget(st);
+  if(t){
+    /* bring the lit tab into view with room around it: center it in the tab
+       strip (phones scroll the strip sideways), and keep it clear of the
+       screen's top edge so the ring and the card both show */
+    const beh = tourReduced() ? "auto" : "smooth";
+    const strip = t.closest(".tabs");
+    let moving = false;
+    if(strip){
+      const sr = strip.getBoundingClientRect(), r0 = t.getBoundingClientRect();
+      const dx = (r0.left + r0.width / 2) - (sr.left + sr.width / 2);
+      const maxL = strip.scrollWidth - strip.clientWidth;
+      const want = Math.max(0, Math.min(maxL, strip.scrollLeft + dx));
+      if(Math.abs(want - strip.scrollLeft) > 4){ moving = true; try{ strip.scrollTo({left: want, behavior: beh}); }catch(e){ strip.scrollLeft = want; } }
+    }
+    const r1 = t.getBoundingClientRect();
+    if(r1.top < 70 || r1.bottom > window.innerHeight - 160){
+      const y = Math.max(0, window.scrollY + r1.top - 80);
+      if(Math.abs(y - window.scrollY) > 2){ moving = true; try{ window.scrollTo({top: y, behavior: beh}); }catch(e){ window.scrollTo(0, y); } }
+    }
+    if(moving) tourScrolled();
+  }
+  tourPlace();
+  setTimeout(tourPlace, tourReduced() ? 0 : 350);
+  setTimeout(tourPlace, tourReduced() ? 0 : 750);
+  try{ nextBtn.focus({preventScroll:true}); }catch(e){}
+}
+let tourRaf = 0, tourScrollT = 0;
+function tourPlaceSoon(){ if(tourRaf) return; tourRaf = requestAnimationFrame(()=>{ tourRaf = 0; tourPlace(); }); }
+/* while the page or the tab strip is scrolling, the ring sticks to its tab
+   frame by frame (no slide), so it never trails behind the tab it lights */
+function tourScrolled(){
+  const layer = document.getElementById("tourlayer");
+  if(layer){
+    layer.classList.add("tracking");
+    clearTimeout(tourScrollT);
+    tourScrollT = setTimeout(()=>{ const l = document.getElementById("tourlayer"); if(l) l.classList.remove("tracking"); }, 200);
+  }
+  tourPlaceSoon();
+}
+function tourPlace(){
+  if(!TOUR) return;
+  const layer = document.getElementById("tourlayer"); if(!layer) return;
+  const spot = layer.querySelector(".tourspot"), card = layer.querySelector(".tourcard"), arrow = layer.querySelector(".tourarrow");
+  const t = tourTarget(TOUR.steps[TOUR.i]);
+  const vw = document.documentElement.clientWidth, vh = window.innerHeight, m = 12;
+  card.style.maxWidth = Math.min(380, vw - 2 * m) + "px";
+  if(!t){
+    layer.classList.add("centered"); spot.hidden = true; arrow.hidden = true;
+    card.style.left = Math.max(m, (vw - card.offsetWidth) / 2) + "px";
+    card.style.top = Math.max(m, (vh - card.offsetHeight) / 2) + "px";
+    return;
+  }
+  layer.classList.remove("centered");
+  const r = t.getBoundingClientRect(), pad = 6;
+  spot.hidden = false;
+  spot.style.left = (r.left - pad) + "px"; spot.style.top = (r.top - pad) + "px";
+  spot.style.width = (r.width + 2 * pad) + "px"; spot.style.height = (r.height + 2 * pad) + "px";
+  const cw = card.offsetWidth, ch = card.offsetHeight, gap = 16;
+  const below = r.bottom + pad + gap + ch <= vh - m || r.top < vh / 2;
+  let top = below ? r.bottom + pad + gap : r.top - pad - gap - ch;
+  top = Math.max(m, Math.min(top, vh - ch - m));
+  const cx = r.left + r.width / 2;
+  const left = Math.max(m, Math.min(cx - cw / 2, vw - cw - m));
+  card.style.left = left + "px"; card.style.top = top + "px";
+  arrow.hidden = false;
+  arrow.className = "tourarrow " + (below ? "up" : "down");
+  arrow.style.left = Math.max(18, Math.min(cx - left - 8, cw - 34)) + "px";
+}
+function tourGo(d){
+  if(!TOUR) return;
+  const st = TOUR.steps[TOUR.i];
+  if(d > 0 && st.final){ closeTour(true); tourJump("class", "gen"); return; }
+  TOUR.i = Math.max(0, Math.min(TOUR.steps.length - 1, TOUR.i + d));
+  tourShow();
+}
+function tourClick(e){
+  const b = e.target && e.target.closest ? e.target.closest("[data-tour]") : null;
+  if(!b){ e.stopPropagation(); return; }
+  const k = b.dataset.tour;
+  if(k === "next") tourGo(1);
+  else if(k === "back") tourGo(-1);
+  else if(k === "skip") closeTour(false);
+}
+function tourKeys(e){
+  if(!TOUR) return;
+  if(e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); closeTour(false); return; }
+  if(e.key === "ArrowRight" && !e.altKey){ e.preventDefault(); e.stopPropagation(); tourGo(1); return; }
+  if(e.key === "ArrowLeft" && !e.altKey){ e.preventDefault(); e.stopPropagation(); tourGo(-1); return; }
+  if(e.key === "Tab"){
+    const layer = document.getElementById("tourlayer"); if(!layer) return;
+    const f = Array.prototype.filter.call(layer.querySelectorAll("button"), b => !b.hidden);
+    if(!f.length) return;
+    const i = f.indexOf(document.activeElement);
+    e.preventDefault(); e.stopPropagation();
+    f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
+  }
+}
+/* jump to a tab and make the change impossible to miss: scroll to the new
+   content and pulse it (on a phone the switch happens below the fold) */
+function tourJump(tab, focus){
+  go({screen:"teacher", tab: tab, sub:null});
+  let target = document.getElementById("tbody");
+  if(tab === "class" && focus === "gen"){
+    const rb = $("#rosterbox");
+    if(rb){ rb.classList.remove("hidden"); $("#addstu")?.classList.add("hidden"); target = rb; }
+  }
+  if(!target) return;
+  try{ target.scrollIntoView({block:"start", behavior: tourReduced() ? "auto" : "smooth"}); }catch(e){ target.scrollIntoView(); }
+  flashEl(target);
+  if(tab === "class" && focus === "gen"){
+    let fine = false; try{ fine = matchMedia("(pointer: fine)").matches; }catch(e){}
+    if(fine){ const inp = $("#gen_n"); if(inp){ try{ inp.focus({preventScroll:true}); }catch(e){} } }
+  }
+}
+function flashEl(el){
+  el.classList.remove("flashme");
+  void el.offsetWidth;
+  el.classList.add("flashme");
+  setTimeout(()=>{ el.classList.remove("flashme"); }, 1900);
+}
+/* a brand-new dungeon (no crawlers yet) gets the tour once, on its own */
+function maybeAutoTour(){
+  if(DEMO || TOUR || route.screen !== "teacher" || route.sub || !TD || TD.noClass) return;
+  if(TD.students.length || tourSeen()) return;
+  setTimeout(()=>{ if(!TOUR && route.screen === "teacher" && TD && !TD.noClass && !TD.students.length && !tourSeen()) startTour(); }, 400);
 }
 function tstu(id){ return TD.students.find(s=>s.id===id); }
 function tbook(id){ return TD.books.find(b=>b.id===id); }
@@ -2976,7 +3220,7 @@ function showKeyPop(n){
     + '<div class="tiny" style="line-height:1.55;margin:8px 0">'
     + 'Your ' + n + ' crawler' + (n === 1 ? "" : "s") + ' just got dungeon names and PINs — and this key sheet is the <strong>only copy that will ever exist</strong> (real names are never saved here).'
     + '<br><br><strong>Copy 1:</strong> keep it wherever you keep private things.'
-    + '<br><strong>Copy 2:</strong> lay it beside your actual class roster and check every kid off — right name, right level, nobody missing — before you dismiss the sheet.</div>'
+    + '<br><strong>Copy 2:</strong> lay it beside your ' + W().roster + ' and check every kid off — right name, right level, nobody missing — before you dismiss the sheet.</div>'
     + '<div class="row"><button class="btn primary" data-a="keypopprint">🖶 Print now (choose 2 copies)</button>'
     + '<button class="btn ghost" data-a="keypopok">I’ll print in a sec</button></div></div>';
   document.body.appendChild(ov);
@@ -3070,7 +3314,7 @@ function keysheetHTML(){
     + '</tbody></table></div>'
     + '<div class="row" style="margin-top:8px"><button class="btn small primary" data-a="printkey">\ud83d\uddb6 Print key sheet</button>'
     + '<button class="btn small ghost" data-a="dismisskey" data-arm="1">I printed it \u2014 dismiss</button>'
-    + '<span class="tiny">Print <strong>two copies</strong> \u2014 one to keep handy, one to lay beside your class roster and cross-check every kid.</span></div></div>';
+    + '<span class="tiny">Print <strong>two copies</strong> \u2014 one to keep handy, one to lay beside your ' + W().roster + ' and cross-check every kid.</span></div></div>';
 }
 
 function tClass(){
@@ -3091,7 +3335,7 @@ function tClass(){
   const totals = TD.students.reduce((a,st)=>{ const t=Engine.totals(st.id,TD); a.pts+=t.pts; a.v+=t.verified; a.p+=t.pending; a.bx+=t.available; return a; },{pts:0,v:0,p:0,bx:0});
   const owed = TD.boxes.filter(b=>!b.delivered).length;
   return '<div class="statgrid">'
-    + '<div class="stat"><div class="n">'+totals.pts+'</div><div class="l">class points</div></div>'
+    + '<div class="stat"><div class="n">'+totals.pts+'</div><div class="l">' + W().grp + ' points</div></div>'
     + '<div class="stat"><div class="n">'+totals.v+'</div><div class="l">books verified</div></div>'
     + '<div class="stat"><div class="n">'+totals.p+'</div><div class="l">awaiting check</div></div>'
     + '<div class="stat"><div class="n">'+totals.bx+'</div><div class="l">boxes to open</div></div>'
@@ -3109,16 +3353,16 @@ function tClass(){
     + '<button class="linkbtn" data-a="lexconvert">🔁 convert F&amp;P / DRA / AR to Lexile</button></span></div>'
     + '<div id="addstu_out" class="hidden banner" style="margin:8px 0"></div>'
     + '<div id="rosterbox" class="hidden" style="margin:8px 0">'
-    + '<div class="row"><span><div class="fieldlbl" style="margin-top:0">How many students?</div>'
+    + '<div class="row"><span><div class="fieldlbl" style="margin-top:0">How many ' + W().kids + '?</div>'
     + '<input id="gen_n" type="number" min="1" max="40" value="24" style="width:90px"></span>'
-    + '<span><div class="fieldlbl" style="margin-top:0">Most of the class reads around</div>' + lexSel("gen_band", 700) + '</span>'
+    + '<span><div class="fieldlbl" style="margin-top:0">Most of the ' + W().grp + ' reads around</div>' + lexSel("gen_band", 700) + '</span>'
     + '<button class="btn small primary" data-a="rostergo" style="align-self:flex-end">⚙️ Generate</button></div>'
-    + '<div class="tiny" style="margin-top:6px">The dungeon invents every crawler name and PIN — <strong>no real names are ever typed here</strong>. Print the key sheet and write each student’s real name on paper as you hand out PINs; adjust any crawler’s reading range from their page.</div>'
+    + '<div class="tiny" style="margin-top:6px">The dungeon invents every crawler name and PIN — <strong>no real names are ever typed here</strong>. Print the key sheet and write each ' + W().kid + '’s real name on paper as you hand out PINs; adjust any crawler’s reading range from their page.</div>'
     + '</div>'
     + keysheetHTML()
-    + '<div class="tablewrap"><table><thead><tr><th>Student</th><th class="num">Level</th><th class="num">Books</th><th class="num">Pending</th><th class="num">Points</th><th class="num">Best stretch</th><th class="num">Boxes</th><th>Next box</th><th>Year-end</th></tr></thead>'
+    + '<div class="tablewrap"><table><thead><tr><th>' + W().Kid + '</th><th class="num">Level</th><th class="num">Books</th><th class="num">Pending</th><th class="num">Points</th><th class="num">Best stretch</th><th class="num">Boxes</th><th>Next box</th><th>Year-end</th></tr></thead>'
     + '<tbody>'+rows+'</tbody></table></div>'
-    + '<div class="tiny" style="margin-top:8px">Tap a student for level history, PIN, and their full log.</div></div>';
+    + '<div class="tiny" style="margin-top:8px">Tap a ' + W().kid + ' for level history, PIN, and their full log.</div></div>';
 }
 
 function tStudent(id){
@@ -3141,7 +3385,7 @@ function tStudent(id){
     + '<div class="row" style="margin-top:6px">'
     + '<button class="btn small" data-a="regenpin" data-id="'+id+'">New PIN</button>'
     + '<button class="btn small" data-a="rename" data-id="'+id+'">New crawler name</button>'
-    + '<button class="btn small ghost danger" data-a="delstu" data-id="'+id+'" data-arm="1">Delete student</button></div>'
+    + '<button class="btn small ghost danger" data-a="delstu" data-id="'+id+'" data-arm="1">Delete ' + W().kid + '</button></div>'
     + '<div class="tiny" style="margin-top:6px">Only the crawler name lives in the system — your printed key sheet connects it to the real kid.</div></div>'
     + '<div class="card"><h2>Reading level history</h2>'+hist
     + '<div class="row" style="margin-top:10px">'
@@ -3423,7 +3667,7 @@ function tBooks(){
     + '<div class="fieldlbl" style="margin-top:14px">Bulk add — one per line: Title, level, pages</div>'
     + '<textarea class="paste" id="bulkbooks" placeholder="The One and Only Ivan, 570, 305&#10;Front Desk, 640, 296"></textarea>'
     + '<div class="row" style="margin-top:8px"><button class="btn small" data-a="bulkbooks">Add all</button>'
-    + '<span class="tiny">Pre-loading your class library = fewer “needs level” moments later.</span></div></div>'
+    + '<span class="tiny">Pre-loading your ' + W().grp + ' library = fewer “needs level” moments later.</span></div></div>'
     + (TD.books.length > 1 ? '<div class="card"><h2>🔧 Merge duplicate books</h2>'
       + '<div class="tiny" style="margin-bottom:8px">Kids spell creatively. Point the misspelled copy at the real one — its reads move over (keeping their points), the duplicate disappears, the real book keeps its level.</div>'
       + '<div class="row"><select id="mg_from" aria-label="Duplicate copy to merge" style="flex:1;min-width:160px">'
@@ -3431,7 +3675,7 @@ function tBooks(){
       + '</select><span class="tiny">into →</span><select id="mg_into" aria-label="Real book to merge it into" style="flex:1;min-width:160px">'
       + TD.books.slice().sort((a,b)=>a.title.localeCompare(b.title)).map(b=>'<option value="'+b.id+'">'+esc(b.title)+'</option>').join("")
       + '</select><button class="btn small primary" data-a="mergebook" data-arm="1">Merge</button></div></div>' : "")
-    + '<div class="card"><h2>Class library ('+TD.books.length+')</h2>'
+    + '<div class="card"><h2>' + W().Grp + ' library ('+TD.books.length+')</h2>'
     + '<div class="tablewrap"><table><thead><tr><th>Title</th><th class="num">Pages</th><th class="num">Level</th><th class="num" title="graphic novel / picture-heavy">🎨</th><th class="num">Reads</th><th></th></tr></thead><tbody>'
     + rows + '</tbody></table></div></div></div>';
 }
@@ -3543,7 +3787,7 @@ function tSettings(){
       + Object.keys(VMODES).map(m=>'<option value="'+m+'"'+(S.verifyMode===m?" selected":"")+'>'+esc(VMODES[m].split(" — ")[0])+'</option>').join("")
       + '</select></div>'
       + '<div class="tiny" style="margin-top:6px">'
-      + '<strong>Classic</strong> — every book gets a teacher book talk before points (most teacher time).<br>'
+      + '<strong>Classic</strong> — every book gets a ' + W().adult + ' book talk before points (most ' + W().adult + ' time).<br>'
       + '<strong>Quest Report</strong> — kids answer one random question when they log; you verify from their written answer (~15 sec a book).<br>'
       + '<strong>Quest Report + Spot Checks</strong> — reports, plus the dungeon secretly flags about 1 in 4 reads for a real book talk. Kids never see the flag, so there’s no pattern to game.'
       + '</div></div>' : "")
@@ -3554,7 +3798,7 @@ function tSettings(){
     + '<input type="checkbox" '+(bgEnabled()?"checked":"")+' data-a="togglebg" style="width:24px;height:24px">'
     + '</div>'
     + ((CLS || DEMO)
-      ? '<div class="settingrow"><label>Class tracker — kids see the whole party’s floors</label>'
+      ? '<div class="settingrow"><label>' + W().Grp + ' tracker — kids see the whole party’s floors</label>'
         + '<input type="checkbox" '+(S.showTracker!==false?"checked":"")+' data-a="tracktoggle" style="width:24px;height:24px"></div>'
         + '<div class="settingrow"><label>📏 Kids see their own Lexile range<span class="tiny" style="display:block">Each crawler sees only their own range (100L below to 50L above their level) on their home screen — never anyone else’s.</span></label>'
         + '<input type="checkbox" '+(S.showLexile===true?"checked":"")+' data-a="lextoggle" style="width:24px;height:24px"></div>'
@@ -3566,9 +3810,9 @@ function tSettings(){
     + '<div class="tiny" style="margin-top:6px">Changing the code signs every device out until they type the new one.</div></div>'
     + '<div class="card"><h2>Get data out</h2><div class="stack">'
     + '<button class="btn" data-a="exportlog">⬇ Book log (CSV)</button>'
-    + '<button class="btn" data-a="exportroster">⬇ Class summary (CSV)</button>'
+    + '<button class="btn" data-a="exportroster">⬇ ' + W().Grp + ' summary (CSV)</button>'
     + '<div class="tiny">Same columns as your Book Crawl workbook.</div></div></div>'
-    + '<div class="card"><h2>Teacher password</h2>'
+    + '<div class="card"><h2>' + (fam() ? 'Your password' : 'Teacher password') + '</h2>'
     + '<div class="fieldlbl">New password (12+ \u2014 a passphrase works great)</div><input id="t_pass" type="password" autocomplete="new-password" style="width:100%">'
     + '<div class="fieldlbl">Type it again</div><input id="t_pass2" type="password" autocomplete="new-password" style="width:100%">'
     + '<div class="row" style="margin-top:10px"><button class="btn small primary" data-a="tsetpass">Change password</button></div>'
@@ -3657,7 +3901,7 @@ function printCards(){
   $("#printcards").innerHTML = TD.students.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(s=>
     '<div class="pcard">'+avImg(s.name)+'<div class="nm">'+esc(s.name)+'</div>'
     + '<div class="row2">Site: '+esc(url)+'</div>'
-    + '<div class="row2">Class code: <strong>'+esc(TD.settings.classCode)+'</strong></div>'
+    + '<div class="row2">' + W().Grp + ' code: <strong>'+esc(TD.settings.classCode)+'</strong></div>'
     + '<div class="row2">Secret PIN: <strong>'+esc(s.pin)+'</strong></div>'
     + '<div class="row2">Belongs to: ______________________</div>'
     + '<div class="row2" style="font-size:12px;color:#666">Keep this card in your reading folder. Don’t share your PIN!</div></div>').join("");
@@ -3940,6 +4184,12 @@ document.addEventListener("click", async (ev)=>{
     case "toprivacy": helpBack = route.screen; go({screen:"privacy"}); break;
     case "toabout": helpBack = route.screen; go({screen:"about"}); break;
     case "tourdismiss": try{ localStorage.setItem(tourKey(), "1"); }catch(e){} render(); break;
+    case "tourstart": {
+      if(route.screen !== "teacher" || route.sub) go({screen:"teacher", sub:null});
+      setTimeout(startTour, 80);
+      break;
+    }
+    case "tgo": tourJump(el.dataset.t, el.dataset.f); break;
     case "tourreset": {
       try{
         const drop = [];
@@ -4761,12 +5011,12 @@ function vHelp(){
       + t("<strong>Keeping it PII-free:</strong> the privacy story rests on dungeon names — remind crawlers to write about the <em>book</em> in quest reports, never about themselves or classmates by name (the answer box nudges them too), and keep the key sheet on paper.")
       + t("<strong>Lost access?</strong> “Forgot password?” on the sign-in screen emails a reset link.")
       + t("<strong>Skip the password:</strong> <em>Continue with Google</em> or <em>Continue with Microsoft</em> signs you in with an account you already have. Already made a password account with the same email? It joins up automatically — same classes, same everything.")
-      + '<div class="row" style="margin-top:8px"><button class="btn small ghost" data-a="tourreset">↺ Show the first-steps checklist again</button></div>')
+      + '<div class="row" style="margin-top:8px">' + (TD && !TD.noClass ? '<button class="btn small" data-a="tourstart">▶ Take the 1-minute tour</button>' : '') + '<button class="btn small ghost" data-a="tourreset">↺ Show the first-steps checklist again</button></div>')
     + H("🚀", "Your first five minutes",
         t("<strong>1.</strong> Teacher or parent → Create your account → pick classroom or family → name it. Your 5-letter code appears immediately.")
       + t("<strong>2.</strong> Add your crawlers on the " + (fam() ? "Crew" : "Class") + " tab and print the key sheet while it’s on screen.")
       + t("<strong>3.</strong> On the kids’ device(s), open the site, type the code once, tap a crawler name, enter the PIN — they’re in for the year.")
-      + t("<strong>4.</strong> When the first “I finished a book!” lands, your Queue badge lights up: set the book’s level (one time per book), read the report, ✓ Verify.")
+      + t("<strong>4.</strong> When the first “I finished a book!” lands, your Queue badge lights up: set the book’s level (one time per book), have a quick book talk (Classic) or read the quest report, ✓ Verify.")
       + t("<strong>5.</strong> Watch the first loot box get opened. That’s the whole loop — everything else (bounties, the Descent, gear) feeds itself from verified reads."))
     + H("🛡️", "Privacy — the short version",
         t("Book Crawl stores <strong>no student personal information</strong>. Kids appear only as dungeon names (Ember Fox, Storm Otter) with 4-digit PINs — no real names, no emails, no accounts for kids, nothing to breach. The one-time key sheet linking dungeon names to real kids exists only on paper, in the grown-up’s hands. The only email in the system is the account owner’s. Classes and crews are walled off from each other by the database itself."))
@@ -4835,7 +5085,7 @@ function tMap(){
   return '<div class="stack">'
     + '<div class="card"><h2>🗺️ The Descent</h2>'
     + '<div class="tiny" style="margin-bottom:8px">Every crawler digs their own path — one floor per ' + FP + ' points. Hover any crawler for their name. '
-    + (trackerOn() ? 'The kids see this same board.' : 'The kids’ board is hidden right now (Settings → Class tracker).') + '</div>'
+    + (trackerOn() ? 'The kids see this same board.' : 'The kids’ board is hidden right now (Settings → ' + W().Grp + ' tracker).') + '</div>'
     + '<div class="label">DEEPEST — FLOOR ' + reveal + ' · ' + esc(PFLOORS[reveal - 1].name) + '</div>'
     + '<div class="tiny" style="font-style:italic;margin:2px 0 8px">' + esc(PFLOORS[reveal - 1].lore) + ' · down there: ' + esc(deepest.join(", ") || "—") + ' · ' + books + ' quests verified</div>'
     + '</div>'

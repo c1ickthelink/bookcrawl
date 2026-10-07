@@ -328,6 +328,12 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 .tourlayer.centered{background:rgba(12,9,30,.66)}
 .tourspot{position:fixed; border-radius:999px; box-shadow:0 0 0 4px var(--accent-strong), 0 0 0 200vmax rgba(12,9,30,.66); pointer-events:none; transition:left .25s ease, top .25s ease, width .25s ease, height .25s ease}
 .tourlayer.tracking .tourspot{transition:none}
+/* two-step sign-in: the QR sits on white in both themes so phone cameras can read it */
+.mfaqr{display:inline-block; background:#FFFFFF; padding:10px; border-radius:12px; border:1.5px solid var(--line); line-height:0}
+.mfaqr img{display:block; width:176px; height:176px}
+.mfakey{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:14px; color:var(--ink); background:var(--surface2); padding:2px 6px; border-radius:6px; word-break:break-all}
+.mfadev{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; border-top:1px solid var(--line)}
+.codein6{width:150px; text-align:center; letter-spacing:4px; font-size:20px; font-variant-numeric:tabular-nums}
 .tourcard{position:fixed; background:var(--surface); color:var(--ink); border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,.35); padding:16px 18px; width:380px; max-width:calc(100vw - 24px); box-sizing:border-box}
 .tourcard h2{margin:6px 0; font-size:19px; color:var(--violet)}
 .tourtext{font-size:15px; line-height:1.55}
@@ -369,6 +375,7 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
   .pcard .row2{font-size:14px;margin-top:6px}
 }
 /* ---- one-click sign-in (Google / Microsoft) ---- */
+.oauthbox{display:contents}
 .oauthbtn{width:100%; background:var(--surface); border:1.5px solid var(--line); color:var(--ink)}
 .oauthbtn:hover{border-color:var(--violet)}
 .ordiv{display:flex; align-items:center; gap:10px; color:var(--ink2); font-size:13px}
@@ -889,6 +896,43 @@ function makeLiveAPI(){
       const {error} = await sb.auth.updateUser({password});
       if(error) throw new Error(error.message);
     },
+    /* ---- two-step sign-in (authenticator app). The database (migration-20)
+       is the real lock; these calls only walk a grown-up through it. ---- */
+    async mfaGate(){
+      const {data, error, status} = await sb.rpc("mfa_gate");
+      if(error){
+        /* migration-20 not run yet (404 / PGRST202): the feature simply isn't offered */
+        if(status === 404 || error.code === "PGRST202" || /could not find the function|mfa_gate/i.test(error.message || "")) return null;
+        const err = new Error(error.message || "server error"); err.auth = _authErr(error); throw err;
+      }
+      return data || null;
+    },
+    async mfaFactors(){
+      const {data, error} = await sb.auth.mfa.listFactors();
+      if(error) throw new Error(error.message);
+      return (data && data.totp) || [];   /* verified authenticator apps only */
+    },
+    async mfaEnroll(name){
+      /* half-finished setups (closed tab, cancelled) still count toward
+         Supabase's per-account limit, so clear them out first */
+      try{
+        const {data} = await sb.auth.mfa.listFactors();
+        for(const f of ((data && data.all) || [])){
+          if(f.status !== "verified") await sb.auth.mfa.unenroll({factorId: f.id});
+        }
+      }catch(e){}
+      const {data, error} = await sb.auth.mfa.enroll({factorType: "totp", friendlyName: name, issuer: "Book Crawl"});
+      if(error) throw new Error(error.message);
+      return {id: data.id, qr: data.totp && data.totp.qr_code, secret: data.totp && data.totp.secret};
+    },
+    async mfaVerify(factorId, code){
+      const {error} = await sb.auth.mfa.challengeAndVerify({factorId, code});
+      if(error) throw new Error(error.message);
+    },
+    async mfaRemove(factorId){
+      const {error} = await sb.auth.mfa.unenroll({factorId});
+      if(error) throw new Error(error.message);
+    },
     /* platform mode: list this teacher's classes (RLS scopes automatically).
        Returns null on a pre-platform database — the caller falls back. */
     async fetchClasses(){
@@ -1297,6 +1341,9 @@ function makeDemoAPI(){
     async teacherSignOut(){ try{ sessionStorage.removeItem("bc_demo_teacher"); }catch(e){} },
     async teacherResetPassword(){ },
     async teacherUpdatePassword(){ },
+    /* two-step sign-in needs a real account and a real authenticator app:
+       the demo shows the Settings card but never asks for a code */
+    async mfaGate(){ return {ok: true, demo: true, aal: "aal1", enrolled: false, need: false}; },
     async fetchAll(){ return JSON.parse(JSON.stringify(D)); },
     async verifyRead(id){ const r = D.reads.find(x=>x.id===id); if(r){ r.status="verified"; demoEval(r); } save(D); },
     async unverifyRead(id){ const r = D.reads.find(x=>x.id===id); if(r) r.status="pending"; D.questAwards = (D.questAwards||[]).filter(a=>a.readId!==id); save(D); },
@@ -1385,6 +1432,12 @@ let lootShowAll = false; // box ledger: include already-delivered boxes
 const BC_CONTACT = "contact@thebookcrawl.com"; // published contact email for the legal pages (empty = line omitted)
 let mailSent = ""; // email awaiting confirmation after signup
 let OAUTHP = null;  // which one-click sign-ins are live: {google, azure}; null = not asked yet
+let MFAG = null;    // last mfa_gate answer; null = two-step sign-in not offered (migration-20 not run)
+let MFAG_AT = 0;    // when that answer arrived (0 = ask again on the next load)
+let MFA = null;     // sign-in code step: {factors: null|[...], after: "reset"|undefined}
+let MFAE = null;    // Settings: an authenticator being set up {id, qr, secret, backup}
+let MFAL = null;    // Settings: this account's verified authenticators (null = not loaded yet)
+let MFAL_BUSY = false;
 
 function go(patch){
   route = Object.assign({}, route, patch);
@@ -1433,14 +1486,38 @@ function authOk(){ try{ sessionStorage.removeItem("bc_ar"); }catch(e){} }
 
 let TDERR = null;
 let CLS = null;   /* current class id in platform mode; null = legacy single-class */
-async function loadTeacher(quiet){
+/* two-step sign-in: ask the database whether this session still owes the
+   6-digit code. For an account with an authenticator, a session that skipped
+   the code gets no class data (migration-20), so it goes to the code step
+   instead of an empty-looking dashboard. Returns true when it redirected. */
+async function mfaCheck(){
+  if(!api.mfaGate) return false;
+  const g = await withTimeout(api.mfaGate(), 10000);
+  MFAG = g; MFAG_AT = Date.now();
+  if(g && g.need){
+    TD = null; MFAL = null;
+    if(!MFA) MFA = {factors: null};
+    authMode = "mfa";
+    if(route.screen !== "tauth") go({screen: "tauth"}); else render();
+    return true;
+  }
+  return false;
+}
+async function loadTeacher(quiet, force){
   try{
     TDERR = null;
+    /* checked on every fresh load, background refresh, and ↻; the reloads
+       that follow a teacher's own edits reuse a check from the last 5 minutes */
+    const stale = !MFAG_AT || Date.now() - MFAG_AT > 300000;
+    const checked = (force || quiet === true || stale) ? true : false;
+    if(checked && await mfaCheck()) return null;
     let classes = null;
     if(api.fetchClasses) classes = await withTimeout(api.fetchClasses(), 15000);
     if(classes){
       /* platform mode: this teacher's classes, scoped by the server */
       if(!classes.length){
+        /* no classes might really mean "this session owes the code" */
+        if(!checked && await mfaCheck()) return null;
         CLS = null;
         TD = {noClass: true, platform: true, classes: []};
         authOk();
@@ -1483,6 +1560,12 @@ async function loadTeacher(quiet){
 function render(){
   const app = $("#app");
   const scr = route.screen;
+  /* an async re-render (a reload finishing after an edit, a list arriving)
+     must never eat what someone is in the middle of typing */
+  const ae = document.activeElement;
+  const keep = (ae && ae.id && app.contains(ae) && /^(INPUT|TEXTAREA)$/.test(ae.tagName)
+    && !/^(checkbox|radio|file|button|submit|range|color)$/i.test(ae.type || ""))
+    ? {id: ae.id, v: ae.value, s: ae.selectionStart, e: ae.selectionEnd} : null;
   if(scr === "code") app.innerHTML = vCode();
   else if(scr === "gate") app.innerHTML = vGate();
   else if(scr === "pin") app.innerHTML = vPin(false);
@@ -1505,6 +1588,13 @@ function render(){
   if(DEMO && !$(".demo-pill")){ const d = document.createElement("div"); d.className="demo-pill"; d.textContent="DEMO MODE"; document.body.appendChild(d); }
   const se = $("#booksearch");
   if(se && logState && logState.q){ se.focus(); const n = se.value.length; try{ se.setSelectionRange(n,n); }catch(e){} }
+  if(keep){
+    const ne = document.getElementById(keep.id);
+    if(ne && ne !== ae && /^(INPUT|TEXTAREA)$/.test(ne.tagName)){
+      if(ne.value !== keep.v) ne.value = keep.v;
+      try{ ne.focus({preventScroll: true}); if(keep.s != null && ne.setSelectionRange) ne.setSelectionRange(keep.s, keep.e); }catch(e){}
+    }
+  }
 }
 
 function topbar(extra){
@@ -2758,21 +2848,30 @@ async function openLoot(){
 function vTeacherAuth(){
   const back = '<button class="btn ghost small" data-a="authmode" data-m="in">\u2190 back to sign in</button>';
   let inner = "";
-  const oauth = (function(){
-    if(OAUTHP === null){
-      OAUTHP = {};
-      api.oauthProviders().then(function(p){ OAUTHP = p || {}; if(route.screen === "tauth" && (OAUTHP.google || OAUTHP.azure)) render(); }).catch(function(){});
-      return "";
-    }
+  const oauthHTML = function(){
     const b = [];
-    if(OAUTHP.google) b.push('<button class="btn oauthbtn" data-a="toauth" data-p="google">Continue with Google</button>');
-    if(OAUTHP.azure) b.push('<button class="btn oauthbtn" data-a="toauth" data-p="azure">Continue with Microsoft</button>');
+    if(OAUTHP && OAUTHP.google) b.push('<button class="btn oauthbtn" data-a="toauth" data-p="google">Continue with Google</button>');
+    if(OAUTHP && OAUTHP.azure) b.push('<button class="btn oauthbtn" data-a="toauth" data-p="azure">Continue with Microsoft</button>');
     if(!b.length) return "";
     return b.join("")
       + '<div class="tiny" style="text-align:center">For teachers and parents (18+).'
       + (authMode === "up" ? '' : ' New here? This creates your account and means you agree to the <button class="linkbtn" data-a="toterms">Terms</button> and <button class="linkbtn" data-a="toprivacy">Privacy Policy</button>.')
       + '</div>'
       + '<div class="ordiv"><span>or use email</span></div>';
+  };
+  /* the one-click buttons drop into their own slot when the settings answer
+     arrives, so nothing already typed in the form below gets wiped */
+  const oauth = (function(){
+    if(OAUTHP === null){
+      OAUTHP = {};
+      api.oauthProviders().then(function(p){
+        OAUTHP = p || {};
+        const box = document.getElementById("oauthbox");
+        if(box && route.screen === "tauth") box.innerHTML = oauthHTML();
+      }).catch(function(){});
+      return '<div id="oauthbox" class="oauthbox"></div>';
+    }
+    return '<div id="oauthbox" class="oauthbox">' + oauthHTML() + '</div>';
   })();
   if(authMode === "up"){
     inner = oauth + '<div><div class="fieldlbl">Email</div><input id="t_email" type="email" autocomplete="username"></div>'
@@ -2790,6 +2889,32 @@ function vTeacherAuth(){
       + '<div><div class="fieldlbl">New password (12+ \u2014 a passphrase works great)</div><input id="t_pass" type="password" autocomplete="new-password"></div>'
       + '<div><div class="fieldlbl">Type it again</div><input id="t_pass2" type="password" autocomplete="new-password"></div>'
       + '<button class="btn primary big" data-a="tsetpass">Save new password</button>';
+  } else if(authMode === "mfa"){
+    /* step two of signing in: the 6-digit code from the authenticator app */
+    if(!MFA) MFA = {factors: null};
+    const fl = MFA.factors;
+    if(!fl && !MFA.loading){
+      MFA.loading = true;
+      api.mfaFactors().then(function(f){ MFA && (MFA.factors = f); })
+        .catch(function(){ MFA && (MFA.factors = []); })
+        .then(function(){ if(MFA) MFA.loading = false; if(route.screen === "tauth" && authMode === "mfa") render(); });
+    }
+    const pick = fl && fl.length > 1
+      ? '<div><div class="fieldlbl">Which device?</div><select id="t_factor">'
+        + fl.map(function(f){ return '<option value="' + esc(f.id) + '">' + esc(f.friendly_name || "Authenticator") + '</option>'; }).join("")
+        + '</select></div>'
+      : '';
+    inner = '<div class="banner">\ud83d\udd10 This account uses two-step sign-in.</div>'
+      + '<div class="tiny">Open your authenticator app and type the 6-digit code it shows for Book Crawl.</div>'
+      + pick
+      + '<div><div class="fieldlbl">6-digit code</div><input id="t_code" class="codein6" inputmode="numeric" autocomplete="one-time-code" maxlength="7" spellcheck="false"></div>'
+      + (fl && !fl.length
+        ? '<div class="tiny" role="alert">We couldn\u2019t load your authenticator. Refresh the page, or sign out and back in.</div>'
+        : '<button class="btn primary big" data-a="tmfaverify"' + (fl ? '' : ' disabled') + '>Verify</button>')
+      + '<div class="row"><button class="btn ghost small" data-a="tsignout">Not you? Sign out</button></div>'
+      + '<div class="tiny">Lost the phone with your authenticator? Email '
+      + (BC_CONTACT ? '<strong>' + esc(BC_CONTACT) + '</strong>' : 'Book Crawl')
+      + ' from the email address on this account. Once we\u2019ve confirmed it\u2019s you, we\u2019ll reset two-step sign-in.</div>';
   } else {
     inner = (mailSent ? '<div class="banner">📬 Almost in — we emailed a confirmation link to <strong>' + esc(mailSent) + '</strong>. Tap it, then sign in here.</div>' : '')
       + oauth
@@ -2802,7 +2927,7 @@ function vTeacherAuth(){
   }
   return topbar('<button class="btn ghost small" data-a="tostudents">\u2190 back</button>')
     + '<div class="gate"><div class="brand display" style="font-size:26px">Teacher</div>'
-    + '<div class="sub">'+(DEMO?"demo mode \u2014 any email + password works":"sign in with your account")+'</div>'
+    + '<div class="sub">'+(DEMO?"demo mode \u2014 any email + password works":(authMode === "mfa" ? "one more step" : "sign in with your account"))+'</div>'
     + '<div class="card authform stack">' + inner + '</div></div>';
 }
 
@@ -3818,6 +3943,7 @@ function tSettings(){
     + '<div class="row" style="margin-top:10px"><button class="btn small primary" data-a="tsetpass">Change password</button></div>'
     + (DEMO ? "" : '<div class="tiny" style="margin-top:6px">Forgot it entirely? The sign-in screen has \u201cForgot password?\u201d, and the Supabase dashboard (Authentication \u2192 Users) is the master key.</div>')
     + '</div>'
+    + mfaCardHTML()
     + billingCardHTML()
     + '<div class="card"><h2>🕊️ Found a bug? Have an idea?</h2>'
     + '<div class="tiny" style="margin-bottom:8px">Goes straight to the Book Crawl forge. What were you doing, what happened, what did you expect? (Please leave out students\u2019 real names.)</div>'
@@ -3832,6 +3958,69 @@ function tSettings(){
         + '<div style="margin-top:10px"><button class="btn ghost danger" data-a="seasonopen">\ud83c\udf42 Begin next season\u2026</button></div></div>'
       : "")
     + (DEMO ? '<div class="card"><h2>Demo</h2><button class="btn ghost danger" data-a="demoreset" data-arm="1">Reset demo data</button></div>' : "")
+    + '</div>';
+}
+/* ---- two-step sign-in card (Settings) ---- */
+function mfaQrSrc(q){
+  /* the sign-in library hands back raw SVG behind a data: prefix; re-encode
+     it so characters like # can't cut the image short */
+  if(!q) return "";
+  const m = /^data:image\/svg\+xml;utf-8,/i.exec(q);
+  if(m) return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(q.slice(m[0].length));
+  return /^data:image\//i.test(q) ? q : "data:image/svg+xml;charset=utf-8," + encodeURIComponent(q);
+}
+function mfaKey(s){ return String(s || "").replace(/\s+/g, "").replace(/(.{4})/g, "$1 ").trim(); }
+function mfaStamp(){
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")
+    + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") + ":" + String(d.getSeconds()).padStart(2, "0");
+}
+function loadMfaList(){
+  if(MFAL_BUSY || !api.mfaFactors) return;
+  MFAL_BUSY = true;
+  api.mfaFactors().then(function(f){ MFAL = f || []; })
+    .catch(function(){ MFAL = []; })
+    .then(function(){ MFAL_BUSY = false; if(route.screen === "teacher" && route.tab === "settings") render(); });
+}
+function mfaCardHTML(){
+  const head = '<div class="card" id="mfacard"><h2>🔐 Two-step sign-in</h2>';
+  const why = 'An optional extra lock for your account. After your password (or Google or Microsoft), Book Crawl also asks for a 6-digit code from an authenticator app on your phone, so a stolen password alone can’t open your ' + W().grp + '.';
+  if(MFAG && MFAG.demo){
+    return head + '<div class="tiny">' + why + ' It needs a real account and a real authenticator app, so it’s switched off in demo mode.</div></div>';
+  }
+  /* not offered until the database can enforce it (migration-20) */
+  if(!MFAG || !MFAG.ok || MFAG.degraded) return "";
+  if(MFAE){
+    return head
+      + '<div class="tiny" style="margin-bottom:8px"><strong>1.</strong> In an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, and the like), add an account and scan this code'
+      + (MFAE.backup ? ' with your <em>backup</em> device' : '') + '.</div>'
+      + '<div class="mfaqr"><img src="' + esc(mfaQrSrc(MFAE.qr)) + '" alt="QR code to scan with your authenticator app" width="176" height="176"></div>'
+      + '<div class="tiny" style="margin:8px 0">Can’t scan it? Choose “enter a setup key” in the app and type: <span class="mfakey">' + esc(mfaKey(MFAE.secret)) + '</span></div>'
+      + '<div class="tiny"><strong>2.</strong> Type the 6-digit code the app now shows for Book Crawl:</div>'
+      + '<div class="row" style="margin-top:6px"><input id="mfa_code" class="codein6" inputmode="numeric" autocomplete="one-time-code" maxlength="7" spellcheck="false" aria-label="6-digit code from your authenticator app">'
+      + '<button class="btn small primary" data-a="mfaconfirm">' + (MFAE.backup ? 'Add this device' : 'Turn it on') + '</button>'
+      + '<button class="btn small ghost" data-a="mfacancel">Cancel</button></div>'
+      + '</div>';
+  }
+  if(!MFAG.enrolled){
+    return head + '<div class="tiny" style="margin-bottom:10px">' + why + '</div>'
+      + '<button class="btn" data-a="mfaon">Turn on two-step sign-in</button></div>';
+  }
+  if(MFAL === null){ loadMfaList(); }
+  const list = MFAL || [];
+  const rows = list.map(function(f){
+    return '<div class="mfadev"><span>📱 ' + esc(f.friendly_name || "Authenticator") + '</span>'
+      + (list.length > 1 ? '<button class="btn small ghost" data-a="mfadel" data-id="' + esc(f.id) + '" aria-label="Remove ' + esc(f.friendly_name || "this authenticator") + '">Remove</button>' : '')
+      + '</div>';
+  }).join("");
+  return head
+    + '<div style="margin:4px 0 8px">✅ <strong>On.</strong> Each time you sign in, Book Crawl asks for a code from your authenticator app.</div>'
+    + (MFAL === null ? '<div class="tiny"><span class="spin"></span> loading your devices…</div>' : rows)
+    + '<div class="row" style="margin-top:10px">'
+    + (list.length < 10 ? '<button class="btn small" data-a="mfaadd">Add a backup device</button>' : '')
+    + '<button class="btn small ghost danger" data-a="mfaoff">Turn off two-step sign-in</button></div>'
+    + '<div class="tiny" style="margin-top:8px">A backup device (a second phone, a tablet, or a password manager) keeps you in if you lose this one. Lost every device? Email '
+    + (BC_CONTACT ? '<strong>' + esc(BC_CONTACT) + '</strong>' : 'Book Crawl') + ' from your account’s email address, and we’ll reset it once we’ve confirmed it’s you.</div>'
     + '</div>';
 }
 function billingCardHTML(){
@@ -4163,13 +4352,101 @@ document.addEventListener("click", async (ev)=>{
         }
         else await withTimeout(api.teacherSignIn(email, pass), 20000);
         busy(el, false);
-        authOk();
+        authOk(); MFAG = null; MFAG_AT = 0;
         authMode = "in"; mailSent = "";
         TD = null; TDERR = null; go({screen:"teacher", tab:"queue", sub:null});
       }catch(e){
         busy(el, false);
         toast(e.message === "timeout" ? "The server took too long \u2014 check your connection and try again" : (e.message || "Sign-in failed"));
       }
+      break;
+    }
+    /* ---- two-step sign-in ---- */
+    case "tmfaverify": {
+      const code = ($("#t_code")?.value || "").replace(/\D/g, "");
+      if(code.length !== 6){ toast("Type the 6-digit code from your authenticator app"); $("#t_code")?.focus(); return; }
+      const fl = (MFA && MFA.factors) || [];
+      const fid = ($("#t_factor")?.value) || (fl[0] && fl[0].id);
+      if(!fid){ toast("Still loading — try again in a moment"); return; }
+      if(el.disabled) return;
+      busy(el, true);
+      try{
+        await withTimeout(api.mfaVerify(fid, code), 20000);
+        const after = MFA && MFA.after;
+        MFA = null; MFAG = null; MFAG_AT = 0; MFAL = null;
+        authOk();
+        if(after === "reset"){ authMode = "reset"; render(); toast("Code accepted — now choose your new password"); return; }
+        authMode = "in"; mailSent = "";
+        TD = null; TDERR = null; go({screen:"teacher", tab:"queue", sub:null});
+      }catch(e){
+        busy(el, false);
+        const inp = $("#t_code"); if(inp){ inp.value = ""; inp.focus(); }
+        toast(e.message === "timeout" ? "The server took too long — try again"
+          : "That code didn’t work — type the newest one from the app (and make sure your phone sets its clock automatically)");
+      }
+      break;
+    }
+    case "mfaon": case "mfaadd": {
+      busy(el, true);
+      try{
+        const d = await withTimeout(api.mfaEnroll((a === "mfaadd" ? "Backup device " : "Authenticator ") + mfaStamp()), 20000);
+        if(!d || !d.id || !d.qr) throw new Error("no setup code came back");
+        MFAE = {id: d.id, qr: d.qr, secret: d.secret || "", backup: a === "mfaadd"};
+        render();
+        const card = $("#mfacard"); if(card){ try{ card.scrollIntoView({block: "nearest"}); }catch(e2){} }
+        $("#mfa_code")?.focus({preventScroll: true});
+      }catch(e){
+        busy(el, false);
+        toast(e.message === "timeout" ? "The server took too long — try again" : "Couldn’t start setup — " + (e.message || "try again"));
+      }
+      break;
+    }
+    case "mfaconfirm": {
+      if(!MFAE) return;
+      const code = ($("#mfa_code")?.value || "").replace(/\D/g, "");
+      if(code.length !== 6){ toast("Type the 6-digit code your app shows for Book Crawl"); $("#mfa_code")?.focus(); return; }
+      if(el.disabled) return;
+      busy(el, true);
+      try{
+        await withTimeout(api.mfaVerify(MFAE.id, code), 20000);
+        const wasBackup = MFAE.backup;
+        MFAE = null; MFAL = null;
+        try{ MFAG = await withTimeout(api.mfaGate(), 10000) || MFAG; MFAG_AT = Date.now(); }catch(e2){}
+        render();
+        toast(wasBackup ? "📱 Backup device added" : "🔐 Two-step sign-in is on — you’ll type a code each time you sign in");
+      }catch(e){
+        busy(el, false);
+        const inp = $("#mfa_code"); if(inp){ inp.value = ""; inp.focus(); }
+        toast(e.message === "timeout" ? "The server took too long — try again"
+          : "That code didn’t match — type the newest one from the app (and make sure your phone sets its clock automatically)");
+      }
+      break;
+    }
+    case "mfacancel": {
+      const id = MFAE && MFAE.id;
+      MFAE = null; render();
+      if(id){ try{ await api.mfaRemove(id); }catch(e){} }   /* tidy the half-finished setup */
+      break;
+    }
+    case "mfadel": {
+      if(!arm(el)) return;
+      busy(el, true);
+      try{
+        await withTimeout(api.mfaRemove(el.dataset.id), 15000);
+        MFAL = null; render(); toast("Device removed");
+      }catch(e){ busy(el, false); toast("Couldn’t remove it — " + (e.message || "try again")); }
+      break;
+    }
+    case "mfaoff": {
+      if(!arm(el)) return;
+      busy(el, true);
+      try{
+        const fl = await withTimeout(api.mfaFactors(), 15000);
+        for(const f of fl) await withTimeout(api.mfaRemove(f.id), 15000);
+        MFAL = null;
+        try{ MFAG = await withTimeout(api.mfaGate(), 10000) || MFAG; MFAG_AT = Date.now(); }catch(e2){}
+        render(); toast("Two-step sign-in is off — your password (or Google/Microsoft) is enough again");
+      }catch(e){ busy(el, false); MFAL = null; render(); toast("Couldn’t turn it off — " + (e.message || "try again")); }
       break;
     }
     case "renew": {
@@ -4294,11 +4571,24 @@ document.addEventListener("click", async (ev)=>{
         authMode = "in"; TD = null; TDERR = null;
         go({screen:"teacher", tab:"queue", sub:null});
         toast("Password updated");
-      }catch(e){ busy(el, false); toast(e.message || "Couldn\u2019t change it \u2014 sign out, sign in, and retry"); }
+      }catch(e){
+        busy(el, false);
+        /* accounts with two-step sign-in may need the code before a password change */
+        if(/aal2|assurance level|mfa/i.test((e && e.message) || "")){
+          MFA = {factors: null, after: "reset"}; authMode = "mfa"; render();
+          toast("Type your two-step code first, then set the new password");
+          return;
+        }
+        toast(e.message || "Couldn\u2019t change it \u2014 sign out, sign in, and retry");
+      }
       break;
     }
-    case "tsignout": try{ await withTimeout(api.teacherSignOut(), 8000); }catch(e){} TD=null; TDERR=null; go({screen: CODE ? "gate" : "code"}); break;
-    case "trefresh": busy(el,true); await loadTeacher(); busy(el,false); render(); break;
+    case "tsignout":
+      try{ await withTimeout(api.teacherSignOut(), 8000); }catch(e){}
+      TD=null; TDERR=null; MFA=null; MFAE=null; MFAL=null; MFAG=null; MFAG_AT=0;
+      if(authMode === "mfa") authMode = "in";
+      go({screen: CODE ? "gate" : "code"}); break;
+    case "trefresh": busy(el,true); await loadTeacher(false, true); busy(el,false); render(); break;
     case "nckind": {
       ncName = ($("#nc_name")?.value || "").trim();
       ncKind = el.dataset.k === "family" ? "family" : "classroom";
@@ -4496,6 +4786,7 @@ document.addEventListener("click", async (ev)=>{
       el.disabled = true;
       try{
         const r = await api.seasonReset();
+        if(r && r.err === "mfa"){ const p = document.getElementById("seasonpop"); if(p) p.remove(); await refreshTeacher(); break; }
         if(!r || r.ok !== true) throw new Error(r && r.err === "family"
           ? "Family crews keep everything \u2014 no reset needed"
           : "Couldn\u2019t clear the season \u2014 try again");
@@ -4647,6 +4938,13 @@ document.addEventListener("input", (ev)=>{
   else if(ev.target.id === "nb_title" && logState){ logState.ntitle = ev.target.value; }
   else if(ev.target.id === "nb_pages" && logState){ logState.npages = ev.target.value; }
   else if(ev.target.id === "log_date" && logState){ logState.date = ev.target.value; }
+  else if(ev.target.id === "t_code" || ev.target.id === "mfa_code"){
+    /* six digits typed (or pasted, or filled from the phone's code suggestion): go */
+    if(ev.target.value.replace(/\D/g, "").length === 6){
+      const b = $(ev.target.id === "t_code" ? '[data-a="tmfaverify"]' : '[data-a="mfaconfirm"]');
+      if(b && !b.disabled) b.click();
+    }
+  }
 });
 document.addEventListener("keydown", async (ev)=>{
   if(CER){
@@ -4654,6 +4952,7 @@ document.addEventListener("keydown", async (ev)=>{
     if(ev.key === "Escape"){ endCeremony(); return; }
   }
   if(route.screen === "code" && ev.key === "Enter"){ $('[data-a="entercode"]')?.click(); return; }
+  if(ev.key === "Enter" && document.activeElement && document.activeElement.id === "mfa_code"){ $('[data-a="mfaconfirm"]')?.click(); return; }
   if(route.screen === "tauth" && ev.key === "Enter"){
     const ae = document.activeElement;
     if(ae && ae.tagName === "TEXTAREA") return;
@@ -4666,6 +4965,7 @@ document.addEventListener("keydown", async (ev)=>{
     const btn = authMode === "up" ? "tsignup"
       : authMode === "forgot" ? "tforgot"
       : authMode === "reset" ? "tsetpass"
+      : authMode === "mfa" ? "tmfaverify"
       : "tsignin";
     $('[data-a="' + btn + '"]')?.click();
     return;
@@ -4709,6 +5009,9 @@ document.addEventListener("visibilitychange", async ()=>{
         const why = oauthErr ? "Sign-in didn\u2019t finish: " + String(oauthErr).replace(/\+/g, " ").slice(0, 160) : "Sign-in didn\u2019t finish \u2014 try again, or use email and password";
         setTimeout(function(){ toast(why); }, 400);
       }
+    } else if(route.screen === "tauth" && authMode !== "reset" && api.mfaGate){
+      /* reloaded in the middle of the code step: put the code step back */
+      try{ const g = await withTimeout(api.mfaGate(), 8000); MFAG = g; MFAG_AT = Date.now(); if(g && g.need){ authMode = "mfa"; MFA = {factors: null}; } }catch(e){}
     }
     /* tidy the address bar after a Google/Microsoft round trip (never during a password reset) */
     if(!/type=recovery/.test(location.hash) && /access_token|error/.test(location.hash + location.search)){
@@ -5011,6 +5314,7 @@ function vHelp(){
       + t("<strong>Keeping it PII-free:</strong> the privacy story rests on dungeon names — remind crawlers to write about the <em>book</em> in quest reports, never about themselves or classmates by name (the answer box nudges them too), and keep the key sheet on paper.")
       + t("<strong>Lost access?</strong> “Forgot password?” on the sign-in screen emails a reset link.")
       + t("<strong>Skip the password:</strong> <em>Continue with Google</em> or <em>Continue with Microsoft</em> signs you in with an account you already have. Already made a password account with the same email? It joins up automatically — same classes, same everything.")
+      + t("<strong>Two-step sign-in (optional):</strong> Settings → 🔐 Two-step sign-in adds a 6-digit code from an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, and the like) to every sign-in, so a stolen password alone can’t open your dungeon. Add a backup device in the same place. Lost every device? Email " + (BC_CONTACT ? esc(BC_CONTACT) : "Book Crawl") + " from your account’s email address, and we’ll reset it once we’ve confirmed it’s you.")
       + '<div class="row" style="margin-top:8px">' + (TD && !TD.noClass ? '<button class="btn small" data-a="tourstart">▶ Take the 1-minute tour</button>' : '') + '<button class="btn small ghost" data-a="tourreset">↺ Show the first-steps checklist again</button></div>')
     + H("🚀", "Your first five minutes",
         t("<strong>1.</strong> Teacher or parent → Create your account → pick classroom or family → name it. Your 5-letter code appears immediately.")
@@ -5029,11 +5333,11 @@ function vHelp(){
       + '<div class="row"><button class="btn small ghost" data-a="toterms">Terms of Service</button><button class="btn small ghost" data-a="toprivacy">Privacy Policy</button></div>')
     + '</div>';
 }
-function legalShell(title, inner){
+function legalShell(title, inner, updated){
   return topbar('<button class="btn ghost small" data-a="helpback">← back</button>')
     + '<div class="stack" style="max-width:660px;margin:0 auto">'
     + '<h2 class="display" style="font-size:22px;color:var(--violet)">' + title + '</h2>'
-    + '<div class="tiny">Book Crawl · last updated September 2026 · written in plain language on purpose.</div>'
+    + '<div class="tiny">Book Crawl · last updated ' + (updated || "September 2026") + ' · written in plain language on purpose.</div>'
     + inner
     + (BC_CONTACT ? '<div class="card"><h2>✉️ Contact</h2><div class="tiny">Questions about any of this: <strong>' + esc(BC_CONTACT) + '</strong></div></div>' : '')
     + '</div>';
@@ -5061,7 +5365,7 @@ function vPrivacy(){
   const C = (h, b) => '<div class="card"><h2>' + h + '</h2><div class="tiny" style="line-height:1.55">' + b + '</div></div>';
   return legalShell("🛡️ Privacy Policy",
       C("The short version", "Book Crawl stores <strong>no personal information about children</strong>. No ads, no trackers, no analytics, no selling or sharing of data — for anyone. This page lists everything we store, which doesn’t take long. Book Crawl is an independent product, not affiliated with or operated by any school district.")
-    + C("What we store about you (the adult)", "Your email address and a securely hashed password, used only to sign you in (handled by Supabase, our database provider). If you choose <strong>Continue with Google</strong> or <strong>Continue with Microsoft</strong> instead, there’s no password here at all: that company confirms your email, and its standard sign-in also passes along your name and profile-picture link, which stay attached to your sign-in record and are never shown or used by the game. Your class or crew’s name, settings, and season-pass status. That’s the whole list.")
+    + C("What we store about you (the adult)", "Your email address and a securely hashed password, used only to sign you in (handled by Supabase, our database provider). If you choose <strong>Continue with Google</strong> or <strong>Continue with Microsoft</strong> instead, there’s no password here at all: that company confirms your email, and its standard sign-in also passes along your name and profile-picture link, which stay attached to your sign-in record and are never shown or used by the game. If you turn on optional two-step sign-in, Supabase also keeps a secret setup key and a device label (like “Authenticator 2026-10-07”) for each authenticator app you add, used only to check your sign-in codes. Your class or crew’s name, settings, and season-pass status. That’s the whole list.")
     + C("What we store about kids", "A made-up dungeon name (like <em>Ember Fox</em>), a 4-digit PIN, the reading-level range a grown-up selects for them (with the date of each re-test), and their reading log: book titles, dates, points, boxes, gear, and quest-report answers. Grown-up-only notes ride along with the log \u2014 the AI advisory hint, any summary the teacher types of what the child said aloud, and spot-check flags \u2014 and no child ever sees them. None of it names, identifies, or contacts a real child. The paper key sheet that links dungeon names to real kids is printed once on your device and never uploaded — we could not identify a child in our own database if we tried. For crawlers who reach the end-game, we also store their spot in the Undercrawl story \u2014 room and puzzle progress only: the words kids type into the game are read on the device and thrown away, never stored, never sent.")
     + C("Children’s privacy (COPPA)", "Book Crawl is designed so that children never provide personal information: no child accounts, no names, no emails, no photos, no location. Consent works the way COPPA expects in each setting: in a <strong>classroom</strong>, the teacher and school consent, and Book Crawl is used only for the class’s educational program; in a <strong>family crew</strong>, the parent is the account holder and consents directly. The little the game keeps about a child is used <strong>solely to run the game</strong> — never for advertising, marketing, profiling, or sale, and never shared except with the service providers listed below — consistent with COPPA and with Georgia’s student-data law (O.C.G.A. § 20-2-666). Parents can review everything in their child’s log through the account holder, have it deleted at any time (deleting a student is one button, pressed twice to confirm), or decline entirely — a child who doesn’t participate is simply never added, so no data about them ever exists.")
     + C("Schools & FERPA", "For classrooms, Book Crawl works as the school’s service provider: the reading records in a class dungeon remain under the school’s control. The teacher can export them as CSV or delete them at any moment, we use them only to provide the game — no secondary use of any kind — and we never re-disclose them. Parents exercise their FERPA rights to review records the usual way: through the school. If your school or district has signed a data privacy agreement with Book Crawl, that agreement controls wherever it is stricter than this policy.")
@@ -5071,7 +5375,8 @@ function vPrivacy(){
     + C("Cookies & tracking", "Book Crawl sets no advertising or analytics trackers. Your browser keeps only what the game needs to work: your sign-in session, your class code, and small conveniences like which device already saw a welcome screen.")
     + C("Who can see what", "Each class or crew is walled off from every other by database-level security. You see only your own dungeon. Kids see their classmates’ dungeon names, avatars, and floor numbers (if the tracker is on) — never anyone’s points or reading details. If a security incident ever affected your class or crew’s data, you would be notified at your account email without unreasonable delay \u2014 no later than 72 hours after we confirm it \u2014 with what happened, what it touched, and what we’re doing about it. Schools and districts with a signed data agreement are also notified the way that agreement requires.")
     + C("Retention & deletion", "You can delete a student or a book yourself at any moment, and it’s gone; to delete a whole class, just ask. Classroom data is <strong>season-scoped</strong>: when a teacher wraps up a school year, one button (Settings \u2192 \ud83c\udf42 Season) clears the class’s crawler data — names, logs, points, gear — for a fresh start, so prior-year classroom records don’t carry forward. Deleted or cleared data leaves the live database at once and our automatic backups within 7 days. The class library of books and levels carries over, so next year’s readers inherit a leveled shelf. Family crews are the exception: a family’s data stays until the parent deletes it. Accounts inactive for 24 months are deleted entirely, after email reminders. A frozen dungeon is kept, not deleted. To delete a class, your account, or everything in it, just ask" + (BC_CONTACT ? " at the address below" : " through the site") + ".")
-    + C("Changes", "If this policy changes in a way that matters, the site will say so. It will never change into one that collects information about children."));
+    + C("Changes", "If this policy changes in a way that matters, the site will say so. It will never change into one that collects information about children."),
+    "October 2026");
 }
 function tMap(){
   const FP = floorPtsPer();

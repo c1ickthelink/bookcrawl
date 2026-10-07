@@ -3,6 +3,49 @@
 Human-readable history of what changed for teachers, parents, and readers.
 (Internal record: GitHub commit history + Supabase SQL editor history.)
 
+## October 7, 2026
+- Optional two-step sign-in for grown-ups. Settings → 🔐 Two-step sign-in
+  adds a 6-digit code from an authenticator app (Google Authenticator,
+  Microsoft Authenticator, 1Password, and the like) to every sign-in,
+  including Google and Microsoft sign-ins. Scan a QR code (or type the setup
+  key), confirm one code, done. Add a backup device in the same card; turn
+  it off there too. Nobody has to use it, and kids are untouched.
+- It's enforced by the database, not just the screen: once an account turns
+  it on, its class data stays locked to any session that hasn't passed the
+  code, and the AI pre-screen refuses that session too. A device that was
+  already signed in gets asked for the code at its next refresh.
+- Lost every device? Email contact@thebookcrawl.com from the account's
+  address; after confirming it's you, Book Crawl resets it.
+- The Privacy Policy now lists what two-step sign-in stores: a secret setup
+  key and a device label per authenticator, used only to check codes.
+- Small fixes for typing on a slow connection: when the Google/Microsoft
+  buttons loaded a beat late, they could wipe an email and password you'd
+  already started typing, and a dashboard refresh finishing after an edit
+  could wipe a box you'd moved on to (like the next ISBN right after adding
+  a book). What you're typing now survives both.
+- Requires migration-20 (safe any day, before or after the paywall
+  migration) and the screen-read v6.2 function. Steps are in MFA-SETUP.md.
+
+## October 5, 2026
+- A guided tour for new grown-up accounts. The first time a teacher or
+  parent opens a brand-new dungeon, a one-minute tour dims the page,
+  lights up each tab in turn (Class or Crew, Queue, Map, Books, Loot,
+  Settings), and explains what lives there before anything gets set up.
+  Skip it any time; replay it from the first-steps card or from Help. On
+  phones, the tab strip slides each lit tab into view.
+- The first-steps buttons now take you all the way there. "Add students"
+  ("Add crew members" for families) opens the Class tab's crawler
+  generator, scrolls to it, and highlights it. On a phone, the old button
+  changed the tab below the fold, so it looked like nothing happened.
+- Family crews no longer see classroom words on the grown-up screens:
+  crew members instead of students, crew points, the crew library, the
+  crew tracker, and the crew code on PIN cards.
+- The tour, the first-steps card, and Help now describe checking a read
+  the way your dungeon is actually set up: a quick book talk in Classic
+  mode (where every new dungeon starts), or the quest report once you
+  switch to Quest Report in Settings.
+- No database change.
+
 ## September 29, 2026
 - All Book Crawl email now runs on Amazon SES in a US region: sign-up
   confirmations and password resets for grown-ups, plus the operator's own

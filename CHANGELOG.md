@@ -3,6 +3,24 @@
 Human-readable history of what changed for teachers, parents, and readers.
 (Internal record: GitHub commit history + Supabase SQL editor history.)
 
+## October 8, 2026
+- Settings is split into four sections, picked from a row of buttons at the
+  top: **Class** (or **Crew**) for how reads get checked, your code, and
+  what kids see (the tracker, their own Lexile range, the Undercrawl), plus
+  the season pass; **Scoring** for the point values, loot-box size, and
+  floor size (tuned defaults most teachers never touch); **Year-end** for
+  the vault tiers, the CSV exports, and Begin next season; and **Account**
+  for your password and two-step sign-in, which cover every class on your
+  account. Settings remembers the section you were in.
+- Help moved to a ❓ button in the top bar, so it's one tap from any tab.
+  The "Found a bug? Have an idea?" box now sits at the bottom of Help when
+  you open it from your dashboard (never on the kids' side).
+- On phones, the top-bar buttons got a little more compact so the logo and
+  buttons still share one row on most phones; on very narrow screens the
+  buttons drop below the logo as a group, and the four section buttons
+  fold into two rows.
+- No database change.
+
 ## October 7, 2026
 - Optional two-step sign-in for grown-ups. Settings → 🔐 Two-step sign-in
   adds a 6-digit code from an authenticator app (Google Authenticator,

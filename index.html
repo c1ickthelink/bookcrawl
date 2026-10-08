@@ -62,7 +62,11 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:3px solid v
 .hidden{display:none !important}
 
 /* top bar */
-.topbar{display:flex; align-items:center; gap:10px; padding:10px 2px 14px}
+.topbar{display:flex; align-items:center; gap:10px; padding:10px 2px 14px; flex-wrap:wrap}
+.topbar .brand{white-space:nowrap}
+/* the top-right buttons stay together; on very narrow phones they drop below the logo as a group */
+.tbtns{display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end; margin-left:auto}
+@media (max-width: 420px){ .tbtns{gap:3px} .tbtns .btn.small{padding:6px 7px; min-height:38px} .tbtns .btn.icon{padding:6px; min-width:36px} }
 .topbar .brand{font-size:clamp(19px,4vw,26px); color:var(--violet)}
 .topbar .brand small{display:block; font-family:"Atkinson Hyperlegible",system-ui,sans-serif; font-size:12px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase}
 .topbar .spacer{flex:1}
@@ -174,6 +178,12 @@ h2{font-size:17px; margin-bottom:8px}
 .tabs{display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; margin-bottom:12px}
 .tabs .btn{min-height:42px; padding:8px 16px; border-radius:999px; white-space:nowrap}
 .tabs .btn.on{background:var(--violet); color:#fff}
+/* Settings sections: a segmented control under the main tabs */
+.subtabs{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:4px; padding:4px; margin:0 0 12px; background:var(--surface2); border-radius:14px; max-width:520px}
+.subtabs .btn{min-height:40px; padding:6px 6px; border-radius:10px; font-size:14px; background:transparent; color:var(--ink2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.subtabs .btn.on{background:var(--surface); color:var(--ink); box-shadow:var(--shadow)}
+.setgrid{align-items:start}
+@media (max-width: 359px){ .subtabs{grid-template-columns:repeat(2, minmax(0, 1fr))} }
 :root[data-theme="dark"] .tabs .btn.on{color:#171430}
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .tabs .btn.on{color:#171430} }
 table{width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums}
@@ -1602,7 +1612,7 @@ function topbar(extra){
            : (BOOT ? BOOT.class_name : "");
   return '<div class="topbar">'
     + '<div class="brand display">BOOK CRAWL<small>'+esc(nm||"")+'</small></div>'
-    + '<div class="spacer"></div>' + (extra||"") + '</div>';
+    + (extra ? '<div class="tbtns">' + extra + '</div>' : '<div class="spacer"></div>') + '</div>';
 }
 
 /* ---- class code gate ---- */
@@ -2963,9 +2973,9 @@ function vTeacher(){
   }
   const B = billingState();
   const bNote = B && B.st === "frozen"
-    ? '<div class="banner">🧊 This dungeon is frozen — kids can look, but logging is paused and nothing is lost. Renew in Settings → Billing.</div>'
+    ? '<div class="banner">🧊 This dungeon is frozen — kids can look, but logging is paused and nothing is lost. Renew in Settings → ' + W().Grp + ' → Billing.</div>'
     : (B && B.st === "trial" && B.days <= 10
-      ? '<div class="banner">⏳ Free trial ends in ' + B.days + ' day' + (B.days === 1 ? "" : "s") + ' — grab the season pass in Settings → Billing to keep the dungeon open.</div>'
+      ? '<div class="banner">⏳ Free trial ends in ' + B.days + ' day' + (B.days === 1 ? "" : "s") + ' — grab the season pass in Settings → ' + W().Grp + ' → Billing to keep the dungeon open.</div>'
       : "");
   const tabs = [["queue","Queue"],["class",fam()?"Crew":"Class"],["map","Map"],["books","Books"],["loot","Loot"],["settings","Settings"]];
   const nlq = TD.books.filter(b=>b.level==null && TD.reads.some(r=>r.bookId===b.id));
@@ -2985,7 +2995,7 @@ function vTeacher(){
       + TD.classes.map(c=>'<option value="'+c.id+'"'+(c.id===TD.classId?" selected":"")+'>'+esc(c.name)+'</option>').join("")
       + '</select> '
     : "";
-  return topbar(switcher + '<button class="btn ghost small" data-a="trefresh">↻</button> <button class="btn ghost small" data-a="tsignout">Sign out</button> <button class="btn ghost small" data-a="tostudents">Exit</button>')
+  return topbar(switcher + '<button class="btn ghost small icon" data-a="trefresh" aria-label="Refresh">↻</button> <button class="btn ghost small icon" data-a="tohelp" aria-label="Help">❓</button> <button class="btn ghost small" data-a="tsignout">Sign out</button> <button class="btn ghost small" data-a="tostudents">Exit</button>')
     + bar + tourHTML() + '<div id="tbody">' + body + '</div>';
 }
 function tourKey(){ return "bc_tour_" + (CLS || "legacy"); }
@@ -3058,7 +3068,7 @@ function tourSteps(){
     { tab: "loot", title: "Loot: boxes, prizes and bounties",
       body: "Points earn loot boxes. You decide which real prizes are inside, and you can switch on bonus bounties whenever you like." },
     { tab: "settings", title: "Settings: make it yours",
-      body: "How reads get checked (a quick book talk, or a one-question quest report kids answer when they log), your " + w.grp + " code, the year-end boxes, and your password all live here." },
+      body: "Four sections: " + w.Grp + " (how reads get checked, your " + w.grp + " code, what kids see), Scoring, Year-end (the vault tiers and next season), and Account (password and two-step sign-in). Stuck anywhere? ❓ at the top opens Help." },
     { title: "You’re ready", final: true,
       body: "First step: open the " + w.Grp + " tab and add " + (f ? "your kids" : "your students") + ". Then each kid types the " + w.grp + " code <strong>" + esc(code) + "</strong> once on their device and taps their crawler name." }
   ];
@@ -3211,7 +3221,7 @@ function tourKeys(e){
 /* jump to a tab and make the change impossible to miss: scroll to the new
    content and pulse it (on a phone the switch happens below the fold) */
 function tourJump(tab, focus){
-  go({screen:"teacher", tab: tab, sub:null});
+  go(tab === "settings" ? {screen:"teacher", tab: tab, sub:null, stab:"class"} : {screen:"teacher", tab: tab, sub:null});
   let target = document.getElementById("tbody");
   if(tab === "class" && focus === "gen"){
     const rb = $("#rosterbox");
@@ -3886,79 +3896,106 @@ function tLoot(){
     + ledger+'</div></div>';
 }
 
+/* Settings is split into four sections (Oct 2026) so the page stays calm:
+   Class/Crew (what teachers actually change), Scoring (tuned defaults),
+   Year-end (vault tiers, exports, next season), Account (password and
+   two-step sign-in, which cover every class on the account). Help and the
+   feedback box live behind the ❓ button in the top bar. */
+const STABS = ["class", "scoring", "yearend", "account"];
+function stabNow(){ return STABS.indexOf(route.stab) >= 0 ? route.stab : "class"; }
 function tSettings(){
   const S = TD.settings;
+  const cur = stabNow();
   const num = (label, knob, val) =>
     '<div class="settingrow"><label>'+label+'</label><input type="number" data-set="'+knob+'" value="'+val+'"></div>';
-  const tiers = S.yearTiers.map((t,i)=>
-    '<div class="settingrow"><label><input type="text" data-set="tiername.'+i+'" value="'+esc(t.name)+'" aria-label="Year-end box '+(i+1)+' name" style="width:170px;text-align:left"></label>'
-    + '<input type="number" data-set="tierpts.'+i+'" value="'+t.pts+'" aria-label="Year-end box '+(i+1)+' points"></div>').join("");
-  return '<div class="grid2">'
-    + '<div class="card"><h2>Scoring</h2>'
-    + num("Base points (at-level book)","basePts",S.basePts)
-    + num("Fluency points (well below level)","fluencyPts",S.fluencyPts)
-    + num("At-level band — L below level","belowCutoff",S.belowCutoff)
-    + num("Stretch points per 10L","per10L",S.per10L)
-    + num("Stretch cap (L above level)","stretchCap",S.stretchCap)
-    + num("Length bonus: 100+ pages","len100",S.lenBands.find(b=>b.min===100).pts)
-    + num("Length bonus: 200+ pages","len200",S.lenBands.find(b=>b.min===200).pts)
-    + num("Length bonus: 300+ pages","len300",S.lenBands.find(b=>b.min===300).pts)
-    + num("Points per loot box","boxPts",S.boxPts)
-    + '</div>'
-    + (S.verifyMode !== undefined ?
-      '<div class="card"><h2>Verification</h2>'
-      + '<div class="settingrow"><label>How reads get verified</label>'
-      + '<select data-set="verifyMode" style="max-width:220px">'
-      + Object.keys(VMODES).map(m=>'<option value="'+m+'"'+(S.verifyMode===m?" selected":"")+'>'+esc(VMODES[m].split(" — ")[0])+'</option>').join("")
-      + '</select></div>'
-      + '<div class="tiny" style="margin-top:6px">'
-      + '<strong>Classic</strong> — every book gets a ' + W().adult + ' book talk before points (most ' + W().adult + ' time).<br>'
-      + '<strong>Quest Report</strong> — kids answer one random question when they log; you verify from their written answer (~15 sec a book).<br>'
-      + '<strong>Quest Report + Spot Checks</strong> — reports, plus the dungeon secretly flags about 1 in 4 reads for a real book talk. Kids never see the flag, so there’s no pattern to game.'
-      + '</div></div>' : "")
-    + '<div class="card"><h2>Year-end boxes</h2>'+tiers
-    + '<h2 style="margin-top:16px">'+(fam()?'Crew':'Class')+'</h2>'
-    + '<div class="settingrow"><label>'+(fam()?'Crew name':'Class name')+'</label><input type="text" data-set="className" value="'+esc(S.className||"")+'" style="width:200px;text-align:left"></div>'
-    + '<div class="settingrow"><label>Dungeon backdrop (this device)</label>'
-    + '<input type="checkbox" '+(bgEnabled()?"checked":"")+' data-a="togglebg" style="width:24px;height:24px">'
-    + '</div>'
-    + ((CLS || DEMO)
-      ? '<div class="settingrow"><label>' + W().Grp + ' tracker — kids see the whole party’s floors</label>'
-        + '<input type="checkbox" '+(S.showTracker!==false?"checked":"")+' data-a="tracktoggle" style="width:24px;height:24px"></div>'
-        + '<div class="settingrow"><label>📏 Kids see their own Lexile range<span class="tiny" style="display:block">Each crawler sees only their own range (100L below to 50L above their level) on their home screen — never anyone else’s.</span></label>'
-        + '<input type="checkbox" '+(S.showLexile===true?"checked":"")+' data-a="lextoggle" style="width:24px;height:24px"></div>'
-        + '<div class="settingrow"><label>🕯️ Open the Undercrawl for everyone<span class="tiny" style="display:block">The hidden text adventure beneath Floor 15 — typing-powered reading practice. It unlocks itself for any crawler who reaches the Final Shelf; flip this near season’s end so every crawler gets to play. (Just one kid? Their detail page has its own switch.)</span></label>'
-        + '<input type="checkbox" '+(S.ucOpen===true?"checked":"")+' data-a="uctoggle" style="width:24px;height:24px"></div>'
-        + num("Points per dungeon floor","floorPts",S.floorPts||40)
-      : "")
-    + '<div class="settingrow"><label>'+(fam()?'Crew code (your kids type this once)':'Class code (kids type this once)')+'</label><input type="text" data-set="classCode" value="'+esc(S.classCode||"")+'" maxlength="12" style="width:130px;text-transform:uppercase"></div>'
-    + '<div class="tiny" style="margin-top:6px">Changing the code signs every device out until they type the new one.</div></div>'
-    + '<div class="card"><h2>Get data out</h2><div class="stack">'
-    + '<button class="btn" data-a="exportlog">⬇ Book log (CSV)</button>'
-    + '<button class="btn" data-a="exportroster">⬇ ' + W().Grp + ' summary (CSV)</button>'
-    + '<div class="tiny">Same columns as your Book Crawl workbook.</div></div></div>'
-    + '<div class="card"><h2>' + (fam() ? 'Your password' : 'Teacher password') + '</h2>'
-    + '<div class="fieldlbl">New password (12+ \u2014 a passphrase works great)</div><input id="t_pass" type="password" autocomplete="new-password" style="width:100%">'
-    + '<div class="fieldlbl">Type it again</div><input id="t_pass2" type="password" autocomplete="new-password" style="width:100%">'
-    + '<div class="row" style="margin-top:10px"><button class="btn small primary" data-a="tsetpass">Change password</button></div>'
-    + (DEMO ? "" : '<div class="tiny" style="margin-top:6px">Forgot it entirely? The sign-in screen has \u201cForgot password?\u201d, and the Supabase dashboard (Authentication \u2192 Users) is the master key.</div>')
-    + '</div>'
-    + mfaCardHTML()
-    + billingCardHTML()
-    + '<div class="card"><h2>🕊️ Found a bug? Have an idea?</h2>'
-    + '<div class="tiny" style="margin-bottom:8px">Goes straight to the Book Crawl forge. What were you doing, what happened, what did you expect? (Please leave out students\u2019 real names.)</div>'
+  const tabsNav = '<nav class="subtabs" aria-label="Settings sections">'
+    + [["class", W().Grp], ["scoring", "Scoring"], ["yearend", "Year-end"], ["account", "Account"]].map(function(x){
+        return '<button class="btn' + (cur === x[0] ? ' on" aria-current="true' : '') + '" data-a="stab" data-s="' + x[0] + '">' + x[1] + '</button>';
+      }).join("")
+    + '</nav>';
+  let body = "";
+  if(cur === "class"){
+    body = (S.verifyMode !== undefined ?
+        '<div class="card"><h2>Verification</h2>'
+        + '<div class="settingrow"><label>How reads get verified</label>'
+        + '<select data-set="verifyMode" style="max-width:220px">'
+        + Object.keys(VMODES).map(m=>'<option value="'+m+'"'+(S.verifyMode===m?" selected":"")+'>'+esc(VMODES[m].split(" — ")[0])+'</option>').join("")
+        + '</select></div>'
+        + '<div class="tiny" style="margin-top:6px">'
+        + '<strong>Classic</strong> — every book gets a ' + W().adult + ' book talk before points (most ' + W().adult + ' time).<br>'
+        + '<strong>Quest Report</strong> — kids answer one random question when they log; you verify from their written answer (~15 sec a book).<br>'
+        + '<strong>Quest Report + Spot Checks</strong> — reports, plus the dungeon secretly flags about 1 in 4 reads for a real book talk. Kids never see the flag, so there’s no pattern to game.'
+        + '</div></div>' : "")
+      + '<div class="card"><h2>'+(fam()?'Crew':'Class')+'</h2>'
+      + '<div class="settingrow"><label>'+(fam()?'Crew name':'Class name')+'</label><input type="text" data-set="className" value="'+esc(S.className||"")+'" style="width:200px;text-align:left"></div>'
+      + '<div class="settingrow"><label>'+(fam()?'Crew code (your kids type this once)':'Class code (kids type this once)')+'</label><input type="text" data-set="classCode" value="'+esc(S.classCode||"")+'" maxlength="12" style="width:130px;text-transform:uppercase"></div>'
+      + '<div class="tiny" style="margin-top:6px">Changing the code signs every device out until they type the new one.</div>'
+      + '<div class="settingrow"><label>Dungeon backdrop (this device)</label>'
+      + '<input type="checkbox" '+(bgEnabled()?"checked":"")+' data-a="togglebg" style="width:24px;height:24px">'
+      + '</div></div>'
+      + ((CLS || DEMO)
+        ? '<div class="card"><h2>👀 What kids see</h2>'
+          + '<div class="settingrow"><label>' + W().Grp + ' tracker — kids see the whole party’s floors</label>'
+          + '<input type="checkbox" '+(S.showTracker!==false?"checked":"")+' data-a="tracktoggle" style="width:24px;height:24px"></div>'
+          + '<div class="settingrow"><label>📏 Kids see their own Lexile range<span class="tiny" style="display:block">Each crawler sees only their own range (100L below to 50L above their level) on their home screen — never anyone else’s.</span></label>'
+          + '<input type="checkbox" '+(S.showLexile===true?"checked":"")+' data-a="lextoggle" style="width:24px;height:24px"></div>'
+          + '<div class="settingrow"><label>🕯️ Open the Undercrawl for everyone<span class="tiny" style="display:block">The hidden text adventure beneath Floor 15 — typing-powered reading practice. It unlocks itself for any crawler who reaches the Final Shelf; flip this near season’s end so every crawler gets to play. (Just one kid? Their detail page has its own switch.)</span></label>'
+          + '<input type="checkbox" '+(S.ucOpen===true?"checked":"")+' data-a="uctoggle" style="width:24px;height:24px"></div>'
+          + '</div>'
+        : "")
+      + billingCardHTML();
+  } else if(cur === "scoring"){
+    body = '<div class="card"><h2>Scoring</h2>'
+      + '<div class="tiny" style="margin-bottom:4px">Tuned for a typical ' + W().grp + ', so most ' + W().adult + 's never change these. Points always scale to each reader’s own level.</div>'
+      + num("Base points (at-level book)","basePts",S.basePts)
+      + num("Fluency points (well below level)","fluencyPts",S.fluencyPts)
+      + num("At-level band — L below level","belowCutoff",S.belowCutoff)
+      + num("Stretch points per 10L","per10L",S.per10L)
+      + num("Stretch cap (L above level)","stretchCap",S.stretchCap)
+      + num("Length bonus: 100+ pages","len100",S.lenBands.find(b=>b.min===100).pts)
+      + num("Length bonus: 200+ pages","len200",S.lenBands.find(b=>b.min===200).pts)
+      + num("Length bonus: 300+ pages","len300",S.lenBands.find(b=>b.min===300).pts)
+      + '</div>'
+      + '<div class="card"><h2>Loot &amp; floors</h2>'
+      + num("Points per loot box","boxPts",S.boxPts)
+      + ((CLS || DEMO) ? num("Points per dungeon floor","floorPts",S.floorPts||40) : "")
+      + '</div>';
+  } else if(cur === "yearend"){
+    const tiers = S.yearTiers.map((t,i)=>
+      '<div class="settingrow"><label><input type="text" data-set="tiername.'+i+'" value="'+esc(t.name)+'" aria-label="Year-end box '+(i+1)+' name" style="width:170px;text-align:left"></label>'
+      + '<input type="number" data-set="tierpts.'+i+'" value="'+t.pts+'" aria-label="Year-end box '+(i+1)+' points"></div>').join("");
+    body = '<div class="card"><h2>Year-end boxes</h2>'
+      + '<div class="tiny" style="margin-bottom:4px">The Year-End Vault ladder: each box name and the season points it takes.</div>'
+      + tiers + '</div>'
+      + '<div class="card"><h2>Get data out</h2><div class="stack">'
+      + '<button class="btn" data-a="exportlog">⬇ Book log (CSV)</button>'
+      + '<button class="btn" data-a="exportroster">⬇ ' + W().Grp + ' summary (CSV)</button>'
+      + '<div class="tiny">Same columns as your Book Crawl workbook.</div></div></div>'
+      + ((CLS || DEMO) && !fam()
+        ? '<div class="card"><h2>🍂 Season</h2>'
+          + '<div class="tiny" style="line-height:1.55">Crawler data is <strong>season-scoped</strong>: when this class moves on, begin the next season. Every crawler — their reads, points, boxes, and gear — is cleared for good. Your class library, prize lists, bounty settings, and class code all stay, ready for next year’s readers.</div>'
+          + '<div style="margin-top:10px"><button class="btn ghost danger" data-a="seasonopen">🍂 Begin next season…</button></div></div>'
+        : "")
+      + (DEMO ? '<div class="card"><h2>Demo</h2><button class="btn ghost danger" data-a="demoreset" data-arm="1">Reset demo data</button></div>' : "");
+  } else {
+    body = '<div class="card"><h2>' + (fam() ? 'Your password' : 'Teacher password') + '</h2>'
+      + '<div class="tiny" style="margin-bottom:4px">Your sign-in covers every class and crew on this account.</div>'
+      + '<div class="fieldlbl">New password (12+ — a passphrase works great)</div><input id="t_pass" type="password" autocomplete="new-password" style="width:100%">'
+      + '<div class="fieldlbl">Type it again</div><input id="t_pass2" type="password" autocomplete="new-password" style="width:100%">'
+      + '<div class="row" style="margin-top:10px"><button class="btn small primary" data-a="tsetpass">Change password</button></div>'
+      + (DEMO ? "" : '<div class="tiny" style="margin-top:6px">Forgot it entirely? The sign-in screen has “Forgot password?”, and the Supabase dashboard (Authentication → Users) is the master key.</div>')
+      + '</div>'
+      + mfaCardHTML();
+  }
+  return tabsNav + '<div class="grid2 setgrid">' + body + '</div>';
+}
+/* the feedback box lives at the bottom of the Help page for signed-in grown-ups */
+function feedbackCardHTML(){
+  return '<div class="card" id="fbcard"><h2>🕊️ Found a bug? Have an idea?</h2>'
+    + '<div class="tiny" style="margin-bottom:8px">Goes straight to the Book Crawl forge. What were you doing, what happened, what did you expect? (Please leave out students’ real names.)</div>'
     + '<div class="row"><select id="fb_kind" aria-label="Feedback type" style="max-width:120px"><option value="bug">Bug</option><option value="idea">Idea</option><option value="other">Other</option></select></div>'
-    + '<textarea class="paste" id="fb_body" maxlength="2000" placeholder="Tell it like a story — the forge reads every one."></textarea>'
-    + '<div class="row" style="margin-top:8px"><button class="btn small primary" data-a="sendfb">Send it</button></div></div>'
-    + '<div class="card"><h2>Help</h2><div class="tiny" style="margin-bottom:8px">How the game works, for kids and grown-ups — plus the privacy story.</div>'
-    + '<button class="btn" data-a="tohelp">❓ Open the help page</button></div>'
-    + ((CLS || DEMO) && !fam()
-      ? '<div class="card"><h2>\ud83c\udf42 Season</h2>'
-        + '<div class="tiny" style="line-height:1.55">Crawler data is <strong>season-scoped</strong>: when this class moves on, begin the next season. Every crawler \u2014 their reads, points, boxes, and gear \u2014 is cleared for good. Your class library, prize lists, bounty settings, and class code all stay, ready for next year\u2019s readers.</div>'
-        + '<div style="margin-top:10px"><button class="btn ghost danger" data-a="seasonopen">\ud83c\udf42 Begin next season\u2026</button></div></div>'
-      : "")
-    + (DEMO ? '<div class="card"><h2>Demo</h2><button class="btn ghost danger" data-a="demoreset" data-arm="1">Reset demo data</button></div>' : "")
-    + '</div>';
+    + '<textarea class="paste" id="fb_body" maxlength="2000" aria-label="What happened, or your idea" placeholder="Tell it like a story — the forge reads every one."></textarea>'
+    + '<div class="row" style="margin-top:8px"><button class="btn small primary" data-a="sendfb">Send it</button></div></div>';
 }
 /* ---- two-step sign-in card (Settings) ---- */
 function mfaQrSrc(q){
@@ -4615,6 +4652,15 @@ document.addEventListener("click", async (ev)=>{
       break;
     }
     case "ttab": go({screen:"teacher", tab:el.dataset.t, sub:null}); break;
+    case "stab": {
+      go({screen:"teacher", tab:"settings", sub:null, stab: STABS.indexOf(el.dataset.s) >= 0 ? el.dataset.s : "class"});
+      /* keep the section row in view (the page may have been scrolled far down) */
+      const nav = document.querySelector(".subtabs");
+      if(nav && nav.getBoundingClientRect().top < 0){ try{ nav.scrollIntoView({block: "start"}); }catch(e){} }
+      const on = document.querySelector('.subtabs [data-s="' + stabNow() + '"]');
+      if(on){ try{ on.focus({preventScroll: true}); }catch(e){} }
+      break;
+    }
     case "detail": go({tab:"class", sub:id}); break;
     case "savelevel": {
       const v = parseInt($("#lvl_"+id)?.value, 10);
@@ -5306,16 +5352,16 @@ function vHelp(){
         t("<strong>Setup:</strong> create your class or family crew — you get a 5-letter code kids type once per device. Add crawlers on the " + (fam() ? "Crew" : "Class") + " tab; each gets a dungeon name and PIN, and a one-time key sheet maps them to real names (print it — it is never stored).")
       + t("<strong>Books need a level once:</strong> the queue links a Lexile lookup; save the level and every future reader of that book scores automatically. Mark graphic novels and picture-heavy books 🎨 (queue, Books tab, or scanner) — their pages earn length credit at about a third, so a 240-page comic doesn’t outscore a 240-page novel. The book still fully counts.")
       + t("<strong>Scan books in with your phone:</strong> the Books tab has a 📷 scanner — point it at the barcode and the title and pages fill themselves; when another Book Crawl class already leveled that exact book, the level is offered on the spot. Walk your shelf once and the library builds itself.")
-      + t("<strong>Verifying:</strong> pick your mode in Settings — Classic (book talk per book), Quest Report (read their written answer, ~15 seconds), or Report + Spot Checks (the dungeon secretly flags ~1 in 4 for a real talk).")
+      + t("<strong>Verifying:</strong> pick your mode in Settings → " + (fam() ? "Crew" : "Class") + " — Classic (book talk per book), Quest Report (read their written answer, ~15 seconds), or Report + Spot Checks (the dungeon secretly flags ~1 in 4 for a real talk).")
       + t("<strong>AI second opinion:</strong> answers get a quiet ✅ / 🤔 / 🚩 pre-screen for you alone — it never rejects anything, kids never see it. On a doubtful card, the 🎤 box lets you type what the kid told you in person and re-check it instantly.")
-      + t("<strong>Dials:</strong> bounty toggles live on Loot; the class tracker (kids seeing the party board), the kids-see-their-own-Lexile-range switch, and points-per-floor live in Settings; CSV exports too.")
-      + t("<strong>Season\u2019s end:</strong> when the class moves on, Settings \u2192 \ud83c\udf42 Season clears crawler data for the new year \u2014 your library, prizes, and bounty settings stay put.")
+      + t("<strong>Dials:</strong> bounty toggles live on Loot. Settings has four sections: <em>" + (fam() ? "Crew" : "Class") + "</em> (verification, your code, and what kids see: the tracker, their own Lexile range, the Undercrawl), <em>Scoring</em> (point values, loot-box and floor sizes), <em>Year-end</em> (the vault tiers, CSV exports, and next season), and <em>Account</em> (password and two-step sign-in). ❓ at the top opens this page from anywhere.")
+      + t("<strong>Season\u2019s end:</strong> when the class moves on, Settings \u2192 Year-end \u2192 \ud83c\udf42 Begin next season clears crawler data for the new year \u2014 your library, prizes, and bounty settings stay put.")
       + t("<strong>The Undercrawl:</strong> a hidden text adventure (think classic \u2018type GO NORTH\u2019 games, kid-sized) opens for any crawler who reaches Floor 15 \u2014 evidence-finding, context clues, synonyms, and multi-step directions in disguise, plus honest keyboarding practice. A Settings switch opens it for the whole class at season\u2019s end, and each crawler\u2019s detail page can open it early for one kid. In-game, an early door is always the Dungeon\u2019s own choice \u2014 no kid is ever told why.")
       + t("<strong>Keeping it PII-free:</strong> the privacy story rests on dungeon names — remind crawlers to write about the <em>book</em> in quest reports, never about themselves or classmates by name (the answer box nudges them too), and keep the key sheet on paper.")
       + t("<strong>Lost access?</strong> “Forgot password?” on the sign-in screen emails a reset link.")
       + t("<strong>Skip the password:</strong> <em>Continue with Google</em> or <em>Continue with Microsoft</em> signs you in with an account you already have. Already made a password account with the same email? It joins up automatically — same classes, same everything.")
-      + t("<strong>Two-step sign-in (optional):</strong> Settings → 🔐 Two-step sign-in adds a 6-digit code from an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, and the like) to every sign-in, so a stolen password alone can’t open your dungeon. Add a backup device in the same place. Lost every device? Email " + (BC_CONTACT ? esc(BC_CONTACT) : "Book Crawl") + " from your account’s email address, and we’ll reset it once we’ve confirmed it’s you.")
-      + '<div class="row" style="margin-top:8px">' + (TD && !TD.noClass ? '<button class="btn small" data-a="tourstart">▶ Take the 1-minute tour</button>' : '') + '<button class="btn small ghost" data-a="tourreset">↺ Show the first-steps checklist again</button></div>')
+      + t("<strong>Two-step sign-in (optional):</strong> Settings → Account → 🔐 Two-step sign-in adds a 6-digit code from an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, and the like) to every sign-in, so a stolen password alone can’t open your dungeon. Add a backup device in the same place. Lost every device? Email " + (BC_CONTACT ? esc(BC_CONTACT) : "Book Crawl") + " from your account’s email address, and we’ll reset it once we’ve confirmed it’s you.")
+      + '<div class="row" style="margin-top:8px">' + (helpBack === "teacher" && TD && !TD.noClass ? '<button class="btn small" data-a="tourstart">▶ Take the 1-minute tour</button>' : '') + '<button class="btn small ghost" data-a="tourreset">↺ Show the first-steps checklist again</button></div>')
     + H("🚀", "Your first five minutes",
         t("<strong>1.</strong> Teacher or parent → Create your account → pick classroom or family → name it. Your 5-letter code appears immediately.")
       + t("<strong>2.</strong> Add your crawlers on the " + (fam() ? "Crew" : "Class") + " tab and print the key sheet while it’s on screen.")
@@ -5325,12 +5371,13 @@ function vHelp(){
     + H("🛡️", "Privacy — the short version",
         t("Book Crawl stores <strong>no student personal information</strong>. Kids appear only as dungeon names (Ember Fox, Storm Otter) with 4-digit PINs — no real names, no emails, no accounts for kids, nothing to breach. The one-time key sheet linking dungeon names to real kids exists only on paper, in the grown-up’s hands. The only email in the system is the account owner’s. Classes and crews are walled off from each other by the database itself."))
     + H("🪙", "The season pass",
-        t("Every dungeon starts with a <strong>free trial</strong> — no card needed. After that, one small yearly price per class or crew keeps it open (the exact price is in Settings → Billing).")
+        t("Every dungeon starts with a <strong>free trial</strong> — no card needed. After that, one small yearly price per class or crew keeps it open (the exact price is on the Billing card in Settings → " + (fam() ? "Crew" : "Class") + ").")
       + t("If a pass lapses, the dungeon <strong>freezes — it never dies</strong>: kids keep every point, box, and item and can still look around; logging just pauses until it’s renewed. Renewals go through Stripe card checkout and unlock automatically.")
-      + t("<em>Don’t see a Billing screen in Settings? Then your dungeon is in Book Crawl’s free early period — nothing to pay yet.</em>"))
+      + t("<em>Don’t see a Billing card in Settings? Then your dungeon is in Book Crawl’s free early period — nothing to pay yet.</em>"))
     + H("📜", "The fine print",
         t("The full documents, in plain language:")
       + '<div class="row"><button class="btn small ghost" data-a="toterms">Terms of Service</button><button class="btn small ghost" data-a="toprivacy">Privacy Policy</button></div>')
+    + (helpBack === "teacher" && TD && !TD.noClass ? feedbackCardHTML() : '')
     + '</div>';
 }
 function legalShell(title, inner, updated){
@@ -5374,7 +5421,7 @@ function vPrivacy(){
     + C("Our service providers", "A short list of companies helps run Book Crawl, each seeing only what its job requires: <strong>Supabase</strong> hosts the database and adult sign-ins; <strong>Google</strong> and <strong>Microsoft</strong> confirm who you are only if you choose to sign in with them — they learn you signed in to Book Crawl, never anything about your class or students; <strong>Anthropic</strong> receives quest-report text for the advisory hint (details above); <strong>Stripe</strong> handles payments and only ever deals with adults; <strong>GitHub Pages</strong> serves the game’s code and stores no game data at all; account emails (like sign-up confirmations and password resets) are sent through <strong>Amazon Web Services</strong> (Amazon SES) from servers in the United States. The same service carries Book Crawl\u2019s own operator alerts to our inbox (new feedback, a weekly usage summary), which can include a grown-up\u2019s email address, class names and codes, and what they wrote in the feedback box (which asks them to leave out students\u2019 names) \u2014 never student records. When an adult scans or types a book’s barcode, the decoding happens on their own device and the lookup sends only that ISBN to public book catalogs (Google Books, Open Library) — never anything about students. None of these companies may use this data for anything besides providing their service to us, and none of it is ever used for advertising.")
     + C("Cookies & tracking", "Book Crawl sets no advertising or analytics trackers. Your browser keeps only what the game needs to work: your sign-in session, your class code, and small conveniences like which device already saw a welcome screen.")
     + C("Who can see what", "Each class or crew is walled off from every other by database-level security. You see only your own dungeon. Kids see their classmates’ dungeon names, avatars, and floor numbers (if the tracker is on) — never anyone’s points or reading details. If a security incident ever affected your class or crew’s data, you would be notified at your account email without unreasonable delay \u2014 no later than 72 hours after we confirm it \u2014 with what happened, what it touched, and what we’re doing about it. Schools and districts with a signed data agreement are also notified the way that agreement requires.")
-    + C("Retention & deletion", "You can delete a student or a book yourself at any moment, and it’s gone; to delete a whole class, just ask. Classroom data is <strong>season-scoped</strong>: when a teacher wraps up a school year, one button (Settings \u2192 \ud83c\udf42 Season) clears the class’s crawler data — names, logs, points, gear — for a fresh start, so prior-year classroom records don’t carry forward. Deleted or cleared data leaves the live database at once and our automatic backups within 7 days. The class library of books and levels carries over, so next year’s readers inherit a leveled shelf. Family crews are the exception: a family’s data stays until the parent deletes it. Accounts inactive for 24 months are deleted entirely, after email reminders. A frozen dungeon is kept, not deleted. To delete a class, your account, or everything in it, just ask" + (BC_CONTACT ? " at the address below" : " through the site") + ".")
+    + C("Retention & deletion", "You can delete a student or a book yourself at any moment, and it’s gone; to delete a whole class, just ask. Classroom data is <strong>season-scoped</strong>: when a teacher wraps up a school year, one button (Settings \u2192 Year-end \u2192 \ud83c\udf42 Begin next season) clears the class’s crawler data — names, logs, points, gear — for a fresh start, so prior-year classroom records don’t carry forward. Deleted or cleared data leaves the live database at once and our automatic backups within 7 days. The class library of books and levels carries over, so next year’s readers inherit a leveled shelf. Family crews are the exception: a family’s data stays until the parent deletes it. Accounts inactive for 24 months are deleted entirely, after email reminders. A frozen dungeon is kept, not deleted. To delete a class, your account, or everything in it, just ask" + (BC_CONTACT ? " at the address below" : " through the site") + ".")
     + C("Changes", "If this policy changes in a way that matters, the site will say so. It will never change into one that collects information about children."),
     "October 2026");
 }
@@ -5390,7 +5437,7 @@ function tMap(){
   return '<div class="stack">'
     + '<div class="card"><h2>🗺️ The Descent</h2>'
     + '<div class="tiny" style="margin-bottom:8px">Every crawler digs their own path — one floor per ' + FP + ' points. Hover any crawler for their name. '
-    + (trackerOn() ? 'The kids see this same board.' : 'The kids’ board is hidden right now (Settings → ' + W().Grp + ' tracker).') + '</div>'
+    + (trackerOn() ? 'The kids see this same board.' : 'The kids’ board is hidden right now (Settings → ' + W().Grp + ' → ' + W().Grp + ' tracker).') + '</div>'
     + '<div class="label">DEEPEST — FLOOR ' + reveal + ' · ' + esc(PFLOORS[reveal - 1].name) + '</div>'
     + '<div class="tiny" style="font-style:italic;margin:2px 0 8px">' + esc(PFLOORS[reveal - 1].lore) + ' · down there: ' + esc(deepest.join(", ") || "—") + ' · ' + books + ' quests verified</div>'
     + '</div>'

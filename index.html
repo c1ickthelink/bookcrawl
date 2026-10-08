@@ -3374,12 +3374,18 @@ function peersHTML(r){
   return '<details class="peers"><summary>📖 '+peers.length+' other answer'+(peers.length===1?"":"s")+' for this book</summary>'+rows+'</details>';
 }
 
+/* The AI couldn't judge an answer clearly: screen-read v6.3 marks that
+   err:"unclear" (with a try count); older rows carry the old note. Those get
+   screened again, up to 3 tries in all (the function uses the same cap). */
+const AI_UNCLEAR_OLD = "AI response was unclear - use your judgment.";
+function aiUnclear(ai){ return !!ai && (ai.err === "unclear" || (!ai.err && ai.v === "unsure" && ai.note === AI_UNCLEAR_OLD)); }
+function aiRetry(ai){ return aiUnclear(ai) && Math.max(1, Number(ai.tries) || 1) < 3; }
 /* AI pre-screen: quietly screen unscreened pending answers, one at a time.
    Silently stands down if the screening function isn't deployed. */
 async function kickScreening(){
   if(DEMO || window.__aioff || window.__aibusy || !TD || !api.screenRead) return;
   if(TD.settings && TD.settings.verifyMode === "classic") return; /* Classic = no AI, ever */
-  const targets = TD.reads.filter(r => r.status === "pending" && r.a && !r.ai).slice(0, 12);
+  const targets = TD.reads.filter(r => r.status === "pending" && r.a && (!r.ai || aiRetry(r.ai))).slice(0, 12);
   if(!targets.length) return;
   window.__aibusy = true;
   try{
@@ -3398,13 +3404,16 @@ async function kickScreening(){
 function recheckHTML(r){
   if(!r.q || (TD && TD.settings && TD.settings.verifyMode === "classic")) return ""; /* Classic = no AI */
   const rc = r.ai && r.ai.recheck;
-  if(rc && rc.v){
+  if(rc && rc.v && !aiUnclear(rc)){
     return '<div class="aiv aiv-'+esc(rc.v)+'">🎤 '
       + (rc.v==="ok" ? "Spoken answer checks out" : rc.v==="mismatch" ? "Spoken answer doesn’t match either" : "Still can’t verify — your call")
       + (rc.note ? ' <span class="tiny">· '+esc(rc.note)+'</span>' : "") + '</div>';
   }
-  return '<details class="rc"><summary>🎤 They explained it in person?</summary>'
-    + '<textarea id="rc_'+r.id+'" rows="2" maxlength="800" placeholder="Type the gist of what they told you…"></textarea>'
+  /* the AI garbled its answer on what they said: offer the box again, with their words still in it */
+  const again = !!(rc && aiUnclear(rc));
+  return (again ? '<div class="aiv aiv-unsure">🎤 The AI didn’t give a clear answer on what they said. Try it again.</div>' : '')
+    + '<details class="rc"'+(again ? ' open' : '')+'><summary>🎤 They explained it in person?</summary>'
+    + '<textarea id="rc_'+r.id+'" rows="2" maxlength="800" placeholder="Type the gist of what they told you…">'+(again && rc.said ? esc(rc.said) : '')+'</textarea>'
     + '<button class="btn small primary" data-a="recheck" data-id="'+r.id+'">Check what they said</button></details>';
 }
 function tQueue(nlq, pq){
@@ -4732,8 +4741,10 @@ document.addEventListener("click", async (ev)=>{
       try{
         const v = await api.screenRead(el.dataset.id, alt.slice(0, 800));
         const r = TD && TD.reads.find(x=>x.id===el.dataset.id);
-        if(r && v && v.v){ r.ai = Object.assign({}, r.ai || {}, {recheck:{v:v.v, note:v.note}}); }
-        toast(v && v.v === "ok" ? "✅ Their spoken answer checks out" : v && v.v === "mismatch" ? "🚩 Still doesn’t match the book" : "🤔 Still can’t verify — your call");
+        if(r && v && v.v){ r.ai = Object.assign({}, r.ai || {}, {recheck:{v:v.v, note:v.note, err:v.err, said:alt.slice(0, 800)}}); }
+        toast(v && v.err === "unclear" ? "🤔 The AI didn’t give a clear answer. Try it again."
+          : v && v.err === "refusal" ? "🤔 The AI wouldn’t judge it — your call"
+          : v && v.v === "ok" ? "✅ Their spoken answer checks out" : v && v.v === "mismatch" ? "🚩 Still doesn’t match the book" : "🤔 Still can’t verify — your call");
         render();
       }catch(e){ busy(el, false); toast("Check failed — " + e.message); }
       break;

@@ -3,6 +3,26 @@
 Human-readable history of what changed for teachers, parents, and readers.
 (Internal record: GitHub commit history + Supabase SQL editor history.)
 
+## October 8, 2026 (AI check fix)
+- The AI comprehension check no longer says "Can't verify — your call ·
+  AI response was unclear" nearly so often. The AI model behind the check
+  (Claude Sonnet 5.5) sometimes thinks before it answers, and its reply then
+  opened with a "thinking" section the check didn't expect. The check threw
+  the whole reply away and showed "unclear" — most often on the trickier
+  answers, the ones most worth a second look. Now the check asks the model
+  to answer right away in a fixed format, and reads the reply correctly
+  either way.
+- Answers already marked "unclear" get checked again on their own the next
+  time you open your dashboard (up to three tries in all), so most of those
+  labels will turn into a real ✅, 🤔, or 🚩. Some of them may turn out to
+  be 🚩: the old bug could hide a real "doesn't match."
+- If the AI declines to judge an answer, the note now says so instead of
+  calling it unclear.
+- If a 🎤 spoken re-check comes back unclear, the box opens again with what
+  you typed still in it, so you can try again with one tap.
+- Requires the screen-read v6.3 function (paste and Deploy; no new secrets)
+  and the new index.html. No database change.
+
 ## October 8, 2026 (second update)
 - The Undercrawl is out in the open. Every Descent board now shows a door
   beneath Floor 15: sealed (wood, brass bands, a padlock) until it opens,

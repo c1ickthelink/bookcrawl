@@ -325,7 +325,21 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 /* the Descent map */
 .descwrap{position:relative;border-radius:14px;overflow:hidden;border:1.5px solid var(--line);box-shadow:0 4px 18px rgba(20,14,50,.18)}
 #descmap{display:block;width:100%;height:auto;image-rendering:pixelated}
-.desclabels{position:absolute;inset:0;display:grid;grid-template-rows:repeat(15,16fr) 12fr}
+.desclabels{position:absolute;inset:0;display:grid;grid-template-rows:repeat(15,16fr) 22fr}
+/* the door beneath Floor 15 (painted on the canvas at the right of the depths band) */
+.descrow.depths{padding-right:21%}
+.descrow.depths .fl{background:rgba(10,8,24,.72)}
+.descrow.depths.open .fl{box-shadow:0 0 0 1.5px var(--accent-strong)}
+.depthnote{background:rgba(10,8,24,.58);color:#F5F2FF;padding:1px 7px;border-radius:6px;font-size:10.5px;font-style:italic;line-height:1.3;min-width:0;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
+.btn.small.depthbtn{min-height:26px;padding:2px 10px;font-size:12px;border-radius:8px;flex-shrink:0}
+/* grown-up Undercrawl preview: level + start pickers */
+.ucpopts{display:grid;gap:8px}
+.ucpopts .btn{width:100%;justify-content:flex-start;text-align:left}
+.ucpopts .btn.on{background:var(--violet);color:#fff}
+:root[data-theme="dark"] .ucpopts .btn.on{color:#171430}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .ucpopts .btn.on{color:#171430} }
+.ucpopts .btn.on .tiny{color:inherit;opacity:.9}
+.ucpbanner{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px}
 .descrow{display:flex;align-items:center;padding:0 8px;gap:8px;overflow:hidden;min-height:0}
 .descrow .fl{background:rgba(10,8,24,.58);color:#F5F2FF;padding:1px 7px;border-radius:6px;font-size:10.5px;font-weight:800;letter-spacing:.02em;white-space:nowrap;flex-shrink:0}
 .descrow.lk .fl{opacity:.75}
@@ -1591,6 +1605,7 @@ function render(){
   else if(scr === "char") app.innerHTML = vChar();
   else if(scr === "descent") app.innerHTML = vDescent();
   else if(scr === "under") app.innerHTML = vUnder();
+  else if(scr === "tunder") app.innerHTML = vUnderPreview();
   else if(scr === "codex") app.innerHTML = vCodex();
   else if(scr === "tauth") app.innerHTML = vTeacherAuth();
   else if(scr === "help") app.innerHTML = vHelp();
@@ -1599,7 +1614,7 @@ function render(){
   else if(scr === "about") app.innerHTML = vAbout();
   else if(scr === "teacher") app.innerHTML = vTeacher();
   else app.innerHTML = vCode();
-  if(scr === "under"){ try{ ucMount(); }catch(e){} }
+  if(scr === "under" || (scr === "tunder" && ucPreviewing())){ try{ ucMount(); }catch(e){} }
   if(scr === "teacher"){ if(TOUR) tourPlaceSoon(); else maybeAutoTour(); }
   else if(TOUR) closeTour(true);
   if(DEMO && !$(".demo-pill")){ const d = document.createElement("div"); d.className="demo-pill"; d.textContent="DEMO MODE"; document.body.appendChild(d); }
@@ -1779,7 +1794,18 @@ function ucSnapshot(){
 }
 function ucSaveNow(){
   if(UC.svT){ clearTimeout(UC.svT); UC.svT = null; }
-  if(!UC.S || !route.who || !SPIN[route.who]) return;
+  if(!UC.S) return;
+  var own = UC.owner || "";
+  if(own.indexOf("preview:") === 0){
+    /* grown-up preview: progress stays in this browser tab, never on a crawler
+       (even if a late save timer fires after they've left the preview) */
+    var pt = parseInt(own.slice(8), 10), psnap = ucSnapshot();
+    if(UCP && UCP.tier === pt) UCP.save = psnap;
+    try{ sessionStorage.setItem("bc_ucp_" + pt, JSON.stringify(psnap)); }catch(e){}
+    return;
+  }
+  /* a kid's game only ever saves to that same kid */
+  if(!route.who || !SPIN[route.who] || (own && own !== "kid:" + route.who)) return;
   var snap = ucSnapshot();
   if(SS && SS.uc) SS.uc.save = snap;
   api.ucSave(CODE, route.who, SPIN[route.who], snap).catch(function(){});
@@ -1820,7 +1846,7 @@ function ucArmIdle(){
   if(UC.idle){ clearTimeout(UC.idle); UC.idle = null; }
   if(UC.tier !== 1 || UC.idleFired || !UC.S || UC.S.done) return;
   UC.idle = setTimeout(function(){
-    if(route.screen === "under" && UC.S && !UC.S.done){ UC.idleFired = true; ucHint(true); }
+    if((route.screen === "under" || route.screen === "tunder") && UC.S && !UC.S.done){ UC.idleFired = true; ucHint(true); }
   }, 40000);
 }
 
@@ -2056,13 +2082,18 @@ function ucRun(raw){
 }
 
 function ucBoot(){
-  var sv = SS && SS.uc ? SS.uc.save : null;
+  var prev = ucPreviewing();
+  var sv = prev ? UCP.save : (SS && SS.uc ? SS.uc.save : null);
   UC.T = []; UC.conf = 0; UC.idleFired = false;
+  if(prev) ucSys("GROWN-UP PREVIEW · puzzle level: " + UCP_LEVELS[UCP.tier] + " · nothing you do here is saved to any crawler.");
   if(sv && sv.room && UC_ROOMS[sv.room]){
     UC.S = ucFresh();
     for(var k in UC.S) if(Object.prototype.hasOwnProperty.call(sv, k)) UC.S[k] = sv[k];
     if(!Array.isArray(UC.S.bag)) UC.S.bag = [];
-    ucSys("UNDERCRAWL OS v0.1 · the terminal remembers you.");
+    if(prev && UCP.jumped){
+      UCP.jumped = false;
+      ucSys("Skipped ahead: the Vestibule is solved and the Lantern Gate stands open. Type <em>GO NORTH</em> to enter Chapter One.");
+    } else ucSys("UNDERCRAWL OS v0.1 · the terminal remembers you.");
     ucRoomLine();
   } else {
     UC.S = ucFresh();
@@ -2092,7 +2123,11 @@ function ucMount(){
   var out = document.getElementById("ucout");
   var inp = document.getElementById("uccmd");
   if(!out || !inp) return;
-  if(SS && SS.uc){ UC.tier = SS.uc.tier || 1; UC.why = SS.uc.why || null; }
+  /* one game in memory at a time: a kid's game and a grown-up preview never mix */
+  var owner = ucPreviewing() ? "preview:" + UCP.tier : "kid:" + (route.who || "");
+  if(UC.owner !== owner){ UC.S = null; UC.T = []; UC.owner = owner; }
+  if(ucPreviewing()){ UC.tier = UCP.tier; UC.why = "preview"; }
+  else if(SS && SS.uc){ UC.tier = SS.uc.tier || 1; UC.why = SS.uc.why || null; }
   var bar = document.getElementById("ucchips");
   if(bar && !bar.childNodes.length){
     UC_CHIPS.forEach(function(c){
@@ -2132,6 +2167,69 @@ function vUnder(){
       + '<div class="card"><h2>🚪 A sealed door</h2><div class="tiny">Something waits beneath the Final Shelf. Keep crawling — or maybe, someday, the Dungeon will open it for you.</div></div>';
   }
   return topbar('<button class="btn ghost small" data-a="ucback">🏕️ back to camp</button>')
+    + '<div class="ucwrap">'
+    + '<div class="uchead"><span class="uctitle">THE UNDERCRAWL</span><span class="ucsub">beneath the Final Shelf</span></div>'
+    + '<div id="ucout" aria-live="polite"></div>'
+    + '<div class="ucinrow"><span class="uccaret">&gt;</span>'
+    + '<input id="uccmd" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="type here, then press ENTER" aria-label="Type a command">'
+    + '<button class="btn small gold" data-a="ucgo">ENTER</button></div>'
+    + '<div class="ucchips" id="ucchips"></div>'
+    + '<div class="tiny" style="margin-top:6px;color:#9A96AE">Everything you type stays on this device — the dungeon reads it and forgets it.</div>'
+    + '</div>';
+}
+/* ---- grown-up preview: teachers and parents play the Undercrawl from their
+   own dashboard (Map tab) without borrowing a crawler's PIN. The same engine
+   runs with a chosen puzzle level; progress lives only in this browser tab
+   (sessionStorage), so nothing touches any crawler's save. ---- */
+var UCP = null;   /* {tier, start, on, save, jumped} */
+var UCP_LEVELS = {1: "Extra help", 2: "Standard", 3: "Challenge"};
+function ucpInit(){
+  if(UCP) return UCP;
+  let cfg = null; try{ cfg = JSON.parse(sessionStorage.getItem("bc_ucp_cfg") || "null"); }catch(e){}
+  UCP = {tier: (cfg && [1, 2, 3].indexOf(cfg.tier) >= 0) ? cfg.tier : 2,
+         start: (cfg && cfg.start === "ch1") ? "ch1" : "ch0", on: false, save: null, jumped: false};
+  return UCP;
+}
+function ucPreviewing(){ return !!(UCP && UCP.on && route.screen === "tunder"); }
+function ucpSaved(t){ try{ const r = sessionStorage.getItem("bc_ucp_" + t); return r ? JSON.parse(r) : null; }catch(e){ return null; } }
+function ucCh1StartSave(){
+  /* the state a crawler has the moment the Lantern Gate opens */
+  const o = ucFresh();
+  Object.assign(o, {room: "gate", bag: ["brass lantern"], haveLantern: true, haveGlimmer: true, loaded: true,
+    shaken: true, lit: true, doorOpen: true, readJournal: true, readBook: true, metScribble: 2, crossed: true, done: true});
+  return o;
+}
+function vUnderPreview(){
+  ucpInit();
+  const back = '<button class="btn ghost small" data-a="ucpback">← back to Map</button>';
+  if(!UCP.on){
+    const saved = ucpSaved(UCP.tier);
+    const lvl = (t, d) => '<button class="btn' + (UCP.tier === t ? ' on" aria-pressed="true' : ' ghost" aria-pressed="false') + '" data-a="ucptier" data-t="' + t + '">'
+      + '<span><strong>' + UCP_LEVELS[t] + '</strong><span class="tiny" style="display:block">' + d + '</span></span></button>';
+    const st = (k, l, d) => '<button class="btn' + (UCP.start === k ? ' on" aria-pressed="true' : ' ghost" aria-pressed="false') + '" data-a="ucpstart" data-s="' + k + '">'
+      + '<span><strong>' + l + '</strong><span class="tiny" style="display:block">' + d + '</span></span></button>';
+    return topbar(back)
+      + '<div class="stack" style="max-width:640px;margin:0 auto">'
+      + '<div class="card"><h2>🕯️ Play the Undercrawl yourself</h2>'
+      + '<div class="tiny" style="line-height:1.55">The hidden typing adventure beneath Floor 15, exactly as crawlers see it. Each crawler’s puzzles quietly match their reading level; pick one to see how it plays. This is a private preview: nothing is saved to any crawler, and what you type stays on this device.</div></div>'
+      + '<div class="card"><h2>Puzzle level</h2><div class="ucpopts">'
+      + lvl(1, "Easier words, shorter directions, and hints that pop up on their own · crawlers below 500L or with no level yet")
+      + lvl(2, "Grade-level words; a hint pops up after a few wrong tries · 500L to 749L")
+      + lvl(3, "Harder words, longer directions, hints only when asked · 750L and up")
+      + '</div></div>'
+      + '<div class="card"><h2>Start at</h2><div class="ucpopts">'
+      + st("ch0", "The beginning", "Chapter 0, the Vestibule (about 10 minutes)")
+      + st("ch1", "Chapter One", "The Library of Teeth, with the Vestibule already solved")
+      + '</div></div>'
+      + '<div class="row" style="justify-content:center;gap:10px">'
+      + (saved ? '<button class="btn primary big" data-a="ucpgo" data-m="continue">▶ Continue where you left off</button>'
+               + '<button class="btn ghost" data-a="ucpgo" data-m="fresh">Start fresh</button>'
+               : '<button class="btn primary big" data-a="ucpgo" data-m="fresh">▶ Start the preview</button>')
+      + '</div></div>';
+  }
+  return topbar(back)
+    + '<div class="banner ucpbanner"><span>👀 Grown-up preview · <strong>' + UCP_LEVELS[UCP.tier] + '</strong> puzzles · nothing here is saved to any crawler</span>'
+    + '<button class="btn small ghost" data-a="ucprestart">Change level or start over</button></div>'
     + '<div class="ucwrap">'
     + '<div class="uchead"><span class="uctitle">THE UNDERCRAWL</span><span class="ucsub">beneath the Final Shelf</span></div>'
     + '<div id="ucout" aria-live="polite"></div>'
@@ -3070,6 +3168,8 @@ function tourSteps(){
         + ", and tap ✓ Verify. Points and loot boxes follow on their own." },
     { tab: "map", title: "Map: the Descent",
       body: "Verified points carry each crawler down through 15 dungeon floors. Kids can see which floor everyone is on (the " + w.grp + " tracker switch in Settings turns that off), but never anyone’s points." },
+    { tab: "map", title: "Beneath it all: the Undercrawl",
+      body: "At the bottom of the map sits a sealed door. Behind it is a hidden typing adventure full of reading puzzles. It opens on its own for any crawler who digs all the way through Floor 15, and you can open it early for one kid or for everyone. Want a look first? The Map tab has ▶ Play it yourself." },
     { tab: "books", title: "Books: your " + w.grp + " library",
       body: "Every book your crawlers log collects here with its reading level. On a phone, the 📷 scanner adds a book from its barcode." },
     { tab: "loot", title: "Loot: boxes, prizes and bounties",
@@ -3234,9 +3334,12 @@ function tourJump(tab, focus){
     const rb = $("#rosterbox");
     if(rb){ rb.classList.remove("hidden"); $("#addstu")?.classList.add("hidden"); target = rb; }
   }
+  const ucRow = (tab === "settings" && focus === "uc") ? $('[data-a="uctoggle"]')?.closest(".settingrow") : null;
+  if(ucRow) target = ucRow;
   if(!target) return;
-  try{ target.scrollIntoView({block:"start", behavior: tourReduced() ? "auto" : "smooth"}); }catch(e){ target.scrollIntoView(); }
+  try{ target.scrollIntoView({block: ucRow ? "center" : "start", behavior: tourReduced() ? "auto" : "smooth"}); }catch(e){ target.scrollIntoView(); }
   flashEl(target);
+  if(ucRow){ try{ $('[data-a="uctoggle"]').focus({preventScroll:true}); }catch(e){} }
   if(tab === "class" && focus === "gen"){
     let fine = false; try{ fine = matchMedia("(pointer: fine)").matches; }catch(e){}
     if(fine){ const inp = $("#gen_n"); if(inp){ try{ inp.focus({preventScroll:true}); }catch(e){} } }
@@ -3537,7 +3640,7 @@ function tStudent(id){
     + '<div class="tiny" style="margin-top:6px">Add an entry each time you re-test (each quarter). Old reads keep the level that was current when they happened.</div></div>'
     + '<div class="card"><h2>🕯️ The Undercrawl</h2>'
     + '<div class="row" style="justify-content:space-between;align-items:center;flex-wrap:nowrap;gap:12px">'
-    + '<div class="tiny" style="flex:1;line-height:1.5">Open the hidden text adventure <strong>early</strong> for this crawler — for a kid who won’t reach Floor 15 before the season ends, so they still get to experience it. In the game it’s framed as the Dungeon’s own choice; no kid is ever told why a door opened.</div>'
+    + '<div class="tiny" style="flex:1;line-height:1.5">Open the hidden text adventure <strong>early</strong> for this crawler — for a kid who won’t dig through Floor 15 before the season ends, so they still get to experience it. In the game it’s framed as the Dungeon’s own choice; no kid is ever told why a door opened.</div>'
     + '<input type="checkbox" '+(st.ucOpen === true?"checked":"")+' data-a="uckid" data-id="'+id+'" aria-label="Open the Undercrawl early for this crawler" style="width:24px;height:24px;flex-shrink:0">'
     + '</div></div>'
     + (function(){
@@ -3950,7 +4053,7 @@ function tSettings(){
           + '<input type="checkbox" '+(S.showTracker!==false?"checked":"")+' data-a="tracktoggle" style="width:24px;height:24px"></div>'
           + '<div class="settingrow"><label>📏 Kids see their own Lexile range<span class="tiny" style="display:block">Each crawler sees only their own range (100L below to 50L above their level) on their home screen — never anyone else’s.</span></label>'
           + '<input type="checkbox" '+(S.showLexile===true?"checked":"")+' data-a="lextoggle" style="width:24px;height:24px"></div>'
-          + '<div class="settingrow"><label>🕯️ Open the Undercrawl for everyone<span class="tiny" style="display:block">The hidden text adventure beneath Floor 15 — typing-powered reading practice. It unlocks itself for any crawler who reaches the Final Shelf; flip this near season’s end so every crawler gets to play. (Just one kid? Their detail page has its own switch.)</span></label>'
+          + '<div class="settingrow"><label>🕯️ Open the Undercrawl for everyone<span class="tiny" style="display:block">The hidden text adventure beneath Floor 15 — typing-powered reading practice. It unlocks itself for any crawler who digs all the way through Floor 15, the Final Shelf; flip this near season’s end so every crawler gets to play. (Just one kid? Their detail page has its own switch.)</span></label>'
           + '<input type="checkbox" '+(S.ucOpen===true?"checked":"")+' data-a="uctoggle" style="width:24px;height:24px"></div>'
           + '</div>'
         : "")
@@ -4341,6 +4444,44 @@ document.addEventListener("click", async (ev)=>{
       break;
     }
     case "ucgo": ucSubmit(); break;
+    /* ---- grown-up preview of the Undercrawl ---- */
+    case "ucprev": {
+      ucpInit().on = false;
+      go({screen: "tunder"});
+      break;
+    }
+    case "ucptier": case "ucpstart": {
+      ucpInit();
+      if(a === "ucptier"){ const t = parseInt(el.dataset.t, 10); if([1, 2, 3].indexOf(t) >= 0) UCP.tier = t; }
+      else UCP.start = el.dataset.s === "ch1" ? "ch1" : "ch0";
+      try{ sessionStorage.setItem("bc_ucp_cfg", JSON.stringify({tier: UCP.tier, start: UCP.start})); }catch(e){}
+      render();
+      $('[data-a="' + a + '"].on')?.focus();
+      break;
+    }
+    case "ucpgo": {
+      if(!UCP) return;
+      const saved = ucpSaved(UCP.tier);
+      if(el.dataset.m === "continue" && saved){ UCP.save = saved; UCP.jumped = false; }
+      else {
+        try{ sessionStorage.removeItem("bc_ucp_" + UCP.tier); }catch(e){}
+        UCP.save = UCP.start === "ch1" ? ucCh1StartSave() : null;
+        UCP.jumped = UCP.start === "ch1";
+      }
+      UC.S = null; UC.T = []; UC.owner = null;
+      UCP.on = true;
+      render();
+      break;
+    }
+    case "ucprestart": case "ucpback": {
+      if(UCP && UCP.on && UC.S) ucSaveNow();
+      if(UC.idle){ clearTimeout(UC.idle); UC.idle = null; }
+      UC.S = null; UC.T = []; UC.owner = null;
+      if(UCP) UCP.on = false;
+      if(a === "ucpback") go({screen: "teacher", tab: "map", sub: null});
+      else render();
+      break;
+    }
     case "ucback": {
       if(UC.S) ucSaveNow();
       if(UC.idle){ clearTimeout(UC.idle); UC.idle = null; }
@@ -5065,7 +5206,9 @@ document.addEventListener("visibilitychange", async ()=>{
     oauthPending = sessionStorage.getItem("bc_oauth"); sessionStorage.removeItem("bc_oauth");
   }catch(e){}
   if(oauthErr && route.screen !== "teacher") route.screen = "tauth";
-  if(route.screen==="teacher" || route.screen==="tauth"){
+  /* the grown-up Undercrawl preview ("tunder") is a grown-up screen too:
+     reloading it needs the same signed-in session as the dashboard */
+  if(route.screen==="teacher" || route.screen==="tauth" || route.screen==="tunder"){
     let sess = null;
     try{ sess = await api.teacherSession(); authOk(); }
     catch(e){ if(authRecover()) return; }
@@ -5241,7 +5384,7 @@ function paintDescent(){
   const cv = document.getElementById("descmap");
   if(!cv || !__desc) return;
   const dark = isDarkTheme();
-  const RH = 16, DH = 12, W = 160, N = PFLOORS.length;
+  const RH = 16, DH = 22, W = 160, N = PFLOORS.length;
   cv.width = W; cv.height = N * RH + DH;
   const x = cv.getContext("2d");
   let seed = 77;
@@ -5284,12 +5427,35 @@ function paintDescent(){
   const yD = N * RH;
   x.fillStyle = dark ? "#070512" : "#1A1530"; x.fillRect(0, yD, W, DH);
   x.fillStyle = "#2A2348";
-  for(let g = 4; g < W; g += 10){ x.fillRect(g, yD, 2, DH); }
+  for(let g = 4; g < W - 34; g += 10){ x.fillRect(g, yD, 2, DH); }
+  /* the door beneath the Final Shelf: always drawn, so everyone can see
+     there is something below Floor 15 */
+  const dx = W - 30, dy = yD + 2, dw = 24, dh = DH - 2;
+  const open = __desc.door === "open";
+  if(open){ x.fillStyle = "rgba(245,207,126,.22)"; x.fillRect(dx - 4, dy - 2, dw + 8, dh + 2); }
+  x.fillStyle = "#4A4366";                                   /* stone arch */
+  x.fillRect(dx, dy + 3, dw, dh - 3); x.fillRect(dx + 2, dy + 1, dw - 4, 2); x.fillRect(dx + 5, dy, dw - 10, 1);
+  const ix = dx + 3, iy = dy + 3, iw = dw - 6, ih = dh - 3;
+  if(open){
+    x.fillStyle = "#E8A33D"; x.fillRect(ix, iy, iw, ih);      /* warm light pours out */
+    x.fillStyle = "#F5CF7E"; x.fillRect(ix + 3, iy + 1, iw - 6, ih - 1);
+    x.fillStyle = "#FFF1C9"; x.fillRect(ix + 6, iy + 3, iw - 12, ih - 3);
+    x.fillStyle = "#6B4520"; x.fillRect(ix, iy, 3, ih);         /* the door, swung open */
+    x.fillStyle = "#FFFFFF"; x.fillRect(ix + iw / 2 - 1, iy + ih - 7, 2, 2); /* candle flame */
+    x.fillStyle = "#E8A33D"; x.fillRect(ix + iw / 2 - 1, iy + ih - 5, 2, 4);
+  } else {
+    x.fillStyle = "#6B4520"; x.fillRect(ix, iy, iw, ih);      /* sealed wooden door */
+    x.fillStyle = "#4A3016"; for(let pl = ix + 4; pl < ix + iw; pl += 5) x.fillRect(pl, iy, 1, ih);
+    x.fillStyle = "#B08A3E"; x.fillRect(ix, iy + 3, iw, 2); x.fillRect(ix, iy + ih - 5, iw, 2);
+    x.fillStyle = "#E8A33D"; x.fillRect(ix + iw / 2 - 2, iy + 7, 4, 4);      /* padlock */
+    x.fillStyle = "#0D0A1C"; x.fillRect(ix + iw / 2 - 1, iy + 8, 2, 2);
+  }
 }
 function _nmHash(t){ let h = 0; for(let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) & 0xffff; return h; }
 /* crew: [{name, equipped, floor, me}] — floor numbers only, never points */
-function descentHTML(crew, meFloor, reveal){
-  __desc = {reveal};
+function descentHTML(crew, meFloor, reveal, depths){
+  const door = depths || {open: false, label: "🔒 A SEALED DOOR", extra: ""};
+  __desc = {reveal, door: door.open ? "open" : "sealed"};
   setTimeout(paintDescent, 0);
   const rows = PFLOORS.map((f, i) => {
     const fn = i + 1;
@@ -5306,12 +5472,18 @@ function descentHTML(crew, meFloor, reveal){
   }).join("");
   return '<div class="descwrap"><canvas id="descmap" aria-label="Map of the class spread through the dungeon"></canvas>'
     + '<div class="desclabels">' + rows
-    + '<div class="descrow lk"><span class="fl">THE DEPTHS</span>' + ((route.who && SPIN[route.who]) && SS && SS.uc && SS.uc.open ? '<span class="davs">🚪 a door stands open</span>' : '') + '</div></div></div>';
+    + '<div class="descrow depths' + (door.open ? ' open' : '') + '"><span class="fl">' + door.label + '</span>' + (door.extra || '') + '</div></div></div>';
 }
 function vDescent(){
   if(!BOOT){ ensureBoot().then(()=>render()); return topbar() + '<div class="card"><span class="spin"></span> unrolling the map…</div>'; }
   const who = route.who && SPIN[route.who];
   if(who && !SS){ loadState().then(()=>render()); }
+  if(who && SS && SS.uc === undefined){
+    SS.uc = null; /* one fetch: is the door beneath Floor 15 open for this crawler? */
+    api.ucState(CODE, route.who, SPIN[route.who]).then(function(r){
+      if(r && r.ok && SS){ SS.uc = r; if(r.open && route.screen === "descent") render(); }
+    }).catch(function(){ if(SS) SS.uc = undefined; });
+  }
   const me = who && BOOT.students.find(s => s.id === route.who);
   const FP = floorPtsPer();
   const mf = (who && SS) ? pfloorOf(SS.pts) : null;
@@ -5338,7 +5510,13 @@ function vDescent(){
       + (mf < PFLOORS.length
           ? '<div class="row" style="margin:6px 0 4px"><div class="progressbar" style="flex:1"><i style="width:' + Math.min(100, Math.round(100 * into / FP)) + '%"></i></div><strong>' + into + ' / ' + FP + '</strong></div>'
             + '<div class="tiny">' + (FP - into) + ' points until you break through to Floor ' + (mf + 1) + ' — every verified book digs deeper.</div>'
-          : '<div class="tiny">You stand on the deepest known shelf. Legends only from here.</div>')
+          : (SS.uc && SS.uc.open
+              ? '<div class="tiny">You stand on the deepest known shelf, and the door beneath it stands open.</div>'
+              : (into < FP
+                  /* the server opens the door after one more floor's worth of points ON the Final Shelf */
+                  ? '<div class="row" style="margin:6px 0 4px"><div class="progressbar" style="flex:1"><i style="width:' + Math.min(100, Math.round(100 * into / FP)) + '%"></i></div><strong>' + into + ' / ' + FP + '</strong></div>'
+                    + '<div class="tiny">' + (FP - into) + ' points until you dig through the Final Shelf. Something is waiting underneath…</div>'
+                  : '<div class="tiny">You stand on the deepest known shelf. Legends only from here.</div>')))
       + '</div>'
     : '';
   const note = shown
@@ -5351,7 +5529,9 @@ function vDescent(){
     + '<div class="stack" style="max-width:620px;margin:0 auto">'
     + '<h2 class="display" style="font-size:22px;color:var(--violet)">🗺️ THE DESCENT</h2>'
     + head + note
-    + descentHTML(crew, mf || 0, reveal)
+    + descentHTML(crew, mf || 0, reveal, (who && SS && SS.uc && SS.uc.open)
+        ? {open: true, label: "🕯️ THE UNDERCRAWL", extra: '<button class="btn small gold depthbtn" data-a="tounder">ENTER →</button>'}
+        : {open: false, label: "🔒 A SEALED DOOR", extra: '<span class="depthnote">something waits below…</span>'})
     + torch
     + '</div>';
 }
@@ -5368,7 +5548,7 @@ function vHelp(){
       + t("<strong>Loot:</strong> every " + (BOOT ? BOOT.box_pts : 50) + "-ish points earns a loot box — roll for gear, equip it on your crawler. Gear is for style; nobody ever loses points.")
       + t("<strong>The Descent:</strong> your own verified points dig you deeper, floor by floor. The board shows the whole party spread through the dungeon — floors only, never anyone’s points.")
       + t("<strong>Bounties:</strong> when the board is up, finishing a bounty pays a bonus loot box. The dungeon pays automatically.")
-      + t("<strong>The Undercrawl:</strong> deep crawlers whisper about a sealed door beneath the Final Shelf — a place you can only explore by <em>typing</em>. Reach Floor 15 and see for yourself."))
+      + t("<strong>The Undercrawl:</strong> deep crawlers whisper about a sealed door beneath the Final Shelf — a place you can only explore by <em>typing</em>. Dig all the way through Floor 15 and see for yourself."))
     + H("🗝️", "For Dungeon Masters (teachers & parents)",
         t("<strong>Setup:</strong> create your class or family crew — you get a 5-letter code kids type once per device. Add crawlers on the " + (fam() ? "Crew" : "Class") + " tab; each gets a dungeon name and PIN, and a one-time key sheet maps them to real names (print it — it is never stored).")
       + t("<strong>Books need a level once:</strong> the queue links a Lexile lookup; save the level and every future reader of that book scores automatically. Mark graphic novels and picture-heavy books 🎨 (queue, Books tab, or scanner) — their pages earn length credit at about a third, so a 240-page comic doesn’t outscore a 240-page novel. The book still fully counts.")
@@ -5377,7 +5557,7 @@ function vHelp(){
       + t("<strong>AI second opinion:</strong> answers get a quiet ✅ / 🤔 / 🚩 pre-screen for you alone — it never rejects anything, kids never see it. On a doubtful card, the 🎤 box lets you type what the kid told you in person and re-check it instantly.")
       + t("<strong>Dials:</strong> bounty toggles live on Loot. Settings has four sections: <em>" + (fam() ? "Crew" : "Class") + "</em> (verification, your code, and what kids see: the tracker, their own Lexile range, the Undercrawl), <em>Scoring</em> (point values, loot-box and floor sizes), <em>Year-end</em> (the vault tiers, CSV exports, and next season), and <em>Account</em> (password and two-step sign-in). ❓ at the top opens this page from anywhere.")
       + t("<strong>Season\u2019s end:</strong> when the class moves on, Settings \u2192 Year-end \u2192 \ud83c\udf42 Begin next season clears crawler data for the new year \u2014 your library, prizes, and bounty settings stay put.")
-      + t("<strong>The Undercrawl:</strong> a hidden text adventure (think classic \u2018type GO NORTH\u2019 games, kid-sized) opens for any crawler who reaches Floor 15 \u2014 evidence-finding, context clues, synonyms, and multi-step directions in disguise, plus honest keyboarding practice. A Settings switch opens it for the whole class at season\u2019s end, and each crawler\u2019s detail page can open it early for one kid. In-game, an early door is always the Dungeon\u2019s own choice \u2014 no kid is ever told why.")
+      + t("<strong>The Undercrawl:</strong> a hidden text adventure (think classic \u2018type GO NORTH\u2019 games, kid-sized) opens for any crawler who digs all the way through Floor 15 \u2014 evidence-finding, context clues, synonyms, and multi-step directions in disguise, plus honest keyboarding practice. A Settings switch opens it for the whole class at season\u2019s end, and each crawler\u2019s detail page can open it early for one kid. In-game, an early door is always the Dungeon\u2019s own choice \u2014 no kid is ever told why. Want to see it first? Map tab \u2192 \u25b6 Play it yourself runs a private preview at any puzzle level; nothing you do there is saved to a crawler.")
       + t("<strong>Keeping it PII-free:</strong> the privacy story rests on dungeon names — remind crawlers to write about the <em>book</em> in quest reports, never about themselves or classmates by name (the answer box nudges them too), and keep the key sheet on paper.")
       + t("<strong>Lost access?</strong> “Forgot password?” on the sign-in screen emails a reset link.")
       + t("<strong>Skip the password:</strong> <em>Continue with Google</em> or <em>Continue with Microsoft</em> signs you in with an account you already have. Already made a password account with the same email? It joins up automatically — same classes, same everything.")
@@ -5450,8 +5630,15 @@ function tMap(){
   const FP = floorPtsPer();
   const crew = TD.students.map(st => {
     const t = Engine.totals(st.id, TD);
-    return {name: st.name, equipped: st.equipped, floor: Math.min(PFLOORS.length, 1 + Math.floor(Math.max(0, t.pts) / FP))};
+    return {id: st.id, name: st.name, equipped: st.equipped, ucOpen: st.ucOpen === true,
+      /* same rule as the server: the door gives way after a full floor's worth of points ON Floor 15 */
+      dug: t.pts >= PFLOORS.length * FP,
+      floor: Math.min(PFLOORS.length, 1 + Math.floor(Math.max(0, t.pts) / FP))};
   });
+  const ucAll = TD.settings.ucOpen === true;
+  const ucIn = crew.filter(c => c.dug || c.ucOpen).length;
+  const ucStatus = ucAll ? "open for everyone"
+    : (ucIn ? "open for " + ucIn + " crawler" + (ucIn === 1 ? "" : "s") : "sealed until a crawler digs through Floor 15");
   const reveal = crew.reduce((a, c) => Math.max(a, c.floor), 1);
   const deepest = crew.filter(c => c.floor === reveal).map(c => c.name);
   const books = TD.reads.filter(r => r.status === "verified").length;
@@ -5462,7 +5649,15 @@ function tMap(){
     + '<div class="label">DEEPEST — FLOOR ' + reveal + ' · ' + esc(PFLOORS[reveal - 1].name) + '</div>'
     + '<div class="tiny" style="font-style:italic;margin:2px 0 8px">' + esc(PFLOORS[reveal - 1].lore) + ' · down there: ' + esc(deepest.join(", ") || "—") + ' · ' + books + ' quests verified</div>'
     + '</div>'
-    + descentHTML(crew, 0, reveal)
+    + descentHTML(crew, 0, reveal, {open: ucAll || ucIn > 0, label: "🕯️ THE UNDERCRAWL",
+        extra: '<span class="depthnote">' + esc(ucAll || ucIn ? ucStatus : "sealed for now") + '</span>'})
+    + '<div class="card" id="uccard"><h2>🕯️ The Undercrawl</h2>'
+    + '<div class="tiny" style="line-height:1.55">A hidden typing adventure beneath Floor 15, with reading puzzles in disguise: context clues, synonyms, guide words, Greek and Latin roots, main idea, and multi-step directions. It opens on its own for a crawler who digs all the way through Floor 15, the Final Shelf. You can also open it early for one kid from their page on the ' + W().Grp + ' tab, or for everyone in Settings → ' + W().Grp + '.</div>'
+    + '<div style="margin:10px 0 4px"><strong>Right now:</strong> ' + esc(ucStatus.charAt(0).toUpperCase() + ucStatus.slice(1)) + '.</div>'
+    + '<div class="row" style="margin-top:8px"><button class="btn primary" data-a="ucprev">▶ Play it yourself</button>'
+    + (CLS || DEMO ? '<button class="btn ghost" data-a="tgo" data-t="settings" data-f="uc">' + (ucAll ? 'Undercrawl switch…' : 'Open it for everyone…') + '</button>' : '')
+    + '</div>'
+    + '<div class="tiny" style="margin-top:6px">Playing it yourself is a private preview: pick a puzzle level, and nothing you do is saved to any crawler.</div></div>'
     + '</div>';
 }
 

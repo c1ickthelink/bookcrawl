@@ -3,6 +3,33 @@
 Human-readable history of what changed for teachers, parents, and readers.
 (Internal record: GitHub commit history + Supabase SQL editor history.)
 
+## October 8, 2026 (second update)
+- The Undercrawl is out in the open. Every Descent board now shows a door
+  beneath Floor 15: sealed (wood, brass bands, a padlock) until it opens,
+  then glowing with candlelight. On a crawler's map it reads "🔒 A sealed
+  door · something waits below…"; once it's open for them, it reads
+  "🕯️ The Undercrawl" with an ENTER button that goes straight into the game.
+- Crawlers standing on Floor 15 get a progress bar that counts down to the
+  door ("8 points until you dig through the Final Shelf"). The door opens
+  after one more floor's worth of points on Floor 15. That's how it has
+  always worked; the wording everywhere now says "digs all the way through
+  Floor 15" instead of "reaches Floor 15," so nobody is left wondering why
+  a kid on Floor 15 still sees a sealed door.
+- Play it yourself, no kid PIN needed. Map tab → 🕯️ The Undercrawl →
+  ▶ Play it yourself. Pick a puzzle level (Extra help, Standard, or
+  Challenge, the same levels kids get automatically from their reading
+  level: below 500L, 500L to 749L, 750L and up) and start at the beginning
+  or jump straight to Chapter One. It's a private preview: nothing is saved
+  to any crawler, and your progress lives only in that browser tab (Continue
+  picks up where you left off until you close it).
+- The same card says who the door is open for right now ("sealed for now,"
+  "open for 3 crawlers," "open for everyone"), and "Open it for everyone…"
+  jumps straight to the switch in Settings → Class (Crew for families) and
+  lights it up.
+- The guided tour has a new step, "Beneath it all: the Undercrawl" (the
+  tour is now 9 steps), and Help mentions the preview.
+- No database change.
+
 ## October 8, 2026
 - Settings is split into four sections, picked from a row of buttons at the
   top: **Class** (or **Crew**) for how reads get checked, your code, and

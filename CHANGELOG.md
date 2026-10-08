@@ -12,13 +12,17 @@ Human-readable history of what changed for teachers, parents, and readers.
   the vault tiers, the CSV exports, and Begin next season; and **Account**
   for your password and two-step sign-in, which cover every class on your
   account. Settings remembers the section you were in.
+- The section row is easy to spot: it's labeled "Settings · 4 sections",
+  each button has an icon (🏫 or 🏠, 🎯, 🍂, 🔐), and it wears the same
+  violet as the Settings tab itself, with the open section filled in. The
+  first time you open Settings on a device, the row pulses once.
 - Help moved to a ❓ button in the top bar, so it's one tap from any tab.
   The "Found a bug? Have an idea?" box now sits at the bottom of Help when
   you open it from your dashboard (never on the kids' side).
 - On phones, the top-bar buttons got a little more compact so the logo and
-  buttons still share one row on most phones; on very narrow screens the
-  buttons drop below the logo as a group, and the four section buttons
-  fold into two rows.
+  buttons still share one row on most phones (on very narrow screens they
+  drop below the logo as a group), and the section buttons stack each icon
+  over its word so all four fit in one row.
 - No database change.
 
 ## October 7, 2026

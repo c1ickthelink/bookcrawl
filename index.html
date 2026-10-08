@@ -178,12 +178,19 @@ h2{font-size:17px; margin-bottom:8px}
 .tabs{display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; margin-bottom:12px}
 .tabs .btn{min-height:42px; padding:8px 16px; border-radius:999px; white-space:nowrap}
 .tabs .btn.on{background:var(--violet); color:#fff}
-/* Settings sections: a segmented control under the main tabs */
-.subtabs{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:4px; padding:4px; margin:0 0 12px; background:var(--surface2); border-radius:14px; max-width:520px}
-.subtabs .btn{min-height:40px; padding:6px 6px; border-radius:10px; font-size:14px; background:transparent; color:var(--ink2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.subtabs .btn.on{background:var(--surface); color:var(--ink); box-shadow:var(--shadow)}
+/* Settings sections: a labeled, violet section row under the main tabs, in
+   the same color as the active Settings tab so it reads as part of it */
+.subnav{margin:0 0 14px}
+.subnav-label{font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--violet); margin:0 0 6px 4px}
+.subtabs{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:4px; padding:4px; background:var(--violet-soft); border:1.5px solid var(--violet); border-radius:14px; max-width:560px; box-shadow:var(--shadow)}
+.subtabs .btn{min-height:44px; padding:6px; gap:6px; border-radius:10px; font-size:14px; background:transparent; color:var(--violet); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.subtabs .btn:not(.on):hover{background:var(--surface)}
+.subtabs .btn.on{background:var(--violet); color:#fff}
+:root[data-theme="dark"] .subtabs .btn.on{color:#171430}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .subtabs .btn.on{color:#171430} }
+.subtabs .ico{font-size:16px; line-height:1}
+@media (max-width: 420px){ .subtabs .btn{flex-direction:column; gap:2px; min-height:54px; font-size:13px; padding:6px 2px} }
 .setgrid{align-items:start}
-@media (max-width: 359px){ .subtabs{grid-template-columns:repeat(2, minmax(0, 1fr))} }
 :root[data-theme="dark"] .tabs .btn.on{color:#171430}
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .tabs .btn.on{color:#171430} }
 table{width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums}
@@ -3908,11 +3915,15 @@ function tSettings(){
   const cur = stabNow();
   const num = (label, knob, val) =>
     '<div class="settingrow"><label>'+label+'</label><input type="number" data-set="'+knob+'" value="'+val+'"></div>';
-  const tabsNav = '<nav class="subtabs" aria-label="Settings sections">'
-    + [["class", W().Grp], ["scoring", "Scoring"], ["yearend", "Year-end"], ["account", "Account"]].map(function(x){
-        return '<button class="btn' + (cur === x[0] ? ' on" aria-current="true' : '') + '" data-a="stab" data-s="' + x[0] + '">' + x[1] + '</button>';
+  /* the section row is styled in the active tab's violet and labeled, so it
+     reads as "Settings has four parts" instead of blending into the page */
+  const tabsNav = '<div class="subnav"><div class="subnav-label" aria-hidden="true">⚙️ Settings · 4 sections</div>'
+    + '<nav class="subtabs" aria-label="Settings sections">'
+    + [["class", fam() ? "🏠" : "🏫", W().Grp], ["scoring", "🎯", "Scoring"], ["yearend", "🍂", "Year-end"], ["account", "🔐", "Account"]].map(function(x){
+        return '<button class="btn' + (cur === x[0] ? ' on" aria-current="true' : '') + '" data-a="stab" data-s="' + x[0] + '">'
+          + '<span class="ico" aria-hidden="true">' + x[1] + '</span><span class="lbl">' + x[2] + '</span></button>';
       }).join("")
-    + '</nav>';
+    + '</nav></div>';
   let body = "";
   if(cur === "class"){
     body = (S.verifyMode !== undefined ?
@@ -4651,7 +4662,17 @@ document.addEventListener("click", async (ev)=>{
       catch(e){ toast(e.message); }
       break;
     }
-    case "ttab": go({screen:"teacher", tab:el.dataset.t, sub:null}); break;
+    case "ttab": {
+      go({screen:"teacher", tab:el.dataset.t, sub:null});
+      /* first visit to Settings on this device: pulse the section row once so
+         nobody misses that Settings has four parts */
+      if(el.dataset.t === "settings"){
+        let seen = false; try{ seen = !!localStorage.getItem("bc_subnav_seen"); localStorage.setItem("bc_subnav_seen", "1"); }catch(e){ seen = true; }
+        const nav = document.querySelector(".subtabs");
+        if(!seen && nav) flashEl(nav);
+      }
+      break;
+    }
     case "stab": {
       go({screen:"teacher", tab:"settings", sub:null, stab: STABS.indexOf(el.dataset.s) >= 0 ? el.dataset.s : "class"});
       /* keep the section row in view (the page may have been scrolled far down) */

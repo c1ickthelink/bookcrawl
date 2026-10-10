@@ -405,6 +405,38 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
   .pcard .nm{font-size:20px;font-weight:700}
   .pcard .row2{font-size:14px;margin-top:6px}
 }
+/* ---- the letter home: a paper preview on screen, and the only thing printed while it's open ---- */
+#printletter{display:none}
+.lpaper{background:#fff;color:#151515;border:1.5px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:34px 40px}
+.lletter{font-family:"Atkinson Hyperlegible",Arial,sans-serif;color:#151515;font-size:14.5px;line-height:1.42}
+.lletter p{margin:0 0 9px}
+.lletter h3{font-size:15px;margin:12px 0 6px;color:#151515}
+.lletter ul{margin:0 0 10px;padding-left:20px}
+.lletter li{margin:0 0 5px}
+.lletter strong{color:#151515}
+.lletter .lhead{display:flex;justify-content:space-between;gap:12px;font-size:13px;color:#333;margin-bottom:14px}
+.lletter .lsign{margin-top:12px}
+.lletter .lsig{font-weight:700}
+.lletter .lline{display:inline-block;border-bottom:1.5px solid #333;min-width:220px;height:1.05em;vertical-align:bottom}
+.lletter .lline.lwide{min-width:300px}
+.lletter .lline.lshort{min-width:110px}
+.lletter .lslip{margin-top:18px;border-top:2px dashed #666;padding-top:4px}
+.lletter .lcut{font-size:12px;color:#444;margin:0 0 8px}
+.lletter .lbox{display:inline-block;width:14px;height:14px;border:1.5px solid #333;border-radius:2px;margin-right:8px;vertical-align:-2px}
+.lletter .lurl{white-space:nowrap}
+@media (max-width:560px){ .lletter .lurl{white-space:normal;overflow-wrap:anywhere} }
+@page bcletter{margin:0.6in 0.7in}
+@media (max-width:560px){ .lpaper{padding:20px 16px} .lletter{font-size:14px} .lletter .lline,.lletter .lline.lwide{min-width:150px} }
+@media print{
+  body.printing-letter .app, body.printing-letter #dungeonbg, body.printing-letter #dungeonglow,
+  body.printing-letter #toasthost, body.printing-letter .demo-pill, body.printing-letter #printcards{display:none !important}
+  body.printing-letter #printletter, body.printing-letter #printletter *{visibility:visible}
+  html, body.printing-letter{background:#fff !important}
+  body.printing-letter #printletter{display:block !important;background:#fff;color:#000;page:bcletter}
+  body.printing-letter #printletter .lletter{font-size:11pt;line-height:1.38}
+  body.printing-letter #printletter .lletter .lhead{font-size:10pt}
+  body.printing-letter #printletter .lletter h3{font-size:11.5pt}
+}
 /* ---- one-click sign-in (Google / Microsoft) ---- */
 .oauthbox{display:contents}
 .oauthbtn{width:100%; background:var(--surface); border:1.5px solid var(--line); color:var(--ink)}
@@ -442,6 +474,7 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 <div class="app" id="app" aria-live="polite"></div>
 <div id="toasthost" role="status" aria-live="polite"></div>
 <div id="printcards"></div>
+<div id="printletter"></div>
 <script>
 (()=>{var Bs=Symbol.for("@supabase/supabase-js.traceContextExtractor");function fr(){return globalThis[Bs]}function ie(t,e){var r={};for(var s in t)Object.prototype.hasOwnProperty.call(t,s)&&e.indexOf(s)<0&&(r[s]=t[s]);if(t!=null&&typeof Object.getOwnPropertySymbols=="function")for(var n=0,s=Object.getOwnPropertySymbols(t);n<s.length;n++)e.indexOf(s[n])<0&&Object.prototype.propertyIsEnumerable.call(t,s[n])&&(r[s[n]]=t[s[n]]);return r}function pr(t,e,r,s){function n(i){return i instanceof r?i:new r(function(o){o(i)})}return new(r||(r=Promise))(function(i,o){function a(u){try{c(s.next(u))}catch(h){o(h)}}function l(u){try{c(s.throw(u))}catch(h){o(h)}}function c(u){u.done?i(u.value):n(u.value).then(a,l)}c((s=s.apply(t,e||[])).next())})}var gr=t=>t?(...e)=>t(...e):(...e)=>fetch(...e);var pe=class extends Error{constructor(e,r="FunctionsError",s){super(e),this.name=r,this.context=s}toJSON(){return{name:this.name,message:this.message,context:this.context}}},Pe=class extends pe{constructor(e){super("Failed to send a request to the Edge Function","FunctionsFetchError",e)}},ge=class extends pe{constructor(e){super("Relay Error invoking the Edge Function","FunctionsRelayError",e)}},ye=class extends pe{constructor(e){super("Edge Function returned a non-2xx status code","FunctionsHttpError",e)}},Ie;(function(t){t.Any="any",t.ApNortheast1="ap-northeast-1",t.ApNortheast2="ap-northeast-2",t.ApSouth1="ap-south-1",t.ApSoutheast1="ap-southeast-1",t.ApSoutheast2="ap-southeast-2",t.CaCentral1="ca-central-1",t.EuCentral1="eu-central-1",t.EuWest1="eu-west-1",t.EuWest2="eu-west-2",t.EuWest3="eu-west-3",t.SaEast1="sa-east-1",t.UsEast1="us-east-1",t.UsWest1="us-west-1",t.UsWest2="us-west-2"})(Ie||(Ie={}));var je=class{constructor(e,{headers:r={},customFetch:s,region:n=Ie.Any}={}){this.url=e,this.headers=r,this.region=n,this.fetch=gr(s)}setAuth(e){this.headers.Authorization=`Bearer ${e}`}invoke(e){return pr(this,arguments,void 0,function*(r,s={}){var n,i;let o,a,l;try{let{headers:c,method:u,body:h,signal:f,timeout:d}=s,p={},{region:g}=s;g||(g=this.region);let m=new URL(`${this.url}/${r}`);g&&g!=="any"&&(p["x-region"]=g,m.searchParams.set("forceFunctionRegion",g));let v,b=!!c&&Object.keys(c).some(Ce=>Ce.toLowerCase()==="content-type");h&&!b?typeof Blob<"u"&&h instanceof Blob||h instanceof ArrayBuffer?(p["Content-Type"]="application/octet-stream",v=h):typeof h=="string"?(p["Content-Type"]="text/plain",v=h):typeof FormData<"u"&&h instanceof FormData?v=h:(p["Content-Type"]="application/json",v=JSON.stringify(h)):h&&typeof h!="string"&&!(typeof Blob<"u"&&h instanceof Blob)&&!(h instanceof ArrayBuffer)&&!(typeof FormData<"u"&&h instanceof FormData)?v=JSON.stringify(h):v=h;let _=f;d&&(a=new AbortController,o=setTimeout(()=>a.abort(),d),f?(_=a.signal,l=()=>a.abort(),f.addEventListener("abort",l)):_=a.signal);let E=yield this.fetch(m.toString(),{method:u||"POST",headers:Object.assign(Object.assign(Object.assign({},p),this.headers),c),body:v,signal:_}).catch(Ce=>{throw new Pe(Ce)}),j=E.headers.get("x-relay-error");if(j&&j==="true")throw new ge(E);if(!E.ok)throw new ye(E);let k=((n=E.headers.get("Content-Type"))!==null&&n!==void 0?n:"text/plain").split(";")[0].trim().toLowerCase(),A;return k==="application/json"?A=yield E.json():k==="application/octet-stream"||k==="application/pdf"?A=yield E.blob():k==="text/event-stream"?A=E:k==="multipart/form-data"?A=yield E.formData():A=yield E.text(),{data:A,error:null,response:E}}catch(c){return{data:null,error:c,response:c instanceof ye||c instanceof ge?c.context:void 0}}finally{o&&clearTimeout(o),l&&((i=s.signal)===null||i===void 0||i.removeEventListener("abort",l))}})}};var yr=t=>Math.min(1e3*2**t,3e4),Fs=[520,503],_r=["GET","HEAD","OPTIONS"],ot=class extends Error{constructor(t){super(t.message),this.name="PostgrestError",this.details=t.details,this.hint=t.hint,this.code=t.code}toJSON(){return{name:this.name,message:this.message,details:this.details,hint:this.hint,code:this.code}}};function Ne(t){"@babel/helpers - typeof";return Ne=typeof Symbol=="function"&&typeof Symbol.iterator=="symbol"?function(e){return typeof e}:function(e){return e&&typeof Symbol=="function"&&e.constructor===Symbol&&e!==Symbol.prototype?"symbol":typeof e},Ne(t)}function Ms(t,e){if(Ne(t)!="object"||!t)return t;var r=t[Symbol.toPrimitive];if(r!==void 0){var s=r.call(t,e||"default");if(Ne(s)!="object")return s;throw new TypeError("@@toPrimitive must return a primitive value.")}return(e==="string"?String:Number)(t)}function qs(t){var e=Ms(t,"string");return Ne(e)=="symbol"?e:e+""}function Hs(t,e,r){return(e=qs(e))in t?Object.defineProperty(t,e,{value:r,enumerable:!0,configurable:!0,writable:!0}):t[e]=r,t}function mr(t,e){var r=Object.keys(t);if(Object.getOwnPropertySymbols){var s=Object.getOwnPropertySymbols(t);e&&(s=s.filter(function(n){return Object.getOwnPropertyDescriptor(t,n).enumerable})),r.push.apply(r,s)}return r}function we(t){for(var e=1;e<arguments.length;e++){var r=arguments[e]!=null?arguments[e]:{};e%2?mr(Object(r),!0).forEach(function(s){Hs(t,s,r[s])}):Object.getOwnPropertyDescriptors?Object.defineProperties(t,Object.getOwnPropertyDescriptors(r)):mr(Object(r)).forEach(function(s){Object.defineProperty(t,s,Object.getOwnPropertyDescriptor(r,s))})}return t}function wr(t,e){return new Promise(r=>{if(e?.aborted){r();return}let s=setTimeout(()=>{e?.removeEventListener("abort",n),r()},t);function n(){clearTimeout(s),r()}e?.addEventListener("abort",n)})}function Ks(t,e,r,s){return!(!s||r>=3||!_r.includes(t)||!Fs.includes(e))}var Ws=class{constructor(t){var e,r,s,n,i;this.shouldThrowOnError=!1,this.retryEnabled=!0,this.method=t.method,this.url=t.url,this.headers=new Headers(t.headers),this.schema=t.schema,this.body=t.body,this.shouldThrowOnError=(e=t.shouldThrowOnError)!==null&&e!==void 0?e:!1,this.signal=t.signal,this.isMaybeSingle=(r=t.isMaybeSingle)!==null&&r!==void 0?r:!1,this.shouldStripNulls=(s=t.shouldStripNulls)!==null&&s!==void 0?s:!1,this.urlLengthLimit=(n=t.urlLengthLimit)!==null&&n!==void 0?n:8e3,this.retryEnabled=(i=t.retry)!==null&&i!==void 0?i:!0,t.fetch?this.fetch=t.fetch:this.fetch=fetch}throwOnError(){return this.shouldThrowOnError=!0,this}stripNulls(){if(this.headers.get("Accept")==="text/csv")throw new Error("stripNulls() cannot be used with csv()");return this.shouldStripNulls=!0,this}setHeader(t,e){return this.headers=new Headers(this.headers),this.headers.set(t,e),this}retry(t){return this.retryEnabled=t,this}then(t,e){var r=this;if(this.schema===void 0||(["GET","HEAD"].includes(this.method)?this.headers.set("Accept-Profile",this.schema):this.headers.set("Content-Profile",this.schema)),this.method!=="GET"&&this.method!=="HEAD"&&this.headers.set("Content-Type","application/json"),this.shouldStripNulls){let o=this.headers.get("Accept");o==="application/vnd.pgrst.object+json"?this.headers.set("Accept","application/vnd.pgrst.object+json;nulls=stripped"):(!o||o==="application/json")&&this.headers.set("Accept","application/vnd.pgrst.array+json;nulls=stripped")}let s=this.fetch,i=(async()=>{let o=0;for(;;){let c={};r.headers.forEach((h,f)=>{c[f]=h}),o>0&&(c["X-Retry-Count"]=String(o));let u;try{u=await s(r.url.toString(),{method:r.method,headers:c,body:JSON.stringify(r.body,(h,f)=>typeof f=="bigint"?f.toString():f),signal:r.signal})}catch(h){if(h?.name==="AbortError"||h?.code==="ABORT_ERR"||!_r.includes(r.method))throw h;if(r.retryEnabled&&o<3){let f=yr(o);o++,await wr(f,r.signal);continue}throw h}if(Ks(r.method,u.status,o,r.retryEnabled)){var a,l;let h=(a=(l=u.headers)===null||l===void 0?void 0:l.get("Retry-After"))!==null&&a!==void 0?a:null,f=h!==null?Math.max(0,parseInt(h,10)||0)*1e3:yr(o);await u.text(),o++,await wr(f,r.signal);continue}return await r.processResponse(u)}})();return this.shouldThrowOnError||(i=i.catch(o=>{var a;let l="",c="",u="",h=o?.cause;if(h){var f,d,p,g;let b=(f=h?.message)!==null&&f!==void 0?f:"",_=(d=h?.code)!==null&&d!==void 0?d:"";l=`${(p=o?.name)!==null&&p!==void 0?p:"FetchError"}: ${o?.message}`,l+=`
 
@@ -1606,6 +1639,7 @@ function render(){
   else if(scr === "descent") app.innerHTML = vDescent();
   else if(scr === "under") app.innerHTML = vUnder();
   else if(scr === "tunder") app.innerHTML = vUnderPreview();
+  else if(scr === "tletter") app.innerHTML = vLetter();
   else if(scr === "codex") app.innerHTML = vCodex();
   else if(scr === "tauth") app.innerHTML = vTeacherAuth();
   else if(scr === "help") app.innerHTML = vHelp();
@@ -1615,6 +1649,7 @@ function render(){
   else if(scr === "teacher") app.innerHTML = vTeacher();
   else app.innerHTML = vCode();
   if(scr === "under" || (scr === "tunder" && ucPreviewing())){ try{ ucMount(); }catch(e){} }
+  letterPrintSync();
   if(scr === "teacher"){ if(TOUR) tourPlaceSoon(); else maybeAutoTour(); }
   else if(TOUR) closeTour(true);
   if(DEMO && !$(".demo-pill")){ const d = document.createElement("div"); d.className="demo-pill"; d.textContent="DEMO MODE"; document.body.appendChild(d); }
@@ -3111,10 +3146,10 @@ function tourHTML(){
   const s1 = TD.students.length > 0;
   const s2 = TD.reads.length > 0;
   const s3 = TD.reads.some(r => r.status === "verified");
-  const step = (done, n, title, desc, act, tab, focus) =>
+  const step = (done, n, title, desc, act, tab, focus, extra) =>
     '<div class="tstep' + (done ? " done" : "") + '"><span class="tickbox">' + (done ? "✅" : n) + '</span>'
     + '<div class="tmid"><strong>' + title + '</strong><div class="tiny">' + desc + '</div></div>'
-    + (done ? "" : '<button class="btn small primary" data-a="tgo" data-t="' + tab + '"' + (focus ? ' data-f="' + focus + '"' : '') + '>' + act + '</button>')
+    + (done ? "" : (extra || '') + '<button class="btn small primary" data-a="tgo" data-t="' + tab + '"' + (focus ? ' data-f="' + focus + '"' : '') + '>' + act + '</button>')
     + '</div>';
   const allDone = s1 && s2 && s3;
   return '<div class="card tour">'
@@ -3128,8 +3163,10 @@ function tourHTML(){
         'On the ' + w.Grp + ' tab, add each ' + (fam() ? "of your kids" : "student") + ' — they get a dungeon name and a 4-digit PIN. Print the one-time key sheet: it is the only place real names ever exist.',
         "Add " + w.kids, "class", "gen")
     + step(s2, "2", "Hand out the " + w.grp + " code",
-        'Kids open this site and type <strong>' + esc(TD.settings.classCode || "") + '</strong> once, then just tap their crawler name. This step checks off when the first book gets logged.',
-        "See queue", "queue")
+        'Kids open this site and type <strong>' + esc(TD.settings.classCode || "") + '</strong> once, then just tap their crawler name. This step checks off when the first book gets logged.'
+          + (fam() ? '' : ' Want families to hear about it first? There’s a ready-made letter home.'),
+        "See queue", "queue", null,
+        fam() ? '' : '<button class="btn small ghost" data-a="tletter">✉️ Letter home</button>')
     + step(s3, "3", "Verify a first read",
         "The book lands in your Queue — give it a level if asked, "
           + ((TD.settings.verifyMode || "classic") === "classic" ? "have a quick book talk with the reader" : "read the quest report")
@@ -4056,6 +4093,11 @@ function tSettings(){
       + '<div class="settingrow"><label>Dungeon backdrop (this device)</label>'
       + '<input type="checkbox" '+(bgEnabled()?"checked":"")+' data-a="togglebg" style="width:24px;height:24px">'
       + '</div></div>'
+      + (!fam()
+        ? '<div class="card" id="lettercard"><h2>✉️ Letter home</h2>'
+          + '<div class="tiny" style="line-height:1.55">A ready-made, one-page letter for families: what Book Crawl is, what it keeps about each child, and how to say no. It fills itself in from your settings. Print it with a permission slip, or copy the text into an email or message.</div>'
+          + '<div class="row" style="margin-top:8px"><button class="btn small primary" data-a="tletter">Open the letter</button></div></div>'
+        : "")
       + ((CLS || DEMO)
         ? '<div class="card"><h2>👀 What kids see</h2>'
           + '<div class="settingrow"><label>' + W().Grp + ' tracker — kids see the whole party’s floors</label>'
@@ -4453,6 +4495,20 @@ document.addEventListener("click", async (ev)=>{
       break;
     }
     case "ucgo": ucSubmit(); break;
+    /* ---- the letter home ---- */
+    case "tletter": go({screen: "tletter"}); try{ window.scrollTo(0, 0); }catch(e){} break;
+    case "tletterback": go({screen: "teacher", tab: "settings", sub: null, stab: "class"}); $("#lettercard")?.scrollIntoView({block: "center"}); break;
+    case "ltkind": {
+      const c = letterCfg(); c.kind = el.dataset.k === "notice" ? "notice" : "slip"; letterSave(c);
+      render(); $('[data-a="ltkind"].on')?.focus();
+      break;
+    }
+    case "ltprint": letterPrintSync(); window.print(); break;
+    case "ltcopy": {
+      const ok = await copyText(letterText(letterCfg(), letterFacts()));
+      toast(ok ? "📋 Copied. Paste it into an email or a message." : "Couldn’t copy here. Use Print, or select the letter and copy it.");
+      break;
+    }
     /* ---- grown-up preview of the Undercrawl ---- */
     case "ucprev": {
       ucpInit().on = false;
@@ -5157,6 +5213,12 @@ document.addEventListener("input", (ev)=>{
   else if(ev.target.id === "nb_title" && logState){ logState.ntitle = ev.target.value; }
   else if(ev.target.id === "nb_pages" && logState){ logState.npages = ev.target.value; }
   else if(ev.target.id === "log_date" && logState){ logState.date = ev.target.value; }
+  else if(ev.target.dataset && ev.target.dataset.lt){
+    const c = letterCfg(); c[ev.target.dataset.lt] = ev.target.value; letterSave(c);   /* letterCfg() trims and checks it on the way back */
+    const pv = document.getElementById("ltpreview");
+    if(pv) pv.innerHTML = letterHTML(letterCfg(), letterFacts());
+    letterPrintSync();
+  }
   else if(ev.target.id === "t_code" || ev.target.id === "mfa_code"){
     /* six digits typed (or pasted, or filled from the phone's code suggestion): go */
     if(ev.target.value.replace(/\D/g, "").length === 6){
@@ -5219,7 +5281,15 @@ document.addEventListener("visibilitychange", async ()=>{
   if(oauthErr && route.screen !== "teacher") route.screen = "tauth";
   /* the grown-up Undercrawl preview ("tunder") is a grown-up screen too:
      reloading it needs the same signed-in session as the dashboard */
-  if(route.screen==="teacher" || route.screen==="tauth" || route.screen==="tunder"){
+  /* a letter home points families straight at the Privacy Policy: <site>/?privacy
+     (opens it once, then tidies the address so a reload lands on the front door as usual) */
+  let deepPrivacy = false;
+  if(/[?&]privacy(?:[=&]|$)/.test(location.search)){
+    route.screen = "privacy"; deepPrivacy = true;
+    try{ const q = new URLSearchParams(location.search); q.delete("privacy");
+      history.replaceState(null, "", location.pathname + (q.toString() ? "?" + q.toString() : "") + location.hash); }catch(e){}
+  }
+  if(route.screen==="teacher" || route.screen==="tauth" || route.screen==="tunder" || route.screen==="tletter"){
     let sess = null;
     try{ sess = await api.teacherSession(); authOk(); }
     catch(e){ if(authRecover()) return; }
@@ -5244,7 +5314,7 @@ document.addEventListener("visibilitychange", async ()=>{
   } else if(route.screen==="descent"){
     if(!CODE) route.screen = "code";
     else await ensureBoot();
-  } else if(route.screen!=="code" && !CODE){
+  } else if(route.screen!=="code" && !CODE && !deepPrivacy){
     route.screen = "code";
   }
   render();
@@ -5569,6 +5639,7 @@ function vHelp(){
       + t("<strong>Dials:</strong> bounty toggles live on Loot. Settings has four sections: <em>" + (fam() ? "Crew" : "Class") + "</em> (verification, your code, and what kids see: the tracker, their own Lexile range, the Undercrawl), <em>Scoring</em> (point values, loot-box and floor sizes), <em>Year-end</em> (the vault tiers, CSV exports, and next season), and <em>Account</em> (password and two-step sign-in). ❓ at the top opens this page from anywhere.")
       + t("<strong>Season\u2019s end:</strong> when the class moves on, Settings \u2192 Year-end \u2192 \ud83c\udf42 Begin next season clears crawler data for the new year \u2014 your library, prizes, and bounty settings stay put.")
       + t("<strong>The Undercrawl:</strong> a hidden text adventure (think classic \u2018type GO NORTH\u2019 games, kid-sized) opens for any crawler who digs all the way through Floor 15 \u2014 evidence-finding, context clues, synonyms, and multi-step directions in disguise, plus honest keyboarding practice. A Settings switch opens it for the whole class at season\u2019s end, and each crawler\u2019s detail page can open it early for one kid. In-game, an early door is always the Dungeon\u2019s own choice \u2014 no kid is ever told why. Want to see it first? Map tab \u2192 \u25b6 Play it yourself runs a private preview at any puzzle level; nothing you do there is saved to a crawler.")
+      + (fam() ? "" : t("<strong>Letter home:</strong> Settings → Class → ✉️ Letter home makes a one-page letter for families, as a permission slip or as a notice with an opt-out. It matches your class’s settings (it explains the AI check only if you use Quest Reports) and never includes crawler names, PINs, or your class code. Print it, or copy the text into an email. Check your school’s rules first."))
       + t("<strong>Keeping it PII-free:</strong> the privacy story rests on dungeon names — remind crawlers to write about the <em>book</em> in quest reports, never about themselves or classmates by name (the answer box nudges them too), and keep the key sheet on paper.")
       + t("<strong>Lost access?</strong> “Forgot password?” on the sign-in screen emails a reset link.")
       + t("<strong>Skip the password:</strong> <em>Continue with Google</em> or <em>Continue with Microsoft</em> signs you in with an account you already have. Already made a password account with the same email? It joins up automatically — same classes, same everything.")
@@ -5590,6 +5661,167 @@ function vHelp(){
         t("The full documents, in plain language:")
       + '<div class="row"><button class="btn small ghost" data-a="toterms">Terms of Service</button><button class="btn small ghost" data-a="toprivacy">Privacy Policy</button></div>')
     + (helpBack === "teacher" && TD && !TD.noClass ? feedbackCardHTML() : '')
+    + '</div>';
+}
+/* ============================================================
+   LETTER HOME — a one-page letter a teacher sends to families: what
+   Book Crawl is, what it keeps about a child, and how to say no. Built
+   from the class's real settings (the AI paragraph appears only when
+   Quest Reports are on) and worded to match the Privacy Policy, so
+   change both together. Nothing about any particular kid goes in it
+   (no crawler names, PINs, or class code), and signatures stay on
+   paper: Book Crawl never stores a parent's answer.
+   ============================================================ */
+const LETTER_KEY = "bc_letter";   /* this device only: the teacher's fill-ins */
+function letterISO(d){ return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function letterDate(iso, weekday){
+  const d = new Date(iso + "T12:00:00");
+  return d.toLocaleDateString("en-US", weekday ? {weekday: "long", month: "long", day: "numeric"} : {month: "long", day: "numeric", year: "numeric"});
+}
+function letterCfg(){
+  let c = null;
+  try{ c = JSON.parse(localStorage.getItem(LETTER_KEY) || "null"); }catch(e){}
+  if(!c || typeof c !== "object") c = {};
+  const str = (v, n) => typeof v === "string" ? v.slice(0, n) : "";
+  const today = letterISO(new Date());
+  let by = /^\d{4}-\d{2}-\d{2}$/.test(c.by || "") ? c.by : "";
+  if(!by || by < today){ const d = new Date(); d.setDate(d.getDate() + 7); by = letterISO(d); }   /* never a date that's already gone */
+  return {sign: str(c.sign, 60), school: str(c.school, 80), contact: str(c.contact, 80), by: by, kind: c.kind === "notice" ? "notice" : "slip"};
+}
+function letterSave(c){ try{ localStorage.setItem(LETTER_KEY, JSON.stringify(c)); }catch(e){} }
+function letterFacts(){
+  const S = (TD && TD.settings) || {};
+  const mode = S.verifyMode || "classic";
+  /* the address the teacher is using right now, so it's one families can reach too; ?privacy opens the policy */
+  const web = /^https?:$/.test(location.protocol) && location.host;
+  return {cls: S.className || "our class", ai: mode !== "classic", spot: mode === "report_spot", tracker: trackerOn(),
+    privacy: web ? location.host + location.pathname + "?privacy" : null};
+}
+function letterAskNotice(by){
+  return "If you’d rather your child not use Book Crawl, just let me know by **" + by + "** (a note or an email is fine). Your child will keep a paper reading log instead, and nothing about them will be entered into Book Crawl.";
+}
+/* the words, once; letterHTML and letterText both read them (**bold** marks emphasis) */
+function letterBlocks(c, f){
+  const B = [];
+  B.push({k: "p", t: "Dear families,"});
+  B.push({k: "p", t: "This year, " + f.cls + " is using **Book Crawl** to celebrate reading. When your child finishes a book, they log it in Book Crawl, I check that they really read it, and they earn points that move their character deeper into a cartoon dungeon and unlock reward boxes. The rewards are classroom prizes and privileges that I choose. **There is never any cost to families.**"});
+  B.push({k: "h", t: "What Book Crawl knows about your child"});
+  B.push({k: "ul", items: [
+    "**Never asked for:** your child’s real name, birthday, email, photo, or location. Each child gets a made-up name (like Pepper Dragon) and a 4-digit PIN. The only list that matches made-up names to real children is on paper, kept by me.",
+    "**What it keeps:** the made-up name, the PIN, a reading-level range I choose, and a reading log: book titles, dates, and points" + (f.ai ? ", plus short written answers about the books." : "."),
+    "**Who sees it:** I see everything. " + (f.tracker
+      ? "Classmates see each other’s made-up names, characters, and dungeon floors, but never anyone’s points or reading details."
+      : "Classmates see only their own progress."),
+    "**No ads, no tracking, never sold.** It’s used only to run our reading program.",
+    "**Deleted:** when I start a new season at the end of the school year, or any time you ask me.",
+  ]});
+  B.push(f.ai
+    ? {k: "p", t: "**About the AI reading check.** After logging a book, your child answers one short question about it" + (f.spot ? ", and some books also get a quick book talk with me" : "")
+        + ". Before I read the answer, an AI tool (Claude, made by Anthropic) gives me a private hint about whether it fits the book. Only the book’s title, the question, and your child’s answer are sent, never a name. It’s processed in the United States and isn’t used to train AI. The AI never grades your child or talks to them; I make every decision."}
+    : {k: "p", t: "**No AI in our class.** I check each book with a quick conversation with your child, and nothing your child types is sent to any AI tool."});
+  B.push({k: "ask"});
+  B.push({k: "p", t: "Questions? " + (c.contact ? "Reach me at " + c.contact + "." : "Just ask me.")
+    + (f.privacy ? " Book Crawl’s full privacy policy is at " + f.privacy + "." : " Book Crawl’s full privacy policy is linked at the bottom of its home page.")});
+  return B;
+}
+function letterHTML(c, f){
+  const url = f.privacy ? esc(f.privacy) : null;
+  const md = (t) => {
+    const x = esc(t).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    return url ? x.split(url).join('<span class="lurl">' + url + '</span>') : x;   /* keep the address on one line */
+  };
+  const by = letterDate(c.by, true);
+  let h = '<div class="lletter"><div class="lhead"><div>' + (c.school ? '<strong>' + esc(c.school) + '</strong>' : '') + '</div>'
+    + '<div>' + esc(letterDate(letterISO(new Date()), false)) + '</div></div>';
+  letterBlocks(c, f).forEach(function(b){
+    if(b.k === "p") h += '<p>' + md(b.t) + '</p>';
+    else if(b.k === "h") h += '<h3>' + md(b.t) + '</h3>';
+    else if(b.k === "ul") h += '<ul>' + b.items.map(function(x){ return '<li>' + md(x) + '</li>'; }).join("") + '</ul>';
+    else if(b.k === "ask") h += '<p>' + md(c.kind === "notice" ? letterAskNotice(by)
+      : "Please return the slip below by **" + by + "**. If you check NO, your child will keep a paper reading log instead, and nothing about them will be entered into Book Crawl.") + '</p>';
+  });
+  h += '<p class="lsign">Thank you,<br>' + (c.sign ? '<span class="lsig">' + esc(c.sign) + '</span>' : '<span class="lline"></span>') + '</p>';
+  if(c.kind !== "notice"){
+    h += '<div class="lslip">'
+      + '<div class="lcut">✂ cut here and send back</div>'
+      + '<p><strong>Book Crawl permission slip</strong> · ' + esc(f.cls) + ' · please return by ' + esc(by) + '</p>'
+      + '<p>Child’s name: <span class="lline lwide"></span></p>'
+      + '<p><span class="lbox"></span><strong>YES</strong>, my child may use Book Crawl.</p>'
+      + '<p><span class="lbox"></span><strong>NO</strong>, please give my child a paper reading log instead.</p>'
+      + '<p>Parent or guardian signature: <span class="lline"></span>&nbsp; Date: <span class="lline lshort"></span></p>'
+      + '</div>';
+  }
+  return h + '</div>';
+}
+/* the same letter as plain text, for an email or a messaging app (no slip to sign, so it asks for a reply) */
+function letterText(c, f){
+  const plain = (t) => t.replace(/\*\*(.+?)\*\*/g, "$1");
+  const by = letterDate(c.by, true);
+  const out = [];
+  letterBlocks(c, f).forEach(function(b){
+    if(b.k === "p" || b.k === "h") out.push(plain(b.t));
+    else if(b.k === "ul") out.push(b.items.map(function(x){ return "- " + plain(x); }).join("\n"));
+    else if(b.k === "ask") out.push(plain(c.kind === "notice" ? letterAskNotice(by)
+      : "Please reply by " + by + " with your child’s name and YES (they may use Book Crawl) or NO (they’ll keep a paper reading log instead, and nothing about them will be entered into Book Crawl)."));
+  });
+  out.push("Thank you," + (c.sign ? "\n" + c.sign : ""));
+  return out.join("\n\n") + "\n";
+}
+/* while the letter is on screen, printing (the button or Ctrl+P) prints just the letter */
+function letterPrintSync(){
+  const on = !!(route.screen === "tletter" && TD && !TD.noClass && !fam());
+  document.body.classList.toggle("printing-letter", on);
+  const pl = document.getElementById("printletter");
+  if(pl) pl.innerHTML = on ? letterHTML(letterCfg(), letterFacts()) : "";
+}
+async function copyText(t){
+  try{ if(navigator.clipboard && window.isSecureContext){ await navigator.clipboard.writeText(t); return true; } }catch(e){}
+  try{
+    const ta = document.createElement("textarea");
+    ta.value = t; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  }catch(e){ return false; }
+}
+function vLetter(){
+  const back = '<button class="btn ghost small" data-a="tletterback">← back to Settings</button>';
+  if(!TD){
+    if(TDERR) return topbar(back) + '<div class="card"><strong>Couldn’t load your class</strong><div class="tiny" style="margin-top:6px">' + esc(TDERR) + '.</div></div>';
+    loadTeacher().then(function(){ render(); });
+    return topbar() + '<div class="card"><span class="spin"></span> loading…</div>';
+  }
+  if(TD.noClass || fam()){
+    return topbar(back) + '<div class="card"><h2>✉️ Letter home</h2><div class="tiny">Letters home are for classroom dungeons. In a family crew, you’re the grown-up already.</div></div>';
+  }
+  const c = letterCfg(), f = letterFacts();
+  const fld = (id, key, label, ph, type, max) => '<div><label class="fieldlbl" for="' + id + '" style="display:block">' + label + '</label>'
+    + '<input id="' + id + '" data-lt="' + key + '" type="' + (type || "text") + '"' + (max ? ' maxlength="' + max + '"' : '')
+    + (ph ? ' placeholder="' + esc(ph) + '"' : '') + ' value="' + esc(c[key]) + '" style="width:100%;text-align:left"></div>';
+  const opt = (k, l, d) => '<button class="btn' + (c.kind === k ? ' on" aria-pressed="true' : ' ghost" aria-pressed="false') + '" data-a="ltkind" data-k="' + k + '">'
+    + '<span><strong>' + l + '</strong><span class="tiny" style="display:block">' + d + '</span></span></button>';
+  return topbar(back)
+    + '<div class="stack" style="max-width:860px;margin:0 auto">'
+    + '<div class="card"><h2>✉️ Letter home to families</h2>'
+    + '<div class="tiny" style="line-height:1.55">One page that tells families what Book Crawl is, what it keeps about their child, and how to say no. It fills itself in from your class settings: '
+    + (f.ai ? 'your class uses Quest Reports, so it explains the AI reading check.' : 'your class uses Classic checks, so it says your class uses no AI.')
+    + ' It never includes crawler names, PINs, or your class code. <strong>Check your school’s rules first:</strong> some schools allow only approved apps, and a letter home doesn’t change that.</div>'
+    + '<div class="grid2" style="margin-top:4px">'
+    + fld("lt_sign", "sign", "Sign it as", "Mr. Brown", "text", 60)
+    + fld("lt_school", "school", "School (optional)", "", "text", 80)
+    + fld("lt_contact", "contact", "How families can reach you (optional)", "email or phone", "text", 80)
+    + fld("lt_by", "by", "Reply by", "", "date")
+    + '</div>'
+    + '<div class="fieldlbl" style="margin-top:12px">Version</div><div class="ucpopts" role="group" aria-label="Letter version">'
+    + opt("slip", "Permission slip", "Families sign YES or NO and send it back")
+    + opt("notice", "Notice with an opt-out", "For schools that have already approved Book Crawl")
+    + '</div>'
+    + '<div class="row" style="margin-top:12px;gap:8px"><button class="btn primary" data-a="ltprint">🖨️ Print or save as PDF</button>'
+    + '<button class="btn ghost" data-a="ltcopy">📋 Copy text</button></div>'
+    + '<div class="tiny" style="margin-top:6px">These boxes are remembered on this device only. Want different wording? Copy the text and edit it in your own document.</div>'
+    + '</div>'
+    + '<section class="lpaper" aria-label="Letter preview"><div id="ltpreview">' + letterHTML(c, f) + '</div></section>'
     + '</div>';
 }
 function legalShell(title, inner, updated){

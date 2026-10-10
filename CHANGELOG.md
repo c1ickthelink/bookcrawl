@@ -3,6 +3,31 @@
 Human-readable history of what changed for teachers, parents, and readers.
 (Internal record: GitHub commit history + Supabase SQL editor history.)
 
+## October 10, 2026
+- A ready-made letter home for families. Settings → Class → ✉️ Letter home
+  (also a button in the first-steps checklist) makes a one-page letter that
+  explains Book Crawl in plain language: what it keeps about a child (a
+  made-up name, a PIN, a reading log), what it never asks for, who sees
+  what, that it's free for families, and how to say no (a paper reading log
+  instead, with nothing entered about the child).
+- It writes itself from your class's settings. A Quest Report class gets a
+  short, honest paragraph about the AI reading check (US-only, no names
+  sent, never grades or talks to kids); a Classic class says there's no AI.
+  If the class tracker is off, it says classmates see only their own
+  progress.
+- Two versions: a permission slip families sign and send back (the
+  default), or a shorter notice with an opt-out for schools that have
+  already approved Book Crawl. Add your name, school, contact, and a
+  reply-by date; they're remembered on your device only.
+- Print it (always one page), save it as a PDF, or tap Copy text for an
+  email or a class messaging app (that version asks families to reply YES
+  or NO instead of signing).
+- It never includes crawler names, PINs, or your class code, and Book Crawl
+  never stores a parent's answer. The slip stays on paper, with you.
+- The letter's privacy link (your site's address followed by ?privacy) opens
+  the Privacy Policy directly.
+- No database change.
+
 ## October 8, 2026 (AI check fix)
 - The AI comprehension check no longer says "Can't verify — your call ·
   AI response was unclear" nearly so often. The AI model behind the check

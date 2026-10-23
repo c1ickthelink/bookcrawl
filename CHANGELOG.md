@@ -3,6 +3,67 @@
 Human-readable history of what changed for teachers, parents, and readers.
 (Internal record: GitHub commit history + Supabase SQL editor history.)
 
+## October 22, 2026
+- The Descent is 30 floors deep now (it was 15). Fifteen new floors wait
+  below the Final Shelf, each with its own name, a line of lore, and new
+  wall colors every three floors: The Long Stair, the Inkwell Caves, the
+  Atlas Halls, the Lantern Market, the Glowworm Gallery, the Clockwork
+  Library, the Giant's Bookcase, the Tide of Pages, the Folded Kingdom,
+  the Mirror Archive, the Roots of the World, the Thunder Stacks, the
+  Moonlit Reading Room, the First Library, and, at the very bottom, the
+  Bottomless Book.
+- The Undercrawl hasn't moved. Its door still sits beneath Floor 15 and
+  opens the same way (dig all the way through Floor 15, or a teacher
+  switch). On the map it's now a landing: the stairs keep going down past
+  the door. A crawler who digs through Floor 15 lands on Floor 16 and finds
+  the door open in the same moment, and the floor banner says so.
+- Until a crawler reaches Floor 16, floors 16 to 30 fold into one dark row
+  at the bottom of the board ("FLOORS 16–30 · ???"), so the map stays short
+  for most classes. Once someone gets there, the board opens out floor by
+  floor, the same way floors 1 to 15 always have. With the class tracker
+  off, each crawler's map opens out only for their own depth.
+- ✦ Stars. A crawler who fills the whole Year-End Vault (reaches the last
+  box) now earns a star for every 250 more points. Their vault card shows
+  a "Stars beyond the vault" row with the count and a bar to the next
+  star; it appears only once the last box is earned, so it's a surprise.
+  Stars also show on the box chip in the Class tab (for example,
+  "CELESTIAL box ✦✦") and at the year-end ceremony ("BEYOND THE VAULT").
+  They follow whichever box takes the most points, even if you've renamed
+  it. Like gear, stars are just for fun: no points, boxes, or prizes, and
+  the CSV export is unchanged.
+- Help explains both, and Settings → Year-end mentions the stars.
+- Accessibility fixes found while testing with the newest axe-core scanner:
+  the PIN pad's GO button now announces as "GO, sign in" (its spoken name
+  has to include the word on the button); the dim line on the kids'
+  Undercrawl banner and the "EARNED — yours forever" lines in the vault
+  are now readable in light and dark mode.
+- Requires migration-21 (paste and Run; it only lets the class board show
+  floors past 15, and is safe to run twice; if migration-14, the paywall,
+  isn't in yet, run 21 again right after 14) and the new index.html.
+  Without migration-21, nothing breaks: kids just see classmates deeper
+  than Floor 15 drawn on Floor 15.
+
+## October 12, 2026
+- An experiment for the AI reading check. Since the October 8 fix, the
+  check answers right away without stopping to think, and its notes often
+  say it doesn't reliably know the book. The experiment tests whether
+  letting it think briefly before judging helps it recognize more books
+  and clear more real answers.
+- It's off unless the operator turns it on (the SCREEN_THINKING setting on
+  the screen-read function). In the "half" setting, a random half of the
+  checks think first and the other half don't, so the two can be compared
+  over the same weeks, on the same kinds of books.
+- Nothing looks different to teachers or kids: the same ✅ 🤔 🚩, the same
+  US-only processing, nothing new collected, and the AI's thinking itself is
+  never stored or shown. A check that thinks can take a few seconds longer
+  and costs a little more. If a thinking check runs long or goes wrong, it
+  quietly answers the usual way instead.
+- Each verdict now notes which way it was made, how long it took, and how
+  much AI it used, so the results can be compared with one query
+  (usage-queries.sql Q9; steps in AI-CHECK-EXPERIMENT.md).
+- Requires the screen-read v6.4 function (paste and Deploy). No database
+  change, no new index.html.
+
 ## October 10, 2026
 - A ready-made letter home for families. Settings → Class → ✉️ Letter home
   (also a button in the first-steps checklist) makes a one-page letter that

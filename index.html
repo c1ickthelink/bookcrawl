@@ -269,8 +269,18 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 .yt.yt4{background:linear-gradient(120deg,#161040,#2A1E5C 55%,#173A4E);border-color:#7FE3E0;color:#C9F5F2}
 .yt.yt4 .sub{color:#8FD3D0}
 .yt.yt4.earned{box-shadow:0 0 14px rgba(127,227,224,.5)}
+.yt.earned .sub{color:inherit}   /* earned rows have their own light background in both themes: use the row's ink, not --muted */
 .yt .prog{height:8px;border-radius:999px;background:rgba(127,127,127,.25);overflow:hidden;margin-top:5px}
 .yt .prog i{display:block;height:100%;background:var(--accent-strong);border-radius:999px;min-width:3px}
+/* ✦ stars past the top box (shown once the whole vault is earned) */
+.yt.ytstar{background-color:#1F1747;background-image:linear-gradient(120deg,#1A1440,#2E2160 55%,#3B2A12);border:2px solid #F5CF7E;color:#FFF1C9;box-shadow:0 0 14px rgba(245,207,126,.35)}
+.yt.ytstar .ico{color:#F5CF7E}
+.yt.ytstar .sub{color:#F2DFA6}
+.yt.ytstar .prog{background:rgba(255,255,255,.2)}
+.yt.ytstar .prog i{background:#F5CF7E}
+.stars{color:#F5CF7E;letter-spacing:.06em;white-space:nowrap}
+.chip .stars{color:inherit}
+.cerestars{color:#F5CF7E;letter-spacing:.06em;white-space:nowrap}
 
 /* ---- ceremony ---- */
 .ceremony{position:fixed;inset:0;z-index:300;background:rgba(10,7,26,.97);display:grid;place-items:center;padding:20px;color:#EFEDF8}
@@ -325,11 +335,13 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 /* the Descent map */
 .descwrap{position:relative;border-radius:14px;overflow:hidden;border:1.5px solid var(--line);box-shadow:0 4px 18px rgba(20,14,50,.18)}
 #descmap{display:block;width:100%;height:auto;image-rendering:pixelated}
-.desclabels{position:absolute;inset:0;display:grid;grid-template-rows:repeat(15,16fr) 22fr}
+.desclabels{position:absolute;inset:0;display:grid;grid-template-rows:repeat(15,16fr) 22fr 22fr}  /* the real rows come inline from descRows() */
 /* the door beneath Floor 15 (painted on the canvas at the right of the depths band) */
 .descrow.depths{padding-right:21%}
 .descrow.depths .fl{background:rgba(10,8,24,.72)}
 .descrow.depths.open .fl{box-shadow:0 0 0 1.5px var(--accent-strong)}
+/* the Lower Dungeon (Floors 16-30), folded into one row until a crawler gets there */
+.descrow.lower .fl{background:rgba(10,8,24,.72)}
 .depthnote{background:rgba(10,8,24,.58);color:#F5F2FF;padding:1px 7px;border-radius:6px;font-size:10.5px;font-style:italic;line-height:1.3;min-width:0;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
 .btn.small.depthbtn{min-height:26px;padding:2px 10px;font-size:12px;border-radius:8px;flex-shrink:0}
 /* grown-up Undercrawl preview: level + start pickers */
@@ -447,6 +459,7 @@ textarea.paste{width:100%; min-height:120px; font-size:14px}
 .ucbanner{width:100%;background:#141020;color:#97E468;border:1.5px solid #3A5530;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);text-align:left}
 .ucbanner .chest{font-size:28px}
 .ucbanner .pill{color:#97E468}
+.ucbanner .tiny{color:#BFE3A6}   /* the banner is dark in both themes; the light theme's muted gray failed contrast here */
 .ucwrap{background:#0B0E09;border:1.5px solid #1E2A16;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;height:min(72vh,640px);box-shadow:var(--shadow)}
 .uchead{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid #1E2A16;padding-bottom:6px}
 .uctitle{color:#97E468;font-family:ui-monospace,Consolas,Menlo,monospace;font-size:18px;letter-spacing:2px;text-shadow:0 0 8px rgba(151,228,104,.45)}
@@ -571,14 +584,38 @@ const Engine = {
             available: Math.max(0, earned + bonus - rolls),
             toNext: pts - earned * D.settings.boxPts,
             crawlerLvl: Math.floor(pts / 50) + 1,
-            yearTier: this.yearTier(pts, D.settings)};
+            yearTier: this.yearTier(pts, D.settings),
+            stars: this.stars(pts, D.settings)};
   },
   yearTier(pts, s){
     let t = null;
     for(const y of s.yearTiers.slice().sort((a,b)=>a.pts-b.pts)){ if(pts >= y.pts) t = y.name; }
     return t;
+  },
+  /* ✦ stars (Oct 2026): past the top box of the Year-End Vault (the one that
+     takes the most points, whatever it's called), every starPts more points
+     adds a star to it. Cosmetic only: stars pay no points, boxes, or gear. */
+  starPts: 250,
+  stars(pts, s){
+    const tops = ((s && s.yearTiers) || []).map(y => Number(y && y.pts)).filter(n => Number.isFinite(n));
+    if(!tops.length) return 0;
+    const top = Math.max.apply(null, tops);
+    return pts >= top ? Math.floor((pts - top) / this.starPts) : 0;
+  },
+  /* points toward the next star (0 .. starPts-1), or null before the top box */
+  starInto(pts, s){
+    const tops = ((s && s.yearTiers) || []).map(y => Number(y && y.pts)).filter(n => Number.isFinite(n));
+    if(!tops.length) return null;
+    const top = Math.max.apply(null, tops);
+    return pts >= top ? (pts - top) % this.starPts : null;
   }
 };
+/* "✦✦✦" for a few stars, "✦ ×14" for a lot; screen readers hear "3 stars" */
+function starsHTML(n, cls){
+  if(!(n > 0)) return "";
+  const txt = n <= 10 ? "\u2726".repeat(n) : "\u2726 \u00d7" + n;
+  return '<span class="' + (cls || "stars") + '" role="img" aria-label="' + n + ' star' + (n === 1 ? "" : "s") + '">' + txt + '</span>';
+}
 
 /* ---------------- helpers ---------------- */
 const $ = sel => document.querySelector(sel);
@@ -695,15 +732,43 @@ const PFLOORS = [
   {name:"THE STARLESS SEA",   lore:"A dark lake. A rowboat. A very good reading lamp."},
   {name:"THE DRAGON'S STUDY", lore:"It has read everything, and it is judging you."},
   {name:"THE MIDNIGHT FORGE", lore:"Where sequels are hammered out of dying stars."},
-  {name:"THE FINAL SHELF",    lore:"Legends only from here, crawler."}
+  {name:"THE FINAL SHELF",    lore:"Legends only from here, crawler."},
+  /* Oct 2026: the Lower Dungeon. The Undercrawl door stays beneath Floor 15
+     (UC_FLOOR); the stairs past it keep going down to Floor 30. */
+  {name:"THE LONG STAIR",       lore:"The Final Shelf wasn't final. The stairs kept going."},
+  {name:"THE INKWELL CAVES",    lore:"Every drip is a word someone meant to write."},
+  {name:"THE ATLAS HALLS",      lore:"Maps of places that only exist in books."},
+  {name:"THE LANTERN MARKET",   lore:"Ghosts trade light for stories here. Fair prices."},
+  {name:"THE GLOWWORM GALLERY", lore:"A thousand tiny lights, all reading over your shoulder."},
+  {name:"THE CLOCKWORK LIBRARY",lore:"Every shelf ticks. A few of them chime."},
+  {name:"THE GIANT'S BOOKCASE", lore:"One book here is the size of a bus. Nobody has finished it."},
+  {name:"THE TIDE OF PAGES",    lore:"Loose pages wash in and out like waves. Try not to read the ending."},
+  {name:"THE FOLDED KINGDOM",   lore:"Everything here is made of paper. Even the weather."},
+  {name:"THE MIRROR ARCHIVE",   lore:"Every book here is written backwards. Every reader here is braver."},
+  {name:"THE ROOTS OF THE WORLD",lore:"The oldest stories grow here, slow as trees."},
+  {name:"THE THUNDER STACKS",   lore:"Books shelved during storms. They still rumble."},
+  {name:"THE MOONLIT READING ROOM",lore:"Quiet, please. The moon is on chapter twelve."},
+  {name:"THE FIRST LIBRARY",    lore:"Before there were shelves, there was this."},
+  {name:"THE BOTTOMLESS BOOK",  lore:"You found the bottom. It's a book, and it's still being written."}
 ];
+/* the Undercrawl door sits beneath this floor: it opens for a crawler who digs
+   all the way through it (points >= UC_FLOOR x floor_pts, the server's rule in
+   uc_state()), which is the same moment they break through to Floor 16 */
+const UC_FLOOR = 15;
 /* floors 1-3 wear the base palette; every 3 floors the stone changes */
 const PFLOOR_PALS = [
   null,
   {dark:{stones:["#1F3A2C","#254434","#2B4E3B","#1C3527"],mortar:"#152A1F",moss:"#4E8A4A",floor:"#183023"}, light:{stones:["#DCE6D6","#D2DECA","#C8D6BE","#E2EADC"],mortar:"#B9C9AF",moss:"#8FBF85",floor:"#CCDAC2"}},
   {dark:{stones:["#1E2C4A","#243456","#2A3C62","#1B2842"],mortar:"#152039",moss:"#4A7C9E",floor:"#1A2540"}, light:{stones:["#DCE4EE","#D2DCE9","#C8D4E4","#E4EAF2"],mortar:"#B7C4D6",moss:"#9EC0D9",floor:"#CDD8E6"}},
   {dark:{stones:["#3A2226","#452A2C","#502F30","#332022"],mortar:"#2A181A",moss:"#8A5E3A",floor:"#2E1C1E"}, light:{stones:["#EADCD4","#E4D2C8","#DEC8BC","#F0E4DC"],mortar:"#D2B9AC",moss:"#D9A87A",floor:"#E2D0C4"}},
-  {dark:{stones:["#2C2350","#34295E","#3C2F6C","#271F48"],mortar:"#1E1840",moss:"#5FB8B4",floor:"#241D44"}, light:{stones:["#E2DCF0","#D8D2EA","#CEC6E2","#EAE4F4"],mortar:"#C2B9DA",moss:"#8FD3D0",floor:"#D6CEE8"}}
+  {dark:{stones:["#2C2350","#34295E","#3C2F6C","#271F48"],mortar:"#1E1840",moss:"#5FB8B4",floor:"#241D44"}, light:{stones:["#E2DCF0","#D8D2EA","#CEC6E2","#EAE4F4"],mortar:"#C2B9DA",moss:"#8FD3D0",floor:"#D6CEE8"}},
+  /* the Lower Dungeon: 16-18 ink and old maps, 19-21 lantern brass, 22-24 sea
+     tide, 25-27 storm slate, 28-30 moonlight */
+  {dark:{stones:["#1B2233","#212A3E","#273149","#182030"],mortar:"#121827",moss:"#8A7650",floor:"#161D2C"}, light:{stones:["#E6E1D3","#DDD7C6","#D4CDBA","#ECE8DC"],mortar:"#C4BBA3",moss:"#A3AFD3",floor:"#D8D1BE"}},
+  {dark:{stones:["#3A2A14","#45321A","#503A1F","#33250F"],mortar:"#281C0B",moss:"#A87A30",floor:"#2E2110"}, light:{stones:["#F2E3C2","#EBD9B2","#E4CFA3","#F6EBD2"],mortar:"#D6BE8C",moss:"#E3B66E",floor:"#E8D5AC"}},
+  {dark:{stones:["#123438","#163E43","#1A484E","#0F2D31"],mortar:"#0A2326",moss:"#3F948A",floor:"#0E2A2E"}, light:{stones:["#D4ECEA","#C8E5E2","#BCDEDA","#E0F2F0"],mortar:"#A6CFCA",moss:"#86CFC5",floor:"#C4E2DE"}},
+  {dark:{stones:["#2A3038","#323943","#3A424E","#252A31"],mortar:"#1C2026",moss:"#6A7F9B",floor:"#22272E"}, light:{stones:["#E1E5EA","#D7DCE3","#CDD3DC","#E9ECF0"],mortar:"#B8C0CB",moss:"#A9B9CF",floor:"#D3D9E1"}},
+  {dark:{stones:["#15132E","#1B1838","#211D42","#110F26"],mortar:"#0C0A1E",moss:"#9C8C55",floor:"#13112A"}, light:{stones:["#E6E2F2","#DDD8EC","#D4CEE6","#EEEBF6"],mortar:"#C3BCDA",moss:"#D8C583",floor:"#DAD4EA"}}
 ];
 function palForFloor(n){ return PFLOOR_PALS[Math.min(PFLOOR_PALS.length - 1, Math.floor((n - 1) / 3))]; }
 function floorPtsPer(){
@@ -1438,7 +1503,7 @@ function makeDemoAPI(){
       if(!auth(code, sid, pin)) return {ok:false};
       const t = Engine.totals(sid, D);
       const stx = stu(sid);
-      const openFloor = t.pts >= 15 * (D.settings.floorPts || 40);
+      const openFloor = t.pts >= UC_FLOOR * (D.settings.floorPts || 40);
       const open = openFloor || D.settings.ucOpen === true || stx.ucOpen === true;
       const lv = currentLevel(stx);
       return {ok:true, open, why: open ? (openFloor ? "floor" : "granted") : null,
@@ -1715,7 +1780,7 @@ function vPin(){
   const keys = ["1","2","3","4","5","6","7","8","9","back","0","go"];
   const pad = keys.map(k=>{
     if(k==="back") return '<button class="btn" data-a="pinkey" data-k="back" aria-label="Delete">⌫</button>';
-    if(k==="go") return '<button class="btn gold" data-a="pinkey" data-k="go" aria-label="Enter">GO</button>';
+    if(k==="go") return '<button class="btn gold" data-a="pinkey" data-k="go" aria-label="GO, sign in">GO</button>';
     return '<button class="btn" data-a="pinkey" data-k="'+k+'">'+k+'</button>';
   }).join("");
   return '<div class="gate"><div class="brand display" style="font-size:26px">'+esc(st?st.name:"")+'</div>'
@@ -2766,9 +2831,22 @@ function vaultHTML(){
     const cls = "yt yt"+Math.min(i,4)+(earned?" earned":(nextShown && pts < t.pts && tiers.findIndex(x=>pts<x.pts)===i ? "" : " locked"));
     return '<div class="'+cls+'"><div class="ico">'+(earned?"\u2705":icons[Math.min(i,4)])+'</div><div class="mid">'+inner+'</div></div>';
   }).join("");
+  /* past the top box: a ✦ star for every Engine.starPts more points (a surprise
+     that appears only once the last box is earned; cosmetic, like gear) */
+  let starRow = "";
+  const into = Engine.starInto(pts, {yearTiers: tiers});
+  if(into !== null){
+    const n = Engine.stars(pts, {yearTiers: tiers}), SP = Engine.starPts;
+    starRow = '<div class="yt ytstar"><div class="ico">\u2726</div><div class="mid">'
+      + '<div class="nm">Stars beyond the vault' + (n ? ' ' + starsHTML(n) : '') + '</div>'
+      + '<div class="sub">' + (n ? n + ' star' + (n === 1 ? '' : 's') + ' \u00b7 ' : '') + into + ' / ' + SP + ' points to your ' + (n ? 'next' : 'first') + ' \u2726</div>'
+      + '<div class="prog"><i style="width:' + Math.min(100, Math.round(100 * into / SP)) + '%"></i></div>'
+      + '<div class="sub">You filled the whole vault. Every ' + SP + ' more points adds a star to your ' + esc(tiers[tiers.length - 1].name) + '.</div>'
+      + '</div></div>';
+  }
   return '<div class="card"><h2>\ud83c\udfdb\ufe0f The Year-End Vault</h2>'
     + '<div class="tiny" style="margin-bottom:2px">Guaranteed treasure \u2014 every box you reach is yours at the end of the year. No rolls, no luck. Just points.</div>'
-    + rows + '</div>';
+    + rows + starRow + '</div>';
 }
 
 /* ---- log a book ---- */
@@ -3621,7 +3699,7 @@ function tClass(){
       + '<td class="num">'+(t.best==null?"—":t.best+"L")+'</td>'
       + '<td class="num">'+(t.available>0?'<span class="chip legendary">'+t.available+' 🎁</span>':"0")+'</td>'
       + '<td style="min-width:120px"><div class="progressbar"><i style="width:'+pct+'%"></i></div><span class="tiny">'+t.toNext+"/"+TD.settings.boxPts+'</span></td>'
-      + '<td>'+(t.yearTier?'<span class="chip legendary">'+esc(t.yearTier)+'</span>':'<span class="tiny">keep crawling</span>')+'</td></tr>';
+      + '<td>'+(t.yearTier?'<span class="chip legendary">'+esc(t.yearTier)+(t.stars?' '+starsHTML(t.stars):'')+'</span>':'<span class="tiny">keep crawling</span>')+'</td></tr>';
   }).join("");
   const totals = TD.students.reduce((a,st)=>{ const t=Engine.totals(st.id,TD); a.pts+=t.pts; a.v+=t.verified; a.p+=t.pending; a.bx+=t.available; return a; },{pts:0,v:0,p:0,bx:0});
   const owed = TD.boxes.filter(b=>!b.delivered).length;
@@ -4130,7 +4208,7 @@ function tSettings(){
       '<div class="settingrow"><label><input type="text" data-set="tiername.'+i+'" value="'+esc(t.name)+'" aria-label="Year-end box '+(i+1)+' name" style="width:170px;text-align:left"></label>'
       + '<input type="number" data-set="tierpts.'+i+'" value="'+t.pts+'" aria-label="Year-end box '+(i+1)+' points"></div>').join("");
     body = '<div class="card"><h2>Year-end boxes</h2>'
-      + '<div class="tiny" style="margin-bottom:4px">The Year-End Vault ladder: each box name and the season points it takes.</div>'
+      + '<div class="tiny" style="margin-bottom:4px">The Year-End Vault ladder: each box name and the season points it takes. Past the last box, every ' + Engine.starPts + ' more points adds a ✦ star to it (just for fun).</div>'
       + tiers + '</div>'
       + '<div class="card"><h2>Get data out</h2><div class="stack">'
       + '<button class="btn" data-a="exportlog">⬇ Book log (CSV)</button>'
@@ -4307,7 +4385,7 @@ function startCeremony(){
   const tiers = TD.settings.yearTiers.slice().sort((a,b)=>a.pts-b.pts);
   const list = TD.students.map(st=>{
     const t = Engine.totals(st.id, TD);
-    return {name:st.name, pts:t.pts, books:t.verified, best:t.best, ti:tierIdxFor(t.pts, tiers)};
+    return {name:st.name, pts:t.pts, books:t.verified, best:t.best, ti:tierIdxFor(t.pts, tiers), stars:Engine.stars(t.pts, {yearTiers: tiers})};
   }).sort((a,b)=> (a.ti - b.ti) || (a.pts - b.pts));
   CER = {list, tiers, i:-1};
   const ov = document.createElement("div");
@@ -4343,11 +4421,12 @@ function renderCeremony(){
   const c = CER.list[CER.i];
   const tier = c.ti >= 0 ? CER.tiers[c.ti] : null;
   const last = CER.i === N - 1;
+  /* ✦ stars ride on the top box: one for every Engine.starPts points past it */
   const boxHtml = tier
-    ? '<div class="cerebox yt'+Math.min(c.ti,4)+(c.ti>=4?" pulse":"")+'">'+esc(tier.name).toUpperCase()+'</div>'
+    ? '<div class="cerebox yt'+Math.min(c.ti,4)+(c.ti>=4?" pulse":"")+'">'+esc(tier.name).toUpperCase()+(c.stars?' '+starsHTML(c.stars, "cerestars"):'')+'</div>'
     : '<div class="cerebox none">HONORARY CRAWLER \u2014 every floor was walked</div>';
   ov.innerHTML = '<div class="cerecount">'+(CER.i+1)+' / '+N+'</div>'
-    + '<div class="cerewrap"><div class="cerekicker">'+(c.ti>=4?"AGAINST ALL ODDS":"THE VAULT OPENS FOR")+'</div>'
+    + '<div class="cerewrap"><div class="cerekicker">'+(c.stars?"BEYOND THE VAULT":c.ti>=4?"AGAINST ALL ODDS":"THE VAULT OPENS FOR")+'</div>'
     + '<img class="cereav" alt="" src="'+avatarFor(c.name)+'">'
     + '<div class="cerename">'+esc(c.name)+'</div>'
     + '<div class="cerestats">'+c.books+' book'+(c.books===1?"":"s")+' \u00b7 '+c.pts+' points'
@@ -5461,12 +5540,29 @@ function avImg(name, cls){ return '<img class="avatarimg' + (cls ? " " + cls : "
    sitting at their own floor. Cosmetic-narrative only.
    ============================================================ */
 let __desc = null;
+/* The board's rows, top to bottom: Floors 1-15, the landing with the
+   Undercrawl door, then the Lower Dungeon (Floors 16-30). Until a crawler
+   reaches Floor 16, the Lower Dungeon folds into one dark row so the board
+   stays short; it opens out, floor by floor, once someone gets there. The
+   canvas and the label grid are both built from this one list. */
+const DESC = {W: 160, RH: 16, DH: 22, LH: 22};
+function descRows(reveal){
+  const rows = [];
+  for(let fn = 1; fn <= Math.min(UC_FLOOR, PFLOORS.length); fn++) rows.push({kind: "floor", fn, h: DESC.RH});
+  rows.push({kind: "door", h: DESC.DH});
+  if(reveal > UC_FLOOR){
+    for(let fn = UC_FLOOR + 1; fn <= PFLOORS.length; fn++) rows.push({kind: "floor", fn, h: DESC.RH});
+  } else if(PFLOORS.length > UC_FLOOR){
+    rows.push({kind: "lower", h: DESC.LH});
+  }
+  return rows;
+}
 function paintDescent(){
   const cv = document.getElementById("descmap");
   if(!cv || !__desc) return;
   const dark = isDarkTheme();
-  const RH = 16, DH = 22, W = 160, N = PFLOORS.length;
-  cv.width = W; cv.height = N * RH + DH;
+  const W = DESC.W, rows = descRows(__desc.reveal);
+  cv.width = W; cv.height = rows.reduce((a, r) => a + r.h, 0);
   const x = cv.getContext("2d");
   let seed = 77;
   const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
@@ -5474,62 +5570,92 @@ function paintDescent(){
     ? {stones:["#282344","#2E2950","#332D58","#252041"], mortar:"#1C1836", moss:"#31513C", floor:"#1F1B3C"}
     : {stones:["#DCD8EA","#D2CEE4","#C8C2DC","#E4E0F0"], mortar:"#B9B4D0", moss:"#9BB89B", floor:"#CFCAE2"};
   const SPINES = ["#B34A44","#3F7E5A","#3E5F9E","#B08A3E","#7C4E9E"];
-  for(let i = 0; i < N; i++){
-    const fn = i + 1;
-    const ovp = palForFloor(fn);
-    const pal = ovp ? (dark ? ovp.dark : ovp.light) : BASE;
-    const y0 = i * RH;
-    const locked = fn > __desc.reveal;
-    x.fillStyle = pal.mortar; x.fillRect(0, y0, W, RH);
-    for(let r = 0; r < RH - 5; r += 5){
-      const off = (r / 5) % 2 ? 4 : 0;
-      for(let c0 = -4; c0 < W; c0 += 8){
-        x.fillStyle = pal.stones[Math.floor(rnd() * pal.stones.length)];
-        x.fillRect(c0 + off, y0 + r, 7, 4);
+  const STX = W - 78;   /* where the stairs run down, left of the door */
+  let y0 = 0;
+  for(const row of rows){
+    const RH = row.h;
+    if(row.kind === "floor"){
+      const fn = row.fn, i = fn - 1;
+      const ovp = palForFloor(fn);
+      const pal = ovp ? (dark ? ovp.dark : ovp.light) : BASE;
+      const locked = fn > __desc.reveal;
+      x.fillStyle = pal.mortar; x.fillRect(0, y0, W, RH);
+      for(let r = 0; r < RH - 5; r += 5){
+        const off = (r / 5) % 2 ? 4 : 0;
+        for(let c0 = -4; c0 < W; c0 += 8){
+          x.fillStyle = pal.stones[Math.floor(rnd() * pal.stones.length)];
+          x.fillRect(c0 + off, y0 + r, 7, 4);
+        }
+      }
+      x.fillStyle = pal.floor; x.fillRect(0, y0 + RH - 5, W, 5);
+      x.fillStyle = "rgba(0,0,0,.25)"; x.fillRect(0, y0 + RH - 6, W, 1);
+      if(!locked){
+        for(let m = 0; m < 8; m++){ x.fillStyle = pal.moss; x.fillRect(Math.floor(rnd()*W), y0 + Math.floor(rnd()*(RH-7)), 2, 1); }
+        x.fillStyle = "#4A3524"; x.fillRect(6, y0 + RH - 12, 14, 7);
+        for(let b = 0; b < 4; b++){ x.fillStyle = SPINES[(i + b) % SPINES.length]; x.fillRect(8 + b*3, y0 + RH - 10, 2, 4); }
+        [W - 26, W - 12].forEach(t => {
+          x.fillStyle = "#6B4520"; x.fillRect(t, y0 + 7, 2, 4);
+          x.fillStyle = "#E8A33D"; x.fillRect(t, y0 + 5, 2, 2);
+          x.fillStyle = "#F5CF7E"; x.fillRect(t, y0 + 4, 2, 1);
+        });
+      } else {
+        x.fillStyle = dark ? "rgba(6,4,16,.78)" : "rgba(40,34,70,.55)";
+        x.fillRect(0, y0, W, RH);
+        for(let d = 0; d < 110; d++){ x.fillStyle = "rgba(0,0,0,.5)"; x.fillRect(Math.floor(rnd()*W), y0 + Math.floor(rnd()*RH), 2, 1); }
+      }
+    } else if(row.kind === "door"){
+      /* the landing beneath the Final Shelf: the stairs keep going down, and in
+         the wall beside them, the Undercrawl door (always drawn, so everyone
+         can see there is something below Floor 15) */
+      const yD = y0, DH = RH;
+      x.fillStyle = dark ? "#070512" : "#1A1530"; x.fillRect(0, yD, W, DH);
+      x.fillStyle = "#2A2348"; x.fillRect(0, yD, W, 2);                       /* the ledge */
+      for(let k = 0; k < 5; k++){                                              /* stairs, going down */
+        const sx = STX + k * 8, sy = yD + 4 + k * 4;
+        x.fillStyle = "#2A2348"; x.fillRect(sx, sy, 9, yD + DH - sy);
+        x.fillStyle = "#4A4366"; x.fillRect(sx, sy, 9, 1);
+      }
+      const dx = W - 30, dy = yD + 2, dw = 24, dh = DH - 2;
+      const open = __desc.door === "open";
+      if(open){ x.fillStyle = "rgba(245,207,126,.22)"; x.fillRect(dx - 4, dy - 2, dw + 8, dh + 2); }
+      x.fillStyle = "#4A4366";                                   /* stone arch */
+      x.fillRect(dx, dy + 3, dw, dh - 3); x.fillRect(dx + 2, dy + 1, dw - 4, 2); x.fillRect(dx + 5, dy, dw - 10, 1);
+      const ix = dx + 3, iy = dy + 3, iw = dw - 6, ih = dh - 3;
+      if(open){
+        x.fillStyle = "#E8A33D"; x.fillRect(ix, iy, iw, ih);      /* warm light pours out */
+        x.fillStyle = "#F5CF7E"; x.fillRect(ix + 3, iy + 1, iw - 6, ih - 1);
+        x.fillStyle = "#FFF1C9"; x.fillRect(ix + 6, iy + 3, iw - 12, ih - 3);
+        x.fillStyle = "#6B4520"; x.fillRect(ix, iy, 3, ih);         /* the door, swung open */
+        x.fillStyle = "#FFFFFF"; x.fillRect(ix + iw / 2 - 1, iy + ih - 7, 2, 2); /* candle flame */
+        x.fillStyle = "#E8A33D"; x.fillRect(ix + iw / 2 - 1, iy + ih - 5, 2, 4);
+      } else {
+        x.fillStyle = "#6B4520"; x.fillRect(ix, iy, iw, ih);      /* sealed wooden door */
+        x.fillStyle = "#4A3016"; for(let pl = ix + 4; pl < ix + iw; pl += 5) x.fillRect(pl, iy, 1, ih);
+        x.fillStyle = "#B08A3E"; x.fillRect(ix, iy + 3, iw, 2); x.fillRect(ix, iy + ih - 5, iw, 2);
+        x.fillStyle = "#E8A33D"; x.fillRect(ix + iw / 2 - 2, iy + 7, 4, 4);      /* padlock */
+        x.fillStyle = "#0D0A1C"; x.fillRect(ix + iw / 2 - 1, iy + 8, 2, 2);
+      }
+    } else {
+      /* the Lower Dungeon, folded up: deep dark, the stairs fading out, and a
+         few far-off lights. Nobody's floor here yet, so no names. */
+      x.fillStyle = dark ? "#05040D" : "#141027"; x.fillRect(0, y0, W, RH);
+      for(let r = 0; r < RH; r += 5){
+        const off = (r / 5) % 2 ? 4 : 0;
+        for(let c0 = -4; c0 < W; c0 += 8){
+          x.fillStyle = rnd() < 0.5 ? "#0E0B1F" : "#120E27";
+          x.fillRect(c0 + off, y0 + r, 7, 4);
+        }
+      }
+      for(let k = 0; k < 4; k++){
+        const sx = STX + 40 - k * 8, sy = y0 + k * 5;
+        x.fillStyle = "rgba(42,35,72," + (0.9 - k * 0.2).toFixed(2) + ")"; x.fillRect(sx, sy, 9, 4);
+      }
+      for(let g = 0; g < 9; g++){
+        x.fillStyle = g % 3 ? "rgba(245,207,126,.45)" : "rgba(127,227,224,.4)";
+        x.fillRect(Math.floor(rnd() * W), y0 + 3 + Math.floor(rnd() * (RH - 6)), 1, 1);
       }
     }
-    x.fillStyle = pal.floor; x.fillRect(0, y0 + RH - 5, W, 5);
-    x.fillStyle = "rgba(0,0,0,.25)"; x.fillRect(0, y0 + RH - 6, W, 1);
-    if(!locked){
-      for(let m = 0; m < 8; m++){ x.fillStyle = pal.moss; x.fillRect(Math.floor(rnd()*W), y0 + Math.floor(rnd()*(RH-7)), 2, 1); }
-      x.fillStyle = "#4A3524"; x.fillRect(6, y0 + RH - 12, 14, 7);
-      for(let b = 0; b < 4; b++){ x.fillStyle = SPINES[(i + b) % SPINES.length]; x.fillRect(8 + b*3, y0 + RH - 10, 2, 4); }
-      [W - 26, W - 12].forEach(t => {
-        x.fillStyle = "#6B4520"; x.fillRect(t, y0 + 7, 2, 4);
-        x.fillStyle = "#E8A33D"; x.fillRect(t, y0 + 5, 2, 2);
-        x.fillStyle = "#F5CF7E"; x.fillRect(t, y0 + 4, 2, 1);
-      });
-    } else {
-      x.fillStyle = dark ? "rgba(6,4,16,.78)" : "rgba(40,34,70,.55)";
-      x.fillRect(0, y0, W, RH);
-      for(let d = 0; d < 110; d++){ x.fillStyle = "rgba(0,0,0,.5)"; x.fillRect(Math.floor(rnd()*W), y0 + Math.floor(rnd()*RH), 2, 1); }
-    }
-  }
-  const yD = N * RH;
-  x.fillStyle = dark ? "#070512" : "#1A1530"; x.fillRect(0, yD, W, DH);
-  x.fillStyle = "#2A2348";
-  for(let g = 4; g < W - 34; g += 10){ x.fillRect(g, yD, 2, DH); }
-  /* the door beneath the Final Shelf: always drawn, so everyone can see
-     there is something below Floor 15 */
-  const dx = W - 30, dy = yD + 2, dw = 24, dh = DH - 2;
-  const open = __desc.door === "open";
-  if(open){ x.fillStyle = "rgba(245,207,126,.22)"; x.fillRect(dx - 4, dy - 2, dw + 8, dh + 2); }
-  x.fillStyle = "#4A4366";                                   /* stone arch */
-  x.fillRect(dx, dy + 3, dw, dh - 3); x.fillRect(dx + 2, dy + 1, dw - 4, 2); x.fillRect(dx + 5, dy, dw - 10, 1);
-  const ix = dx + 3, iy = dy + 3, iw = dw - 6, ih = dh - 3;
-  if(open){
-    x.fillStyle = "#E8A33D"; x.fillRect(ix, iy, iw, ih);      /* warm light pours out */
-    x.fillStyle = "#F5CF7E"; x.fillRect(ix + 3, iy + 1, iw - 6, ih - 1);
-    x.fillStyle = "#FFF1C9"; x.fillRect(ix + 6, iy + 3, iw - 12, ih - 3);
-    x.fillStyle = "#6B4520"; x.fillRect(ix, iy, 3, ih);         /* the door, swung open */
-    x.fillStyle = "#FFFFFF"; x.fillRect(ix + iw / 2 - 1, iy + ih - 7, 2, 2); /* candle flame */
-    x.fillStyle = "#E8A33D"; x.fillRect(ix + iw / 2 - 1, iy + ih - 5, 2, 4);
-  } else {
-    x.fillStyle = "#6B4520"; x.fillRect(ix, iy, iw, ih);      /* sealed wooden door */
-    x.fillStyle = "#4A3016"; for(let pl = ix + 4; pl < ix + iw; pl += 5) x.fillRect(pl, iy, 1, ih);
-    x.fillStyle = "#B08A3E"; x.fillRect(ix, iy + 3, iw, 2); x.fillRect(ix, iy + ih - 5, iw, 2);
-    x.fillStyle = "#E8A33D"; x.fillRect(ix + iw / 2 - 2, iy + 7, 4, 4);      /* padlock */
-    x.fillStyle = "#0D0A1C"; x.fillRect(ix + iw / 2 - 1, iy + 8, 2, 2);
+    y0 += RH;
   }
 }
 function _nmHash(t){ let h = 0; for(let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) & 0xffff; return h; }
@@ -5538,8 +5664,16 @@ function descentHTML(crew, meFloor, reveal, depths){
   const door = depths || {open: false, label: "🔒 A SEALED DOOR", extra: ""};
   __desc = {reveal, door: door.open ? "open" : "sealed"};
   setTimeout(paintDescent, 0);
-  const rows = PFLOORS.map((f, i) => {
-    const fn = i + 1;
+  const rows = descRows(reveal);
+  const html = rows.map(row => {
+    if(row.kind === "door"){
+      return '<div class="descrow depths' + (door.open ? ' open' : '') + '"><span class="fl">' + door.label + '</span>' + (door.extra || '') + '</div>';
+    }
+    if(row.kind === "lower"){
+      return '<div class="descrow lower"><span class="fl">FLOORS ' + (UC_FLOOR + 1) + '–' + PFLOORS.length + ' · ???</span>'
+        + '<span class="depthnote">' + (PFLOORS.length - UC_FLOOR) + ' more floors in the dark…</span></div>';
+    }
+    const fn = row.fn, f = PFLOORS[fn - 1];
     const locked = fn > reveal;
     const here = (crew || []).filter(c => c.floor === fn).sort((a, b) => _nmHash(a.name) - _nmHash(b.name));
     const avs = here.map(c =>
@@ -5552,8 +5686,7 @@ function descentHTML(crew, meFloor, reveal, depths){
       + '</div>';
   }).join("");
   return '<div class="descwrap"><canvas id="descmap" aria-label="Map of the class spread through the dungeon"></canvas>'
-    + '<div class="desclabels">' + rows
-    + '<div class="descrow depths' + (door.open ? ' open' : '') + '"><span class="fl">' + door.label + '</span>' + (door.extra || '') + '</div></div></div>';
+    + '<div class="desclabels" style="grid-template-rows:' + rows.map(r => r.h + 'fr').join(' ') + '">' + html + '</div></div>';
 }
 function vDescent(){
   if(!BOOT){ ensureBoot().then(()=>render()); return topbar() + '<div class="card"><span class="spin"></span> unrolling the map…</div>'; }
@@ -5585,19 +5718,29 @@ function vDescent(){
   const reveal = Math.max(mf || 1, crew.reduce((a, c) => Math.max(a, c.floor), 1));
   const f = PFLOORS[(mf || reveal) - 1];
   const into = mf ? SS.pts - (mf - 1) * FP : 0;
+  const ucOpen = !!(SS && SS.uc && SS.uc.open);
+  const bar = '<div class="row" style="margin:6px 0 4px"><div class="progressbar" style="flex:1"><i style="width:' + Math.min(100, Math.round(100 * into / FP)) + '%"></i></div><strong>' + into + ' / ' + FP + '</strong></div>';
+  let next = "";
+  if(mf){
+    if(mf >= PFLOORS.length){
+      next = '<div class="tiny">You reached the very bottom of the Descent, deeper than any map goes. Every book you read still counts toward your Year-End Vault.</div>';
+    } else if(mf === UC_FLOOR){
+      /* the server opens the door after one more floor's worth of points ON the
+         Final Shelf, the same moment the stairs to Floor 16 open up */
+      next = bar + '<div class="tiny">' + (FP - into) + (ucOpen
+        ? ' points until you dig through the Final Shelf. The stairs beneath it keep going down…'
+        : ' points until you dig through the Final Shelf. Something is waiting underneath…') + '</div>';
+    } else {
+      next = bar + '<div class="tiny">' + (FP - into) + ' points until you break through to Floor ' + (mf + 1) + ' — every verified book digs deeper.</div>';
+    }
+    if(mf === UC_FLOOR + 1 && ucOpen){
+      next += '<div class="tiny" style="margin-top:4px">🕯️ Back up on the landing, the door beneath the Final Shelf stands open.</div>';
+    }
+  }
   const head = mf
     ? '<div class="card"><div class="label">YOUR FLOOR — ' + mf + ' · ' + esc(f.name) + '</div>'
       + '<div class="tiny" style="font-style:italic;margin:2px 0 8px">' + esc(f.lore) + '</div>'
-      + (mf < PFLOORS.length
-          ? '<div class="row" style="margin:6px 0 4px"><div class="progressbar" style="flex:1"><i style="width:' + Math.min(100, Math.round(100 * into / FP)) + '%"></i></div><strong>' + into + ' / ' + FP + '</strong></div>'
-            + '<div class="tiny">' + (FP - into) + ' points until you break through to Floor ' + (mf + 1) + ' — every verified book digs deeper.</div>'
-          : (SS.uc && SS.uc.open
-              ? '<div class="tiny">You stand on the deepest known shelf, and the door beneath it stands open.</div>'
-              : (into < FP
-                  /* the server opens the door after one more floor's worth of points ON the Final Shelf */
-                  ? '<div class="row" style="margin:6px 0 4px"><div class="progressbar" style="flex:1"><i style="width:' + Math.min(100, Math.round(100 * into / FP)) + '%"></i></div><strong>' + into + ' / ' + FP + '</strong></div>'
-                    + '<div class="tiny">' + (FP - into) + ' points until you dig through the Final Shelf. Something is waiting underneath…</div>'
-                  : '<div class="tiny">You stand on the deepest known shelf. Legends only from here.</div>')))
+      + next
       + '</div>'
     : '';
   const note = shown
@@ -5627,7 +5770,8 @@ function vHelp(){
       + t("<strong>Finished a book?</strong> Hit the big gold button, find or add the book, and (in Quest Report classes) answer one question about it — a sentence or two you could only know by really reading it.")
       + t("<strong>Points:</strong> books near YOUR level earn full points, harder books earn stretch bonuses, longer books earn more. Your teacher checks each book before points land.")
       + t("<strong>Loot:</strong> every " + (BOOT ? BOOT.box_pts : 50) + "-ish points earns a loot box — roll for gear, equip it on your crawler. Gear is for style; nobody ever loses points.")
-      + t("<strong>The Descent:</strong> your own verified points dig you deeper, floor by floor. The board shows the whole party spread through the dungeon — floors only, never anyone’s points.")
+      + t("<strong>The Descent:</strong> your own verified points dig you deeper, floor by floor, all the way down to Floor " + PFLOORS.length + ". The board shows the whole party spread through the dungeon — floors only, never anyone’s points.")
+      + t("<strong>The Year-End Vault:</strong> big point goals, each with a box that’s guaranteed at the end of the year. Fill the whole vault and every " + Engine.starPts + " more points adds a ✦ star to your last box.")
       + t("<strong>Bounties:</strong> when the board is up, finishing a bounty pays a bonus loot box. The dungeon pays automatically.")
       + t("<strong>The Undercrawl:</strong> deep crawlers whisper about a sealed door beneath the Final Shelf — a place you can only explore by <em>typing</em>. Dig all the way through Floor 15 and see for yourself."))
     + H("🗝️", "For Dungeon Masters (teachers & parents)",
@@ -5639,6 +5783,7 @@ function vHelp(){
       + t("<strong>Dials:</strong> bounty toggles live on Loot. Settings has four sections: <em>" + (fam() ? "Crew" : "Class") + "</em> (verification, your code, and what kids see: the tracker, their own Lexile range, the Undercrawl), <em>Scoring</em> (point values, loot-box and floor sizes), <em>Year-end</em> (the vault tiers, CSV exports, and next season), and <em>Account</em> (password and two-step sign-in). ❓ at the top opens this page from anywhere.")
       + t("<strong>Season\u2019s end:</strong> when the class moves on, Settings \u2192 Year-end \u2192 \ud83c\udf42 Begin next season clears crawler data for the new year \u2014 your library, prizes, and bounty settings stay put.")
       + t("<strong>The Undercrawl:</strong> a hidden text adventure (think classic \u2018type GO NORTH\u2019 games, kid-sized) opens for any crawler who digs all the way through Floor 15 \u2014 evidence-finding, context clues, synonyms, and multi-step directions in disguise, plus honest keyboarding practice. A Settings switch opens it for the whole class at season\u2019s end, and each crawler\u2019s detail page can open it early for one kid. In-game, an early door is always the Dungeon\u2019s own choice \u2014 no kid is ever told why. Want to see it first? Map tab \u2192 \u25b6 Play it yourself runs a private preview at any puzzle level; nothing you do there is saved to a crawler.")
+      + t("<strong>Floors and stars:</strong> the Descent is " + PFLOORS.length + " floors deep (one floor per <em>Points per dungeon floor</em>, in Settings → Scoring), and the Undercrawl door sits beneath Floor " + UC_FLOOR + ". Floors " + (UC_FLOOR + 1) + "–" + PFLOORS.length + " stay folded up on the board until a crawler gets there. A crawler who fills the whole Year-End Vault earns a ✦ star for every " + Engine.starPts + " points past the last box; stars show on the " + (fam() ? "Crew" : "Class") + " tab and at the year-end ceremony. Both are just for fun: they pay no points, boxes, or gear.")
       + (fam() ? "" : t("<strong>Letter home:</strong> Settings → Class → ✉️ Letter home makes a one-page letter for families, as a permission slip or as a notice with an opt-out. It matches your class’s settings (it explains the AI check only if you use Quest Reports) and never includes crawler names, PINs, or your class code. Print it, or copy the text into an email. Check your school’s rules first."))
       + t("<strong>Keeping it PII-free:</strong> the privacy story rests on dungeon names — remind crawlers to write about the <em>book</em> in quest reports, never about themselves or classmates by name (the answer box nudges them too), and keep the key sheet on paper.")
       + t("<strong>Lost access?</strong> “Forgot password?” on the sign-in screen emails a reset link.")
@@ -5874,8 +6019,9 @@ function tMap(){
   const crew = TD.students.map(st => {
     const t = Engine.totals(st.id, TD);
     return {id: st.id, name: st.name, equipped: st.equipped, ucOpen: st.ucOpen === true,
-      /* same rule as the server: the door gives way after a full floor's worth of points ON Floor 15 */
-      dug: t.pts >= PFLOORS.length * FP,
+      /* same rule as the server: the door gives way after a full floor's worth of
+         points ON Floor 15 (UC_FLOOR), not at the bottom of the map */
+      dug: t.pts >= UC_FLOOR * FP,
       floor: Math.min(PFLOORS.length, 1 + Math.floor(Math.max(0, t.pts) / FP))};
   });
   const ucAll = TD.settings.ucOpen === true;
@@ -5887,7 +6033,7 @@ function tMap(){
   const books = TD.reads.filter(r => r.status === "verified").length;
   return '<div class="stack">'
     + '<div class="card"><h2>🗺️ The Descent</h2>'
-    + '<div class="tiny" style="margin-bottom:8px">Every crawler digs their own path — one floor per ' + FP + ' points. Hover any crawler for their name. '
+    + '<div class="tiny" style="margin-bottom:8px">Every crawler digs their own path — one floor per ' + FP + ' points, ' + PFLOORS.length + ' floors in all (floors past ' + UC_FLOOR + ' stay folded up until a crawler gets there). Hover any crawler for their name. '
     + (trackerOn() ? 'The kids see this same board.' : 'The kids’ board is hidden right now (Settings → ' + W().Grp + ' → ' + W().Grp + ' tracker).') + '</div>'
     + '<div class="label">DEEPEST — FLOOR ' + reveal + ' · ' + esc(PFLOORS[reveal - 1].name) + '</div>'
     + '<div class="tiny" style="font-style:italic;margin:2px 0 8px">' + esc(PFLOORS[reveal - 1].lore) + ' · down there: ' + esc(deepest.join(", ") || "—") + ' · ' + books + ' quests verified</div>'
@@ -5957,6 +6103,8 @@ function checkFloorEvent(){
       + '<div class="f2">FLOOR ' + f + '</div>'
       + '<div class="f1" style="margin-top:6px">' + esc(fl.name) + '</div>'
       + '<div class="f3">' + esc(fl.lore) + '</div>'
+      /* digging through Floor 15 also opens the Undercrawl door (uc_state's rule) */
+      + (Number(prev) <= UC_FLOOR && f > UC_FLOOR ? '<div class="f3" style="margin-top:10px">🕯️ On the landing behind you, an old door creaks open…</div>' : '')
       + '<div style="margin-top:18px"><button class="btn gold" data-a="closefloor">Onward!</button></div></div>';
     document.body.appendChild(ov);
     spawnBurst(ov, ["#F5CF7E","#E8A33D","#A79BE0","#FFFFFF"], 90);

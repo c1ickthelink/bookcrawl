@@ -810,42 +810,48 @@ function fmtDay(iso){ try{ return new Date(iso).toLocaleDateString(undefined, {m
    true book, then a question is drawn from the matching pool. Every
    question is one a back cover can't answer. Pools are the same length so
    one rolled index works for either. */
+/* Each question should pull something from the book into the answer (a
+   name, an event, a fact), so the AI check and the teacher have something
+   to check. Oct 24, 2026: ten opinion/prediction questions were reworded
+   after a sample of 🤔 verdicts showed answers like "yes, it was good"
+   can't show reading. Keep "Fiction — " / "Nonfiction — " + question under
+   200 characters: log_read() stores at most 200. */
 const QPOOLS = {
   fic: [
     "What happened at the very END of the story?",
     "Who was your favorite character, and what did they do?",
     "What was the most exciting part?",
     "Tell about a moment that surprised you.",
-    "Which character would you want as a friend — and why?",
+    "Which character would you want as a friend? Tell something they did that shows why.",
     "What was the problem in the story, and how did it get solved?",
-    "If you could ask a character one question, what would it be?",
-    "Would you tell a friend to read this? Why or why not?",
+    "If you could ask a character one question, what would it be? Tell what happened that made you wonder.",
+    "Would you tell a friend to read this? Tell one part they'd love (or wouldn't).",
     "How did the main character change from the beginning to the end?",
     "Describe the setting \u2014 where and when does the story happen?",
     "What part made you laugh, gasp, or almost cry?",
-    "What do you think happens after the story ends?",
+    "What do you think happens after the story ends? Use something from the ending to explain.",
     "Which scene would look coolest in a movie? Describe it.",
     "What choice did a character make that you would have made differently?",
     "Who or what caused the most trouble in the story?",
-    "Pick one word for how the ending made you feel \u2014 then explain why."
+    "Pick one word for how the ending made you feel, then tell what happened that made you feel that way."
   ],
   nf: [
     "What are two facts you learned from this book?",
     "What was the most surprising thing you learned?",
     "What is this book mostly about — in your own words?",
-    "What is one question you still have after reading?",
+    "What is one question you still have? Tell the fact from the book that made you wonder.",
     "How did the pictures, maps, or diagrams help you understand?",
     "What's one thing from this book you could teach someone else?",
-    "Why do you think the author wrote this book?",
-    "Would you tell a friend to read this? Why or why not?",
+    "Why do you think the author wrote this book? Give one fact from it that shows why.",
+    "Would you tell a friend to read this? Tell one fact from it they'd want to know.",
     "What did you already know about this topic, and what was brand new?",
     "Describe something from the book that happens in steps \u2014 what are the steps?",
     "What's the most important thing the author wants you to remember?",
     "What new word did you learn, and what does it mean?",
     "If you could see one thing from this book in real life, what would it be?",
-    "If this book had one more chapter, what should it be about?",
+    "If this book had one more chapter, what should it be about? Connect it to something you learned.",
     "Pick the most important page or chapter \u2014 what makes it the most important?",
-    "What would you still want to find out about this topic?"
+    "What would you still want to find out? Start with something the book already taught you."
   ]
 };
 const GENRE_LABEL = {fic: "Fiction", nf: "Nonfiction"};
@@ -1299,8 +1305,8 @@ function makeDemoAPI(){
         {id:"r6", studentId:"st2", bookId:"bk6", date:"2026-09-09", status:"verified"},
         {id:"r7", studentId:"st3", bookId:"bk7", date:"2026-09-10", status:"pending",
          q:"Fiction — What was the most exciting part?",
-         a:"When the ninth bell rang at midnight and the whole graveyard woke up. I read that chapter twice.", flagged:true,
-         ai:{v:"unsure", note:"Book unknown to AI — answer is specific and coherent; your call."}}],
+         a:"The most exciting part was at the end. It was so exciting that I read it twice.", flagged:true,
+         ai:{v:"unsure", note:"The answer says the ending was exciting but not what happened in it, so a quick chat about that part would show how much was read."}}],
       boxes:[],
       questState:[{id:"tome",active:true,param:null},{id:"giant",active:false,param:null},{id:"truth",active:true,param:null},{id:"climb",active:false,param:null},{id:"trio",active:true,param:null}],
       customQuests:[],
@@ -2894,7 +2900,7 @@ function vLog(){
         + (logState.genre
             ? '<div class="questq">'+esc(QPOOLS[logState.genre][(logState.qi ?? questIndex(route.who)) % QPOOLS[logState.genre].length])+'</div>'
               + '<textarea id="q_answer" rows="3" maxlength="500" placeholder="1–3 sentences about the book…">'+esc(logState.ans||"")+'</textarea>'
-              + '<div class="tiny">Your teacher reads this to award your points! Tell about the <em>book</em> — no real names, yours or anyone’s.</div>'
+              + '<div class="tiny">Your teacher reads this to award your points! Tell one thing that happened or one fact from the <em>book</em> — no real names, yours or anyone’s.</div>'
             : '<div class="tiny" style="font-style:italic">Pick one and your quest question appears!</div>')
         + '</div>') : "")
     + '<div style="margin-top:16px"><button class="btn primary big" data-a="submitread">Log it! ⚔️</button></div>'

@@ -3,6 +3,34 @@
 Human-readable history of what changed for teachers, parents, and readers.
 (Internal record: GitHub commit history + Supabase SQL editor history.)
 
+## October 24, 2026 (AI check: questions and unknown books)
+- The thinking experiment is finished. Over about two weeks of real checks
+  (71 that thought before judging, 67 that didn't), thinking first cleared
+  somewhat more answers (54% vs 43%) with no extra 🚩, no slowdown, and
+  almost no extra cost. It did not change how often the AI said it didn't
+  know the book (20% vs 22%), and the gap in cleared answers is small
+  enough that it could be chance. Recommended setting from here on:
+  thinking on for every check (SCREEN_THINKING = medium).
+- What actually keeps answers from clearing: a sample of 25 🤔 verdicts
+  showed the main reason is short, general answers with no names or events,
+  not books the AI doesn't know. Part of that was the questions: ten of the
+  32 could be answered with an opinion or a guess and nothing from the book
+  ("Would you tell a friend to read this?").
+- Those ten questions now ask for something from the book. For example,
+  "Would you tell a friend to read this? Tell one part they'd love (or
+  wouldn't)." and "Why do you think the author wrote this book? Give one
+  fact from it that shows why." Each crawler's question order is unchanged.
+- The line under the answer box now says: "Tell one thing that happened or
+  one fact from the book — no real names, yours or anyone's."
+- A specific answer about a book the AI doesn't know now gets a ✅ instead of
+  🤔, and the note says the AI couldn't check it against the book. Vague
+  answers about unknown books still get 🤔, and books the AI knows are
+  judged the same as before. The same rule applies to 🎤 spoken re-checks.
+- Answers already checked keep their verdicts; the new wording and rule
+  apply to new reads.
+- Requires the screen-read v6.5 function (paste and Deploy; no new secrets)
+  and the new index.html. No database change.
+
 ## October 22, 2026
 - The Descent is 30 floors deep now (it was 15). Fifteen new floors wait
   below the Final Shelf, each with its own name, a line of lore, and new

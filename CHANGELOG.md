@@ -3,6 +3,26 @@
 Human-readable history of what changed for teachers, parents, and readers.
 (Internal record: GitHub commit history + Supabase SQL editor history.)
 
+## October 27, 2026
+- New classes and family crews now start in **Quest Report + Spot Checks**
+  (they started in Classic before). Kids answer one question about each
+  book, the AI reading check gives the grown-up a private ✅ / 🤔 / 🚩, and
+  about 1 in 4 books gets a 🎲 flag for a quick book talk.
+- Classes and crews that already exist keep whatever mode they use now.
+  Nothing switches a class to the AI check without its grown-up choosing it.
+- Anyone who wants no AI can pick Classic in Settings at any time. The
+  guided tour now says so for Quest Report + Spot Checks classes, Help
+  notes the new starting mode, and the Privacy Policy says new classes and
+  crews start with Quest Reports on.
+- Fixed two lines in the guided tour that still described the old
+  15-floor map: it now says 30 floors, and that the Undercrawl door sits
+  beneath Floor 15.
+- The district paperwork matches: the FCS answer sheet (4.11) and the AI
+  Use Statement (version 1.2) say the AI check is on for new classes and
+  can be turned off for any class.
+- Requires migration-22 (paste and Run; safe any time, safe to run twice)
+  and the new index.html.
+
 ## October 24, 2026 (AI check: questions and unknown books)
 - The thinking experiment is finished. Over about two weeks of real checks
   (71 that thought before judging, 67 that didn't), thinking first cleared

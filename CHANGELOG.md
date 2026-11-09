@@ -3,6 +3,13 @@
 Human-readable history of what changed for teachers, parents, and readers.
 (Internal record: GitHub commit history + Supabase SQL editor history.)
 
+## November 9, 2026
+- A new browser-tab icon: a pixel crawler peeking over a book, in the same
+  pixel style as the crawlers' avatars. It replaces the 📚 emoji, which looked
+  different on every device. The same picture is used when a grown-up adds
+  Book Crawl to a phone or tablet home screen.
+- Requires only the new index.html. No database change.
+
 ## October 27, 2026
 - New classes and family crews now start in **Quest Report + Spot Checks**
   (they started in Classic before). Kids answer one question about each
